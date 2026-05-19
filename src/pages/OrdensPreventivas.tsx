@@ -331,6 +331,25 @@ export default function OrdensPreventivas() {
 
   }, [fetchData]);
 
+  // Carrega atividades da OP selecionada
+useEffect(() => {
+  if (!viewing) {
+    setAtividades([]);
+    return;
+  }
+  
+  setLoadingAtv(true);
+  (supabase as any)
+    .from("atividades_ordem_preventiva")
+    .select("*")
+    .eq("ordem_preventiva_id", viewing.id)
+    .order("ordem")
+    .then(({ data }: any) => {
+      setAtividades(data || []);
+      setLoadingAtv(false);
+    });
+}, [viewing]);
+
   useRealtime(
     [
       "ordens_preventivas" as any,
@@ -565,88 +584,243 @@ export default function OrdensPreventivas() {
 
       </div>
 
-      <div className="rounded-lg border overflow-auto">
+ <div className="rounded-lg border overflow-auto">
+  {selectedIds.size > 0 && (
+    <div className="flex items-center justify-between p-3 bg-muted/50 border-b">
+      <span className="text-sm">
+        {selectedIds.size} selecionada(s)
+      </span>
+      <Button
+        variant="destructive"
+        size="sm"
+        onClick={() => setBulkDeleteOpen(true)}
+      >
+        <Trash2 className="h-4 w-4 mr-1" />
+        Excluir selecionadas
+      </Button>
+    </div>
+  )}
 
-        <Table>
+  <Table>
+    <TableHeader>
+      <TableRow>
+        <TableHead className="w-[40px]">
+          <Checkbox
+            checked={
+              filtered.length > 0 &&
+              filtered.every((op) => selectedIds.has(op.id))
+            }
+            onCheckedChange={(checked) => {
+              if (checked) {
+                setSelectedIds(new Set(filtered.map((op) => op.id)));
+              } else {
+                setSelectedIds(new Set());
+              }
+            }}
+          />
+        </TableHead>
+        <TableHead>Código</TableHead>
+        <TableHead>Status</TableHead>
+        <TableHead>Prioridade</TableHead>
+        <TableHead>Bloco</TableHead>
+        <TableHead>Responsável</TableHead>
+        <TableHead className="w-[80px]">Ações</TableHead>
+      </TableRow>
+    </TableHeader>
 
-          <TableHeader>
+    <TableBody>
+      {filtered.map((op) => (
+        <TableRow key={op.id}>
+          <TableCell>
+            <Checkbox
+              checked={selectedIds.has(op.id)}
+              onCheckedChange={(checked) => {
+                const next = new Set(selectedIds);
+                if (checked) next.add(op.id);
+                else next.delete(op.id);
+                setSelectedIds(next);
+              }}
+            />
+          </TableCell>
+          <TableCell className="font-medium">{op.codigo_op}</TableCell>
+          <TableCell>
+            <Badge className={cn("border", statusColor(op.status))}>
+              {op.status}
+            </Badge>
+          </TableCell>
+          <TableCell>{op.prioridade}</TableCell>
+          <TableCell>
+            {op.bloco_id ? blocosMap[op.bloco_id] : "—"}
+          </TableCell>
+          <TableCell>
+            {op.responsible_user_id ? profilesMap[op.responsible_user_id] : "—"}
+          </TableCell>
+          <TableCell>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setViewing(op)}
+              title="Ver detalhes"
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+          </TableCell>
+        </TableRow>
+      ))}
+    </TableBody>
+  </Table>
+</div>
 
-            <TableRow>
+{/* Bulk Delete Confirmation */}
+<AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+  <AlertDialogContent>
+    <AlertDialogHeader>
+      <AlertDialogTitle>
+        Excluir {selectedIds.size} ordens preventivas?
+      </AlertDialogTitle>
+      <AlertDialogDescription>
+        Esta ação não pode ser desfeita.
+      </AlertDialogDescription>
+    </AlertDialogHeader>
+    <AlertDialogFooter>
+      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+      <AlertDialogAction
+        onClick={async () => {
+          const ids = Array.from(selectedIds);
+          const { error } = await (supabase as any)
+            .from("ordens_preventivas")
+            .delete()
+            .in("id", ids);
+          if (error) {
+            toast({
+              title: "Erro ao excluir",
+              description: error.message,
+              variant: "destructive",
+            });
+          } else {
+            toast({ title: `${ids.length} ordens excluídas` });
+            setSelectedIds(new Set());
+            fetchData();
+          }
+          setBulkDeleteOpen(false);
+        }}
+      >
+        Excluir
+      </AlertDialogAction>
+    </AlertDialogFooter>
+  </AlertDialogContent>
+</AlertDialog>
 
-              <TableHead>
-                Código
-              </TableHead>
+{/* View Detail Dialog */}
+<Dialog open={!!viewing} onOpenChange={(open) => !open && setViewing(null)}>
+  <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
+    <DialogHeader>
+      <DialogTitle>
+        Ordem Preventiva — {viewing?.codigo_op}
+      </DialogTitle>
+    </DialogHeader>
+    {viewing && (
+      <div className="space-y-3 py-2 text-sm">
+        {/* Cronômetro */}
+<OPTimer
+  opId={viewing.id}
+  timerState={{
+    status: viewing.timer_status,
+    total_seconds: viewing.timer_total_seconds,
+    started_at: viewing.timer_started_at,
+    paused_at: viewing.timer_paused_at,
+  }}
+  currentProfileId={session?.user?.id || null}
+  onUpdate={() => {
+    fetchData();
+    // Atualiza o viewing também
+    const updated = ordens.find((o) => o.id === viewing.id);
+    if (updated) setViewing(updated);
+  }}
+/>
+        <div className="grid grid-cols-2 gap-3">
 
-              <TableHead>
-                Status
-              </TableHead>
-
-              <TableHead>
-                Prioridade
-              </TableHead>
-
-              <TableHead>
-                Bloco
-              </TableHead>
-
-              <TableHead>
-                Responsável
-              </TableHead>
-
-            </TableRow>
-
-          </TableHeader>
-
-          <TableBody>
-
-            {filtered.map((op) => (
-
-              <TableRow key={op.id}>
-
-                <TableCell className="font-medium">
-                  {op.codigo_op}
-                </TableCell>
-
-                <TableCell>
-
-                  <Badge
-                    className={cn(
-                      "border",
-                      statusColor(op.status)
-                    )}
-                  >
-                    {op.status}
-                  </Badge>
-
-                </TableCell>
-
-                <TableCell>
-                  {op.prioridade}
-                </TableCell>
-
-                <TableCell>
-                  {op.bloco_id
-                    ? blocosMap[op.bloco_id]
-                    : "—"}
-                </TableCell>
-
-                <TableCell>
-                  {op.responsible_user_id
-                    ? profilesMap[
-                        op.responsible_user_id
-                      ]
-                    : "—"}
-                </TableCell>
-
-              </TableRow>
-
-            ))}
-
-          </TableBody>
-
-        </Table>
-
+          <div><span className="text-muted-foreground">Título:</span> <span className="font-medium">{viewing.titulo || "—"}</span></div>
+          <div><span className="text-muted-foreground">Status:</span> <Badge className={cn("border", statusColor(viewing.status))}>{viewing.status}</Badge></div>
+          <div><span className="text-muted-foreground">Prioridade:</span> <span className="font-medium">{viewing.prioridade}</span></div>
+          <div><span className="text-muted-foreground">Tipo:</span> <span className="font-medium">{viewing.tipo_servico || "—"}</span></div>
+          <div><span className="text-muted-foreground">Bloco:</span> <span className="font-medium">{viewing.bloco_id ? blocosMap[viewing.bloco_id] : "—"}</span></div>
+          <div><span className="text-muted-foreground">Ativo:</span> <span className="font-medium">{viewing.ativo_id ? ativosMap[viewing.ativo_id] : "—"}</span></div>
+          <div><span className="text-muted-foreground">Data início:</span> <span className="font-medium">{viewing.data_inicio || "—"}</span></div>
+          <div><span className="text-muted-foreground">Prazo:</span> <span className="font-medium">{viewing.prazo || "—"}</span></div>
+        </div>
+        {/* Lista de atividades */}
+<div className="border-t pt-3">
+  <p className="text-sm font-semibold mb-2">
+    Atividades ({atividades.length})
+  </p>
+  {loadingAtv ? (
+    <p className="text-xs text-muted-foreground">Carregando...</p>
+  ) : atividades.length === 0 ? (
+    <p className="text-xs text-muted-foreground">Nenhuma atividade.</p>
+  ) : (
+    <div className="space-y-2">
+      {atividades.map((atv) => (
+        <div
+          key={atv.id}
+          className="flex items-start gap-2 rounded-md border p-2"
+        >
+          <Checkbox
+            checked={atv.concluido}
+            onCheckedChange={async (checked) => {
+              const { error } = await (supabase as any)
+                .from("atividades_ordem_preventiva")
+                .update({
+                  concluido: !!checked,
+                  concluido_em: checked ? new Date().toISOString() : null,
+                  status: checked ? "Concluído" : "Não iniciado",
+                })
+                .eq("id", atv.id);
+              if (error) {
+                toast({
+                  title: "Erro ao atualizar",
+                  description: error.message,
+                  variant: "destructive",
+                });
+              } else {
+                setAtividades((prev) =>
+                  prev.map((a) =>
+                    a.id === atv.id
+                      ? { ...a, concluido: !!checked, status: checked ? "Concluído" : "Não iniciado" }
+                      : a
+                  )
+                );
+              }
+            }}
+          />
+          <div className="flex-1">
+            <p className={cn("text-sm font-medium", atv.concluido && "line-through text-muted-foreground")}>
+              {atv.nome}
+            </p>
+            {atv.descricao && (
+              <p className="text-xs text-muted-foreground">{atv.descricao}</p>
+            )}
+            {atv.tipo_atividade && (
+              <Badge variant="outline" className="text-xs mt-1">
+                {atv.tipo_atividade}
+              </Badge>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  )}
+</div>
+        {viewing.observacoes && (
+          <div className="border-t pt-3">
+            <p className="text-muted-foreground text-xs">Observações:</p>
+            <p>{viewing.observacoes}</p>
+          </div>
+        )}
       </div>
+    )}
+  </DialogContent>
+</Dialog>
 
     </div>
   );
