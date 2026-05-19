@@ -70,7 +70,13 @@ const preventivaGroup: MenuGroup = {
       iconColor: "#22C55E",
       requiredPermission: "preventivas.visualizar"
     },
-
+    {
+      title: "Ordens Preventivas",
+      url: "/ordens-preventivas",
+      icon: ClipboardList,
+      iconColor: "#22C55E",
+      requiredPermission: "preventivas.visualizar"
+    },
     {
       title: "Chamados",
       url: "/chamados",
