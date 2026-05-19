@@ -29,11 +29,17 @@ export const PERMISSION_SCREENS = [
     label: "Cronogramas",
     actions: ["visualizar", "criar", "editar", "excluir", "exportar"],
   },
-  {
-    screen: "preventivas",
-    label: "Preventivas",
-    actions: ["visualizar", "criar", "editar", "excluir"],
-  },
+{
+  screen: "preventivas",
+  label: "Preventivas",
+  actions: ["visualizar", "criar", "editar", "excluir"],
+},
+
+{
+  screen: "ordens_preventivas",
+  label: "Ordens Preventivas",
+  actions: ["visualizar", "criar", "editar", "excluir"],
+},
   {
     screen: "relatorios",
     label: "Relatórios",
@@ -133,7 +139,7 @@ export const ROUTE_TO_SCREEN: Record<string, string> = {
   "/minhas-ordens-servico": "minhas_os",
   "/cronogramas": "cronogramas",
   "/preventivas": "preventivas",
-  "/ordens-preventivas": "preventivas",
+  "/ordens-preventivas": "ordens_preventivas",
   "/chamados": "chamados_os",
   "/tipos-atividade": "sla",
   "/relatorios": "relatorios",
@@ -398,7 +404,7 @@ const finalMenuSet = new Set([
   if (isAdmin) return true;
 
   if (menuPermissions.size === 0)
-    return true;
+  return false;
 
   return menuPermissions.has(menuKey);
 };
