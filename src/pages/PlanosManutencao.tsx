@@ -864,7 +864,35 @@ export default function PlanosManutencao() {
         }
         novasMestres.push(novaPrev);
       }
+// Sincroniza atividades das mestres existentes com o plano atual
+for (const mestre of existentesArr) {
+  // Remove atividades antigas
+  await (supabase as any)
+    .from("atividades_preventiva")
+    .delete()
+    .eq("preventiva_id", mestre.id);
 
+  // Insere atividades atuais do plano
+  const atividadesPayload = meta.atividades.map((a, idx) => ({
+    preventiva_id: mestre.id,
+    nome: a.nome,
+    descricao: a.descricao,
+    prioridade: a.prioridade,
+    tipo_servico: a.tipo_servico,
+    tipo_atividade: a.tipo_atividade,
+    tipo_medicao: a.tipo_medicao,
+    unidade_medicao: a.unidade_medicao,
+    responsavel_id: a.responsavel_id,
+    ordem: idx,
+  }));
+  if (atividadesPayload.length > 0) {
+    await (supabase as any)
+      .from("atividades_preventiva")
+      .insert(atividadesPayload);
+  }
+}
+
+// 2) Lista FINAL de Preventivas mestres para gerar OP imediatamente
       // 2) Lista FINAL de Preventivas mestres para gerar OP imediatamente
       // (sempre sobrepõe agendamento — cada clique gera nova OP para todas as mestres do plano)
       const todasMestres = [...existentesArr, ...novasMestres];

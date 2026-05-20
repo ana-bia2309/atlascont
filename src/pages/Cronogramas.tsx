@@ -115,6 +115,19 @@ export default function Cronogramas() {
       });
   }, [session?.user?.id]);
 
+  useEffect(() => {
+    if (!companyId) return;
+    (supabase as any)
+      .from("profiles")
+      .select("id, nome")
+      .eq("company_id", companyId)
+      .eq("status", "ativo")
+      .order("nome")
+      .then(({ data }: any) => {
+        setProfiles(data || []);
+      });
+  }, [companyId]);
+
   const fetchAll = useCallback(async () => {
   setLoading(true);
 

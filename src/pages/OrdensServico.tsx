@@ -934,12 +934,12 @@ const { data: colabData } = await (supabase as any)
       },
     );
 
-    toast({
-      title:
-        `O.S. ${os.codigo_os || ""} finalizada!`
-    });
+toast({
+  title:
+    `O.S. ${os.codigo_os || ""} finalizada!`
+});
 
-    fetchData();
+fetchData();
   }
 };
 

@@ -73,6 +73,10 @@ import {
   QrCode,
   ShieldCheck,
   MessagesSquare,
+  Gauge,
+  Sparkles,
+  Activity,
+  Settings,
 } from "@/lib/icons";
 
 import { cn } from "@/lib/utils";
@@ -204,6 +208,7 @@ export default function OrdensPreventivas() {
 
   const [profiles, setProfiles] =
     useState<Profile[]>([]);
+    const [currentProfileId, setCurrentProfileId] = useState<string | null>(null);
 
   const [ativos, setAtivos] =
     useState<Ativo[]>([]);
@@ -225,6 +230,16 @@ export default function OrdensPreventivas() {
 
   const [bulkDeleteOpen, setBulkDeleteOpen] =
     useState(false);
+    const [editMode, setEditMode] = useState(false);
+  const [editForm, setEditForm] = useState({
+    responsible_user_id: "",
+    prazo: "",
+    observacoes: "",
+    prioridade: "",
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [qrScannerOpen, setQrScannerOpen] = useState(false);
+const [qrResolveRef] = useState<{ resolve: ((ok: boolean) => void) | null }>({ resolve: null });
 
   const [filterStatus, setFilterStatus] =
     useState("__all__");
@@ -316,14 +331,22 @@ export default function OrdensPreventivas() {
     setProfiles(
       (profilesRes.data as Profile[]) || []
     );
-
-    setAtivos(
+setAtivos(
       (ativosRes.data as Ativo[]) || []
     );
 
+    if (session?.user?.id) {
+      const { data: prof } = await (supabase as any)
+        .from("profiles")
+        .select("id")
+        .eq("user_id", session.user.id)
+        .single();
+      if (prof) setCurrentProfileId(prof.id);
+    }
+
     setLoading(false);
 
-  }, [companyId]);
+  }, [companyId, session]);
 
   useEffect(() => {
 
@@ -347,6 +370,7 @@ useEffect(() => {
     .then(({ data }: any) => {
       setAtividades(data || []);
       setLoadingAtv(false);
+      
     });
 }, [viewing]);
 
@@ -714,11 +738,13 @@ useEffect(() => {
 {/* View Detail Dialog */}
 <Dialog open={!!viewing} onOpenChange={(open) => !open && setViewing(null)}>
   <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
-    <DialogHeader>
-      <DialogTitle>
-        Ordem Preventiva — {viewing?.codigo_op}
-      </DialogTitle>
-    </DialogHeader>
+   <DialogHeader>
+  <div className="flex items-center justify-between pr-6">
+    <DialogTitle>
+      Ordem Preventiva — {viewing?.codigo_op}
+    </DialogTitle>
+  </div>
+</DialogHeader>
     {viewing && (
       <div className="space-y-3 py-2 text-sm">
         {/* Cronômetro */}
@@ -730,12 +756,45 @@ useEffect(() => {
     started_at: viewing.timer_started_at,
     paused_at: viewing.timer_paused_at,
   }}
-  currentProfileId={session?.user?.id || null}
+  currentProfileId={currentProfileId}
+  finalizeBlocked={atividades.some(
+    (a) => a.tipo_atividade === "Medição" && !a.valor_medido
+  )}
+  finalizeBlockedReason="Preencha os valores de medição antes de finalizar."
+  onBeforeStart={async () => {
+    if (!viewing.qr_code_obrigatorio) return true;
+    return new Promise<boolean>((resolve) => {
+      qrResolveRef.resolve = resolve;
+      setQrScannerOpen(true);
+    });
+  }}
   onUpdate={() => {
     fetchData();
-    // Atualiza o viewing também
     const updated = ordens.find((o) => o.id === viewing.id);
     if (updated) setViewing(updated);
+  }}
+/>
+
+<QrCodeScanner
+  open={qrScannerOpen}
+  onClose={() => {
+    setQrScannerOpen(false);
+    qrResolveRef.resolve?.(false);
+    qrResolveRef.resolve = null;
+  }}
+  expectedHint={viewing.ativo_id ? ativosMap[viewing.ativo_id] : undefined}
+  onValidate={(raw) => {
+    const ativo = ativos.find((a) => a.id === viewing.ativo_id);
+    const ok =
+      !viewing.ativo_id ||
+      raw === viewing.ativo_id ||
+      raw === ativo?.codigo_identificacao;
+    if (ok) {
+      setQrScannerOpen(false);
+      qrResolveRef.resolve?.(true);
+      qrResolveRef.resolve = null;
+    }
+    return ok;
   }}
 />
         <div className="grid grid-cols-2 gap-3">
@@ -760,58 +819,105 @@ useEffect(() => {
     <p className="text-xs text-muted-foreground">Nenhuma atividade.</p>
   ) : (
     <div className="space-y-2">
-      {atividades.map((atv) => (
-        <div
-          key={atv.id}
-          className="flex items-start gap-2 rounded-md border p-2"
-        >
-          <Checkbox
-            checked={atv.concluido}
-            onCheckedChange={async (checked) => {
-              const { error } = await (supabase as any)
-                .from("atividades_ordem_preventiva")
-                .update({
-                  concluido: !!checked,
-                  concluido_em: checked ? new Date().toISOString() : null,
-                  status: checked ? "Concluído" : "Não iniciado",
-                })
-                .eq("id", atv.id);
-              if (error) {
-                toast({
-                  title: "Erro ao atualizar",
-                  description: error.message,
-                  variant: "destructive",
-                });
-              } else {
-                setAtividades((prev) =>
-                  prev.map((a) =>
-                    a.id === atv.id
-                      ? { ...a, concluido: !!checked, status: checked ? "Concluído" : "Não iniciado" }
-                      : a
-                  )
-                );
-              }
-            }}
-          />
-          <div className="flex-1">
-            <p className={cn("text-sm font-medium", atv.concluido && "line-through text-muted-foreground")}>
-              {atv.nome}
-            </p>
-            {atv.descricao && (
-              <p className="text-xs text-muted-foreground">{atv.descricao}</p>
-            )}
-            {atv.tipo_atividade && (
-              <Badge variant="outline" className="text-xs mt-1">
-                {atv.tipo_atividade}
-              </Badge>
-            )}
-          </div>
+    {atividades.map((atv) => (
+  <div key={atv.id} className="rounded-md border p-2 space-y-2">
+   <div className="flex items-start gap-2">
+      <div className="mt-0.5 shrink-0">
+        {(() => {
+          const tipo = atv.tipo_atividade?.toLowerCase() || "";
+          if (tipo === "medição" || tipo === "medicao") return <Gauge className="h-4 w-4 text-blue-600" />;
+          if (tipo === "inspeção" || tipo === "inspecao") return <Eye className="h-4 w-4 text-violet-600" />;
+          if (tipo === "limpeza") return <Sparkles className="h-4 w-4 text-emerald-600" />;
+          if (tipo === "lubrificação" || tipo === "lubrificacao") return <Activity className="h-4 w-4 text-amber-600" />;
+          if (tipo === "substituição" || tipo === "substituicao") return <RefreshCw className="h-4 w-4 text-rose-600" />;
+          if (tipo === "ajuste") return <Settings className="h-4 w-4 text-orange-600" />;
+          if (tipo === "teste") return <CheckCircle2 className="h-4 w-4 text-fuchsia-600" />;
+          return <Circle className="h-4 w-4 text-muted-foreground" />;
+        })()}
+      </div>
+      <Checkbox
+        checked={atv.concluido}
+        disabled={
+          atv.tipo_atividade === "Medição" &&
+          !atv.valor_medido
+        }
+        onCheckedChange={async (checked) => {
+          const { error } = await (supabase as any)
+            .from("atividades_ordem_preventiva")
+            .update({
+              concluido: !!checked,
+              concluido_em: checked ? new Date().toISOString() : null,
+              status: checked ? "Concluído" : "Não iniciado",
+            })
+            .eq("id", atv.id);
+          if (error) {
+            toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" });
+          } else {
+            setAtividades((prev) =>
+              prev.map((a) =>
+                a.id === atv.id
+                  ? { ...a, concluido: !!checked, status: checked ? "Concluído" : "Não iniciado" }
+                  : a
+              )
+            );
+          }
+        }}
+      />
+   <div className="flex-1">
+        <p className={cn("text-sm font-medium", atv.concluido && "line-through text-muted-foreground")}>
+          {atv.nome}
+        </p>
+        <div className="flex items-center gap-2 mt-1 flex-wrap">
+          {atv.tipo_atividade && (
+            <Badge variant="outline" className="text-xs">
+              {atv.tipo_atividade}
+            </Badge>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 text-xs px-2 text-muted-foreground hover:text-foreground"
+            onClick={() => setChamadoAtividade(atv)}
+          >
+            <MessagesSquare className="h-3 w-3 mr-1" />
+            Abrir chamado
+          </Button>
         </div>
-      ))}
+      </div>
+    </div>
+
+    {atv.tipo_atividade === "Medição" && (
+      <div className="flex items-center gap-2 pl-6">
+        <Input
+          type="number"
+          placeholder={`Valor (${atv.unidade_medicao || "—"})`}
+          value={atv.valor_medido || ""}
+          disabled={atv.concluido}
+          className="h-7 text-xs w-[160px]"
+          onChange={async (e) => {
+            const valor = e.target.value;
+            await (supabase as any)
+              .from("atividades_ordem_preventiva")
+              .update({ valor_medido: valor })
+              .eq("id", atv.id);
+            setAtividades((prev) =>
+              prev.map((a) =>
+                a.id === atv.id ? { ...a, valor_medido: valor } : a
+              )
+            );
+          }}
+        />
+        <span className="text-xs text-muted-foreground">
+          {atv.unidade_medicao || ""}
+        </span>
+      </div>
+    )}
+  </div>
+))}
     </div>
   )}
 </div>
-        {viewing.observacoes && (
+{viewing.observacoes && (
           <div className="border-t pt-3">
             <p className="text-muted-foreground text-xs">Observações:</p>
             <p>{viewing.observacoes}</p>
@@ -821,6 +927,19 @@ useEffect(() => {
     )}
   </DialogContent>
 </Dialog>
+
+<AbrirChamadoDialog
+  open={!!chamadoAtividade}
+  onClose={() => setChamadoAtividade(null)}
+  atividadeNome={chamadoAtividade?.nome || ""}
+  ativo={viewing?.ativo_id ? (ativos.find(a => a.id === viewing.ativo_id) || null) : null}
+  blocoNome={viewing?.bloco_id ? blocosMap[viewing.bloco_id] : null}
+  contextoTitulo={viewing?.titulo}
+  onCreated={(_, codigo) => {
+    toast({ title: "Chamado criado", description: codigo });
+    setChamadoAtividade(null);
+  }}
+/>
 
     </div>
   );

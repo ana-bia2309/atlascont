@@ -165,11 +165,15 @@ const fetchData = useCallback(async () => {
           } else {
             atividadeNome = "Execução geral da OP";
           }
-        } else if (h.tipo === "Corretiva" && h.os_id) {
-          const os = osMap.get(h.os_id);
-          ordemCodigo = os?.codigo_os || os?.titulo || h.os_id.slice(0, 8);
-          if (h.atividade_id) atividadeNome = ativOsMap.get(h.atividade_id)?.nome || "—";
-        }
+ } else if (h.tipo === "Corretiva" && h.os_id) {
+  const os = osMap.get(h.os_id);
+  ordemCodigo = os?.codigo_os || os?.titulo || h.os_id.slice(0, 8);
+  if (h.atividade_id) {
+    atividadeNome = ativOsMap.get(h.atividade_id)?.nome || "Execução geral da O.S.";
+  } else {
+    atividadeNome = "Execução geral da O.S.";
+  }
+}
         return {
           id: h.id,
           tipo: h.tipo,
