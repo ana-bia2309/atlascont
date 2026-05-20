@@ -119,45 +119,26 @@ export default function ChamadosExternos() {
     return () => { cancelled = true; };
   }, [session?.user?.id]);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    if (!companyId) {
-  setLoading(false);
-  return;
-}
-    const {
-  data: { user },
-} = await supabase.auth.getUser();
+const fetchData = useCallback(async () => {
+  if (!companyId) {
+    setLoading(false);
+    return;
+  }
+  setLoading(true);
 
-if (!user) {
-  setLoading(false);
-  return;
-}
+  const { data, error } = await (supabase as any)
+    .from("chamados")
+    .select("*")
+    .eq("company_id", companyId)
+    .order("created_at", { ascending: false });
 
-const { data: profile }: any =
-  await (supabase as any)
-    .from("profiles")
-    .select("company_id")
-    .eq("user_id", user.id)
-    .single();
-
-if (!profile?.company_id) {
-  setLoading(false);
-  return;
-}
-
-   const { data, error } =
-  await (supabase as any)
-      .from("chamados")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .eq("company_id", companyId);
-    if (error) {
-      console.error("[ChamadosExternos] erro:", error);
-      toast({ title: "Erro ao carregar chamados", description: error.message, variant: "destructive" });
-    } else {
-      const list = (data || []) as ChamadoExterno[];
-      setChamados(list);
+  if (error) {
+    console.error("[ChamadosExternos] erro:", error);
+    toast({ title: "Erro ao carregar chamados", description: error.message, variant: "destructive" });
+  } else {
+    console.log("[ChamadosExternos] dados:", data, "companyId:", companyId);
+    const list = (data || []) as ChamadoExterno[];
+    setChamados(list);
       // Load codigo_os for chamados that have os_id
       const osIds = Array.from(new Set(list.map((c) => c.os_id).filter(Boolean) as string[]));
       if (osIds.length > 0) {
@@ -175,7 +156,7 @@ if (!profile?.company_id) {
       }
     }
     setLoading(false);
-  }, []);
+  }, [companyId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useRealtime(
