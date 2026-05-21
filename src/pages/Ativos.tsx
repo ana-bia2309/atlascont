@@ -11,7 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Pencil, Trash2, RefreshCw, Eye, Search, X, Box, CheckCircle2, AlertTriangle, Wrench, Tags } from "@/lib/icons";
+import { Plus, Pencil, Trash2, RefreshCw, Eye, Search, X, Box, CheckCircle2, AlertTriangle, Wrench, Tags, Upload } from "@/lib/icons";
+import * as XLSX from "xlsx";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -106,7 +107,10 @@ export default function Ativos() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Ativo | null>(null);
   const [form, setForm] = useState(emptyForm);
-
+  const [importOpen, setImportOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importPreview, setImportPreview] = useState<any[]>([]);
+  const [importFile, setImportFile] = useState<File | null>(null);
   const [filterSearch, setFilterSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterBloco, setFilterBloco] = useState("all");
@@ -294,6 +298,104 @@ export default function Ativos() {
     try { return format(new Date(d + "T12:00:00"), "dd/MM/yyyy"); } catch { return "—"; }
   };
 
+  const COLUMN_MAP: Record<string, string> = {
+  "nome": "nome", "name": "nome",
+  "codigo": "codigo_identificacao", "código": "codigo_identificacao", "codigo_identificacao": "codigo_identificacao",
+  "tipo": "tipo", "type": "tipo",
+  "sistema": "sistema", "system": "sistema",
+  "grupo": "grupo_equipamentos", "grupo_equipamentos": "grupo_equipamentos",
+  "marca": "marca", "brand": "marca",
+  "modelo": "modelo", "model": "modelo",
+  "numero_serie": "numero_serie", "nº serie": "numero_serie", "n serie": "numero_serie", "serie": "numero_serie",
+  "patrimonio": "patrimonio", "patrimônio": "patrimonio",
+  "corrente": "corrente",
+  "capacidade": "capacidade_btu", "capacidade_btu": "capacidade_btu", "btu": "capacidade_btu",
+  "tensao": "tensao", "tensão": "tensao",
+  "potencia": "potencia", "potência": "potencia",
+  "responsavel": "responsavel_tecnico", "responsável": "responsavel_tecnico",
+  "data_instalacao": "data_instalacao", "data instalacao": "data_instalacao",
+  "bloco": "bloco_nome_import",
+  "grupo_areas": "grupo_areas", "grupo areas": "grupo_areas",
+  "area_pavimento": "area_pavimento", "area": "area_pavimento", "pavimento": "area_pavimento",
+  "ambiente": "identificacao_ambiente", "identificacao_ambiente": "identificacao_ambiente",
+  "tipo_atividade": "tipo_atividade", "atividade": "tipo_atividade",
+  "status": "status",
+  "observacoes": "observacoes", "observações": "observacoes",
+  "categoria": "categoria",
+};
+
+const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  setImportFile(file);
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const data = new Uint8Array(ev.target?.result as ArrayBuffer);
+    const workbook = XLSX.read(data, { type: "array" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+    setImportPreview(rows.slice(0, 5) as any[]);
+  };
+  reader.readAsArrayBuffer(file);
+};
+
+const handleImport = async () => {
+  if (!importFile) return;
+  setImporting(true);
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: profile }: any = await supabase.from("profiles").select("company_id").eq("user_id", user.id).single();
+    if (!profile?.company_id) return;
+    const companyId = profile.company_id;
+
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const data = new Uint8Array(ev.target?.result as ArrayBuffer);
+      const workbook = XLSX.read(data, { type: "array" });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" }) as any[];
+
+      let success = 0, errors = 0;
+
+      for (const row of rows) {
+        const payload: any = { company_id: companyId, status: "ativo" };
+
+        for (const [col, val] of Object.entries(row)) {
+          const normalizedCol = col.toLowerCase().trim().replace(/\s+/g, "_");
+          const field = COLUMN_MAP[normalizedCol] || COLUMN_MAP[col.toLowerCase().trim()];
+          if (field && field !== "bloco_nome_import" && val !== "") {
+            payload[field] = val;
+          }
+          if ((field === "bloco_nome_import") && val) {
+            const found = blocos.find(b => b.nome?.toLowerCase() === String(val).toLowerCase());
+            if (found) payload["bloco_id"] = found.id;
+          }
+        }
+
+        if (!payload.nome) { errors++; continue; }
+
+        if (payload.codigo_identificacao) {
+          const { error } = await (supabase as any).from("ativos").upsert(payload, { onConflict: "codigo_identificacao,company_id" });
+          if (error) errors++; else success++;
+        } else {
+          const { error } = await (supabase as any).from("ativos").insert(payload);
+          if (error) errors++; else success++;
+        }
+      }
+
+      toast({ title: `Importação concluída`, description: `${success} importado(s), ${errors} erro(s).` });
+      setImportOpen(false);
+      setImportFile(null);
+      setImportPreview([]);
+      fetchData();
+    };
+    reader.readAsArrayBuffer(importFile);
+  } finally {
+    setImporting(false);
+  }
+};
+
   const SectionTitle = ({ children }: { children: React.ReactNode }) => (
     <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">{children}</h3>
   );
@@ -327,6 +429,9 @@ export default function Ativos() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Ativos</h1>
         <div className="flex gap-2">
+        <Button variant="outline" onClick={() => setImportOpen(true)} className="gap-1.5">
+        <Upload className="h-4 w-4" /> Importar Excel
+         </Button>
           <Button variant="outline" onClick={() => navigate("/ativos/etiquetas")} className="gap-1.5">
             <Tags className="h-4 w-4" /> Etiquetas
           </Button>
@@ -607,6 +712,57 @@ export default function Ativos() {
           </TableBody>
         </Table>
       </div>
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+  <DialogContent className="sm:max-w-[600px]">
+    <DialogHeader>
+      <DialogTitle>Importar Ativos via Excel</DialogTitle>
+    </DialogHeader>
+    <div className="space-y-4 py-2">
+      <p className="text-sm text-muted-foreground">
+        A planilha deve ter cabeçalhos em português. Colunas reconhecidas:
+        <span className="font-medium"> nome, codigo, tipo, sistema, grupo, marca, modelo, numero_serie, patrimonio, bloco, area_pavimento, ambiente, status, observacoes</span>.
+      </p>
+      <div>
+        <label className="text-sm font-medium block mb-1">Selecione o arquivo Excel (.xlsx)</label>
+        <Input type="file" accept=".xlsx,.xls,.csv" onChange={handleFileChange} />
+      </div>
+      {importPreview.length > 0 && (
+        <div>
+          <p className="text-xs font-medium text-muted-foreground mb-2">Prévia (primeiras {importPreview.length} linhas):</p>
+          <div className="rounded-md border overflow-auto max-h-[200px]">
+            <table className="text-xs w-full">
+              <thead>
+                <tr className="bg-muted">
+                  {Object.keys(importPreview[0]).map(col => (
+                    <th key={col} className="px-2 py-1 text-left font-medium border-b">{col}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {importPreview.map((row, i) => (
+                  <tr key={i} className="border-b">
+                    {Object.values(row).map((val: any, j) => (
+                      <td key={j} className="px-2 py-1">{String(val)}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={() => { setImportOpen(false); setImportFile(null); setImportPreview([]); }}>
+          Cancelar
+        </Button>
+        <Button onClick={handleImport} disabled={!importFile || importing}>
+          <Upload className="h-4 w-4 mr-2" />
+          {importing ? "Importando..." : "Importar"}
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
     </div>
   );
 }
