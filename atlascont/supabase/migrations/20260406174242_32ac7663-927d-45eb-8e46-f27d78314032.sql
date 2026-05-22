@@ -1,0 +1,1 @@
+ALTER TABLE public.ordens_servico ADD COLUMN andar text, ADD COLUMN sala text;

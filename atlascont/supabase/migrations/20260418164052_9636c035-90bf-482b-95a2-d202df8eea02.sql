@@ -1,0 +1,1 @@
+ALTER TABLE public.planos_manutencao ADD COLUMN IF NOT EXISTS data_inicio date;

@@ -79,41 +79,35 @@ export default function AtivoEtiquetas() {
  const fetchData = useCallback(async () => {
   setLoading(true);
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) { setLoading(false); return; }
+  const [ativosRes, blocosRes] =
+    await Promise.all([
+      ((supabase as any)
+        .from("ativos")
+        .select(
+          "id, nome, codigo_identificacao, bloco_id, sistema, categoria"
+        ) as any)
+        .eq("status", "Ativo")
+        .order("nome"),
 
-  const { data: profile }: any = await supabase
-    .from("profiles")
-    .select("company_id")
-    .eq("user_id", user.id)
-    .single();
-
-  if (!profile?.company_id) { setLoading(false); return; }
-
-  const companyId = profile.company_id;
-
-  const [ativosRes, blocosRes] = await Promise.all([
-    (supabase as any)
-      .from("ativos")
-      .select("id, nome, codigo_identificacao, bloco_id, sistema, categoria")
-      .eq("company_id", companyId)
-      .eq("status", "ativo")
-      .order("nome"),
-
-    (supabase as any)
-      .from("blocos")
-      .select("id, nome")
-      .eq("company_id", companyId)
-      .order("nome"),
-  ]);
+      (supabase as any)
+        .from("blocos")
+        .select("id, nome")
+        .order("nome"),
+    ]);
 
   if (ativosRes.error) {
-    toast({ title: "Erro ao carregar ativos", variant: "destructive" });
+    toast({
+      title: "Erro ao carregar ativos",
+      variant: "destructive",
+    });
   } else {
-    setAtivos((ativosRes.data as Ativo[]) || []);
+    setAtivos(
+      (ativosRes.data as Ativo[]) || []
+    );
   }
 
   setBlocos(blocosRes.data || []);
+
   setLoading(false);
 }, []);
 

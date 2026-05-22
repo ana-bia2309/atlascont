@@ -298,33 +298,30 @@ export default function Ativos() {
     try { return format(new Date(d + "T12:00:00"), "dd/MM/yyyy"); } catch { return "—"; }
   };
 
-const COLUMN_MAP: Record<string, string> = {
-  "nome": "nome",
-  "codigo": "codigo_identificacao",
-  "tipo": "tipo",
-  "sistema": "sistema",
-  "grupo": "grupo_equipamentos",
-  "marca": "marca",
-  "modelo": "modelo",
-  "numero_serie": "numero_serie",
-  "patrimonio": "patrimonio",
-  "bloco": "bloco_nome_import",
-  "grupo_areas": "grupo_areas",
-  "area_pavimento": "area_pavimento",
-  "ambiente": "identificacao_ambiente",
-  "tipo_atividade": "tipo_atividade",
+  const COLUMN_MAP: Record<string, string> = {
+  "nome": "nome", "name": "nome",
+  "codigo": "codigo_identificacao", "código": "codigo_identificacao", "codigo_identificacao": "codigo_identificacao",
+  "tipo": "tipo", "type": "tipo",
+  "sistema": "sistema", "system": "sistema",
+  "grupo": "grupo_equipamentos", "grupo_equipamentos": "grupo_equipamentos",
+  "marca": "marca", "brand": "marca",
+  "modelo": "modelo", "model": "modelo",
+  "numero_serie": "numero_serie", "nº serie": "numero_serie", "n serie": "numero_serie", "serie": "numero_serie",
+  "patrimonio": "patrimonio", "patrimônio": "patrimonio",
   "corrente": "corrente",
-  "capacidade": "capacidade_btu",
-  "tensao": "tensao",
-  "potencia": "potencia",
-  "area_climatizada": "area_climatizada",
-  "ocupantes_fixos": "ocupantes_fixos",
-  "ocupantes_flutuantes": "ocupantes_flutuantes",
-  "carga_termica": "carga_termica",
+  "capacidade": "capacidade_btu", "capacidade_btu": "capacidade_btu", "btu": "capacidade_btu",
+  "tensao": "tensao", "tensão": "tensao",
+  "potencia": "potencia", "potência": "potencia",
+  "responsavel": "responsavel_tecnico", "responsável": "responsavel_tecnico",
+  "data_instalacao": "data_instalacao", "data instalacao": "data_instalacao",
+  "bloco": "bloco_nome_import",
+  "grupo_areas": "grupo_areas", "grupo areas": "grupo_areas",
+  "area_pavimento": "area_pavimento", "area": "area_pavimento", "pavimento": "area_pavimento",
+  "ambiente": "identificacao_ambiente", "identificacao_ambiente": "identificacao_ambiente",
+  "tipo_atividade": "tipo_atividade", "atividade": "tipo_atividade",
   "status": "status",
+  "observacoes": "observacoes", "observações": "observacoes",
   "categoria": "categoria",
-  "data_instalacao": "data_instalacao",
-  "observacoes": "observacoes",
 };
 
 const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -378,21 +375,13 @@ const handleImport = async () => {
 
         if (!payload.nome) { errors++; continue; }
 
- // Verifica se já existe ativo com mesmo código
-const { data: existing } = await (supabase as any)
-  .from("ativos")
-  .select("id")
-  .eq("codigo_identificacao", payload.codigo_identificacao)
-  .eq("company_id", companyId)
-  .maybeSingle();
-
-if (existing?.id) {
-  const { error } = await (supabase as any).from("ativos").update(payload).eq("id", existing.id);
-  if (error) { console.error("UPDATE ERROR:", JSON.stringify(error)); errors++; } else success++;
-} else {
-  const { error } = await (supabase as any).from("ativos").insert(payload);
-  if (error) { console.error("INSERT ERROR:", JSON.stringify(error)); errors++; } else success++;
-}
+        if (payload.codigo_identificacao) {
+          const { error } = await (supabase as any).from("ativos").upsert(payload, { onConflict: "codigo_identificacao,company_id" });
+          if (error) errors++; else success++;
+        } else {
+          const { error } = await (supabase as any).from("ativos").insert(payload);
+          if (error) errors++; else success++;
+        }
       }
 
       toast({ title: `Importação concluída`, description: `${success} importado(s), ${errors} erro(s).` });
@@ -724,52 +713,19 @@ if (existing?.id) {
         </Table>
       </div>
       <Dialog open={importOpen} onOpenChange={setImportOpen}>
-  <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
+  <DialogContent className="sm:max-w-[600px]">
     <DialogHeader>
       <DialogTitle>Importar Ativos via Excel</DialogTitle>
     </DialogHeader>
     <div className="space-y-4 py-2">
-      <div className="rounded-md border bg-muted/30 p-3 space-y-2">
-        <p className="text-sm font-medium">Passo 1 — Baixe o modelo</p>
-        <p className="text-xs text-muted-foreground">Baixe a planilha modelo, preencha com os dados dos equipamentos e salve.</p>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5"
-          onClick={() => {
-           const headers = [
-  "nome", "codigo", "tipo", "sistema", "grupo", "marca", "modelo",
-  "numero_serie", "patrimonio", "bloco", "grupo_areas", "area_pavimento",
-  "ambiente", "tipo_atividade", "corrente", "capacidade", "tensao", "potencia",
-  "area_climatizada", "ocupantes_fixos", "ocupantes_flutuantes", "carga_termica",
-  "status", "categoria", "data_instalacao", "observacoes"
-];
-
-const exemplo = [
-  "Split Hi-Wall", "EQ-001", "Hi-wall", "Ar-condicionado", "Climatização",
-  "Carrier", "42LUQA012515LC", "S/N123", "PAT001", "Bloco K", "Ala Sul",
-  "2º Pavimento", "Sala 280", "Escritório", "5.5", "12000", "220", "1500",
-  "30", "10", "5", "15000", "ativo", "Climatização", "2024-01-15", "Exemplo de observação"
-];
-
-const ws = XLSX.utils.aoa_to_sheet([headers, exemplo]);
-ws["!cols"] = headers.map((h) => ({ wch: Math.max(h.length + 4, 16) }));
-ws["!rows"] = [{ hpt: 24 }, { hpt: 20 }];
-
-const wb = XLSX.utils.book_new();
-XLSX.utils.book_append_sheet(wb, ws, "Ativos");
-XLSX.writeFile(wb, "modelo_ativos.xlsx");
-}}
-        >
-          <Upload className="h-4 w-4" /> Baixar modelo (.xlsx)
-        </Button>
-      </div>
-
-      <div className="rounded-md border bg-muted/30 p-3 space-y-2">
-        <p className="text-sm font-medium">Passo 2 — Importe a planilha preenchida</p>
+      <p className="text-sm text-muted-foreground">
+        A planilha deve ter cabeçalhos em português. Colunas reconhecidas:
+        <span className="font-medium"> nome, codigo, tipo, sistema, grupo, marca, modelo, numero_serie, patrimonio, bloco, area_pavimento, ambiente, status, observacoes</span>.
+      </p>
+      <div>
+        <label className="text-sm font-medium block mb-1">Selecione o arquivo Excel (.xlsx)</label>
         <Input type="file" accept=".xlsx,.xls,.csv" onChange={handleFileChange} />
       </div>
-
       {importPreview.length > 0 && (
         <div>
           <p className="text-xs font-medium text-muted-foreground mb-2">Prévia (primeiras {importPreview.length} linhas):</p>
@@ -795,7 +751,6 @@ XLSX.writeFile(wb, "modelo_ativos.xlsx");
           </div>
         </div>
       )}
-
       <div className="flex justify-end gap-2">
         <Button variant="outline" onClick={() => { setImportOpen(false); setImportFile(null); setImportPreview([]); }}>
           Cancelar
