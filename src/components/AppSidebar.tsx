@@ -1,6 +1,7 @@
 import {
   Gauge, ClipboardList, CalendarRange, Wrench, BarChart3, Clock, Activity,
-  DollarSign, Timer, ListChecks, Building2, Box, ShieldCheck, KeyRound, LogOut, User, Settings, Briefcase, ChevronRight, MessagesSquare,
+  DollarSign, Timer, ListChecks, Building2, Box, ShieldCheck, KeyRound, LogOut, User, Settings, Settings2, Briefcase, ChevronRight, MessagesSquare, Package,
+  CheckCircle2,
 } from "@/lib/icons";
 import { usePendingCounts } from "@/hooks/use-pending-counts";
 import { NotificationsPanel } from "@/components/NotificationsPanel";
@@ -52,6 +53,7 @@ const osGroup: MenuGroup = {
     { title: "Cronogramas", url: "/cronogramas", icon: CalendarRange, iconColor: "#64748B", requiredPermission: "cronogramas.visualizar" },
     { title: "Chamados", url: "/chamados-os", icon: MessagesSquare, iconColor: "#0EA5E9", requiredPermission: "chamados_os.visualizar" },
     { title: "Chamados Externos", url: "/chamados-externos", icon: MessagesSquare, iconColor: "#F97316", requiredPermission: "chamados_externos.visualizar" },
+    { title: "Aprovações", url: "/aprovacoes", icon: CheckCircle2, iconColor: "#22C55E" },
   ],
 };
 
@@ -93,6 +95,7 @@ const relatoriosGroup: MenuGroup = {
     { title: "Relatórios", url: "/relatorios", icon: BarChart3, requiredPermission: "relatorios.visualizar" },
     { title: "Relatório Homem-Hora", url: "/relatorio-homem-hora", icon: Clock, iconColor: "#0EA5E9", requiredPermission: "relatorio_hh.visualizar" },
     { title: "Histórico Atividades", url: "/historico-atividades", icon: Activity, iconColor: "#6B7280", requiredPermission: "sla.visualizar" },
+    { title: "Tempo de Parada de Ativos", url: "/relatorio-ativos", icon: BarChart3, requiredPermission: "relatorios.visualizar" },
   ],
 };
 
@@ -104,6 +107,12 @@ const custosGroup: MenuGroup = {
     { title: "Tipos de Gasto", url: "/tipos-gasto", icon: DollarSign, requiredPermission: "tipos_gasto.visualizar" },
   ],
 };
+const almoxarifadoGroup: MenuGroup = {
+  id: "almoxarifado", title: "Almoxarifado", icon: Package, iconColor: "#8B5CF6",
+  items: [
+    { title: "Cadastro de Materiais", url: "/materiais", icon: Package, iconColor: "#8B5CF6" },
+  ],
+};
 
 /* ── Section: Configurações ── */
 const configGroup: MenuGroup = {
@@ -112,6 +121,8 @@ const configGroup: MenuGroup = {
     { title: "Definições de SLA", url: "/sla", icon: Timer, requiredPermission: "sla.visualizar" },
     { title: "Checklist Templates", url: "/checklist-templates", icon: ListChecks, requiredPermission: "checklist_templates.visualizar" },
     { title: "Tipos de Atividade", url: "/tipos-atividade", icon: ClipboardList, requiredPermission: "sla.visualizar" },
+    { title: "Tipos de Sistema", url: "/tipos-sistema", icon: Settings2, requiredPermission: "sla.visualizar" },
+    { title: "Campos Obrigatórios O.S.", url: "/os-campos-config", icon: Settings2 },
   ],
 };
 
@@ -257,7 +268,7 @@ export function AppSidebar() {
   };
 
   // Accordion: only one group open at a time
-  const allGroups = [osGroup, preventivaGroup, relatoriosGroup, custosGroup, configGroup, cadastrosGroup];
+  const allGroups = [osGroup, preventivaGroup, relatoriosGroup, custosGroup, almoxarifadoGroup, configGroup, cadastrosGroup];
   const initialOpen = allGroups.find((g) =>
     g.items.some((i) => location.pathname === i.url || location.pathname.startsWith(i.url + "/"))
   )?.id ?? null;
@@ -271,20 +282,9 @@ export function AppSidebar() {
 const filterItems = useCallback(
   (items: MenuItem[]) =>
     items.filter((item) => {
-
-    if (
-  item.requiredPermission &&
-  !can(item.requiredPermission)
-) return false;
-
-      const menuKey =
-        URL_TO_MENU_KEY[item.url];
-
-     if (
-  menuKey &&
-  !canMenu(menuKey)
-) return false;
-
+      if (item.requiredPermission && !can(item.requiredPermission)) return false;
+      const menuKey = URL_TO_MENU_KEY[item.url];
+      if (menuKey && !canMenu(menuKey)) return false;
       return true;
     }),
   [can, canMenu],
@@ -361,10 +361,11 @@ const filterItems = useCallback(
               Gestão
             </SidebarGroupLabel>
           )}
-          <SidebarGroupContent>
+         <SidebarGroupContent>
             <SidebarMenu>
               <CollapsibleGroup {...groupProps(relatoriosGroup)} />
               <CollapsibleGroup {...groupProps(custosGroup)} />
+              <CollapsibleGroup {...groupProps(almoxarifadoGroup)} />
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

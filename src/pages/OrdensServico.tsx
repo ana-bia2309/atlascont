@@ -49,6 +49,7 @@ import { cn } from "@/lib/utils";
 import { logActivity, computeDiff } from "@/lib/activity-log";
 import { computeSlaStatus, formatSlaDeadline } from "@/lib/sla-utils";
 import { STATUS_OPTIONS, getStatusColor, isFinishedStatus } from "@/lib/os-status";
+import AtivoQuickModal from "@/components/os/AtivoQuickModal";
 
 type Bloco = { id: string; nome: string | null };
 type CronogramaOption = { id: string; titulo: string };
@@ -107,7 +108,7 @@ const PRIORIDADE_COLORS: Record<string, string> = {
 
 function DatePickerField({
   label, value, onChange,
-}: { label: string; value: Date | undefined; onChange: (date: Date | undefined) => void }) {
+}: { label: React.ReactNode; value: Date | undefined; onChange: (date: Date | undefined) => void }) {
   return (
     <div>
       <label className="text-sm font-medium mb-1 block">{label}</label>
@@ -423,7 +424,16 @@ const { data: colabData } = await (supabase as any)
     const allUsers: TecnicoOption[] = allProfiles
       .map((p: any) => ({ id: p.id, nome: p.nome, job_title: p.job_title || null }));
     setTecnicosOptions(allUsers);
-
+    
+// Carrega campos obrigatórios
+    if (companyId) {
+      const { data: camposConfig } = await (supabase as any)
+        .from("os_campos_config")
+        .select("campo")
+        .eq("company_id", companyId)
+        .eq("obrigatorio", true);
+      setCamposObrigatorios((camposConfig || []).map((c: any) => c.campo));
+    }
     setLoading(false);
  }, [companyId]);
 
@@ -526,10 +536,13 @@ const { data: colabData } = await (supabase as any)
   const [sala, setSala] = useState("");
   const [cronogramaId, setCronogramaId] = useState("");
   const [ativoId, setAtivoId] = useState("");
+  const [ativoModalOpen, setAtivoModalOpen] = useState(false);
   const [tipoServico, setTipoServico] = useState("");
   const [slaDefinicoes, setSlaDefinicoes] = useState<any[]>([]);
+  const [camposObrigatorios, setCamposObrigatorios] = useState<string[]>([]);
   const [formResponsaveis, setFormResponsaveis] = useState<string[]>([]);
   const [formColaboradores, setFormColaboradores] = useState<string[]>([]);
+  const [formFiscais, setFormFiscais] = useState<string[]>([]);
   const materiaisRef = useRef<MateriaisSectionHandle>(null);
   const anexosRef = useRef<AnexosSectionHandle>(null);
   const fotosRef = useRef<FotosOSSectionHandle>(null);
@@ -537,11 +550,16 @@ const { data: colabData } = await (supabase as any)
   const [chamadoOrigemId, setChamadoOrigemId] = useState<string | null>(null);
   const [chamadoExternoId, setChamadoExternoId] = useState<string | null>(null);
 
+ const isObrigatorio = (campo: string) => camposObrigatorios.includes(campo);
+const labelCampo = (label: string, campo: string) => (
+  <>{label}{isObrigatorio(campo) && <span className="text-destructive ml-0.5">*</span>}</>
+);
+
   const resetForm = () => {
     setCodigoOs(""); setStatus("Não Iniciada"); setPrioridade("Média"); setBlocoId("");
     setAndar(""); setSala(""); setCronogramaId(""); setAtivoId(""); setTipoServico("");
     setPrazo(undefined); setDataInicio(undefined); setDataTermino(undefined);
-    setObservacoes(""); setEquipamentos(""); setFormResponsaveis([]); setFormColaboradores([]); setEditing(null);
+    setObservacoes(""); setEquipamentos(""); setFormResponsaveis([]); setFormColaboradores([]); setFormFiscais([]); setEditing(null);
     setChamadoOrigemId(null);
     setChamadoExternoId(null);
   };
@@ -559,14 +577,16 @@ const { data: colabData } = await (supabase as any)
     setAtivoId((os as any).ativo_id || "");
     setTipoServico((os as any).tipo_servico || "");
     // Load responsáveis and colaboradores for this OS
-    Promise.all([
-      supabase.from("os_responsaveis").select("profile_id").eq("os_id", os.id),
-      supabase.from("os_colaboradores").select("profile_id").eq("os_id", os.id),
-    ]).then(([respRes, colabRes]) => {
-      const respIds = (respRes.data || []).map((d: any) => d.profile_id);
-      setFormResponsaveis(respIds.length > 0 ? respIds : (os as any).responsible_user_id ? [(os as any).responsible_user_id] : []);
-      setFormColaboradores((colabRes.data || []).map((d: any) => d.profile_id));
-    });
+   Promise.all([
+  supabase.from("os_responsaveis").select("profile_id").eq("os_id", os.id),
+  supabase.from("os_colaboradores").select("profile_id").eq("os_id", os.id),
+  (supabase as any).from("os_fiscais").select("profile_id").eq("os_id", os.id),
+]).then(([respRes, colabRes, fiscaisRes]) => {
+  const respIds = (respRes.data || []).map((d: any) => d.profile_id);
+  setFormResponsaveis(respIds.length > 0 ? respIds : (os as any).responsible_user_id ? [(os as any).responsible_user_id] : []);
+  setFormColaboradores((colabRes.data || []).map((d: any) => d.profile_id));
+  setFormFiscais((fiscaisRes.data || []).map((d: any) => d.profile_id));
+});
     setDialogOpen(true);
   };
 
@@ -624,6 +644,39 @@ const { data: colabData } = await (supabase as any)
     if (!editing && !can("painel_os.criar")) { toast({ title: "Sem permissão para criar O.S.", variant: "destructive" }); return; }
     if (editing && !can("painel_os.editar") && !isTecnicoAssigned(editing)) { toast({ title: "Sem permissão para editar O.S.", variant: "destructive" }); return; }
     if (!codigoOs.trim()) { toast({ title: "Código da O.S. é obrigatório", variant: "destructive" }); return; }
+
+    // Valida campos obrigatórios configurados
+    if (companyId) {
+      const { data: camposConfig } = await (supabase as any)
+        .from("os_campos_config")
+        .select("campo, obrigatorio")
+        .eq("company_id", companyId)
+        .eq("obrigatorio", true);
+
+      const obrigatorios = (camposConfig || []).map((c: any) => c.campo);
+      const validacoes: Record<string, { valor: any; label: string }> = {
+        bloco_id: { valor: blocoId, label: "Bloco" },
+        andar: { valor: andar.trim(), label: "Andar" },
+        sala: { valor: sala.trim(), label: "Sala" },
+        prioridade: { valor: prioridade, label: "Prioridade" },
+        tipo_servico: { valor: tipoServico, label: "Tipo de Serviço" },
+        responsavel: { valor: formResponsaveis.length > 0, label: "Responsável" },
+        prazo: { valor: prazo, label: "Prazo" },
+        data_inicio: { valor: dataInicio, label: "Data Início" },
+        data_termino: { valor: dataTermino, label: "Data Término" },
+        equipamentos: { valor: equipamentos.trim(), label: "Equipamentos" },
+        observacoes: { valor: observacoes.trim(), label: "Observações" },
+        ativo_id: { valor: ativoId && ativoId !== "__none__", label: "Ativo Vinculado" },
+      };
+
+      for (const campo of obrigatorios) {
+        const v = validacoes[campo];
+        if (v && !v.valor) {
+          toast({ title: `${v.label} é obrigatório`, variant: "destructive" });
+          return;
+        }
+      }
+    }
 
     const profileId = await getCurrentProfileId();
 
@@ -792,6 +845,12 @@ const { data: colabData } = await (supabase as any)
           formColaboradores.map((pid) => ({ os_id: inserted.id, profile_id: pid }))
         );
       }
+      // Save fiscais for new OS
+      if (formFiscais.length > 0) {
+        await (supabase as any).from("os_fiscais").insert(
+          formFiscais.map((pid) => ({ os_id: inserted.id, profile_id: pid }))
+        );
+      }
     }
 
     // Sync responsáveis for edited OS
@@ -806,6 +865,12 @@ const { data: colabData } = await (supabase as any)
       if (formColaboradores.length > 0) {
         await supabase.from("os_colaboradores").insert(
           formColaboradores.map((pid) => ({ os_id: editing.id, profile_id: pid }))
+        );
+      }
+      await (supabase as any).from("os_fiscais").delete().eq("os_id", editing.id);
+      if (formFiscais.length > 0) {
+        await (supabase as any).from("os_fiscais").insert(
+          formFiscais.map((pid) => ({ os_id: editing.id, profile_id: pid }))
         );
       }
     }
@@ -874,12 +939,18 @@ const { data: colabData } = await (supabase as any)
   const handleFinalize = async (os: OrdemServico) => {
 
   if (!can("painel_os.editar")) {
+    toast({ title: "Sem permissão para finalizar O.S.", variant: "destructive" });
+    return;
+  }
 
+  // Bloqueia se houver orçamento pendente ou reprovado
+  const orcamentoStatus = (os as any).orcamento_status;
+  if (orcamentoStatus === "pendente" || orcamentoStatus === "reprovado") {
     toast({
-      title: "Sem permissão para finalizar O.S.",
-      variant: "destructive"
+      title: "Não é possível finalizar a O.S.",
+      description: "Não é possível finalizar a Ordem de Serviço sem aprovação do orçamento.",
+      variant: "destructive",
     });
-
     return;
   }
 
@@ -1426,7 +1497,7 @@ fetchData();
                 <Input value={codigoOs} onChange={(e) => setCodigoOs(e.target.value)} placeholder="Ex: OS-001" disabled={isTecnico && !!editing} />
               </div>
               <div>
-                <label className="text-sm font-medium mb-1 block">Bloco</label>
+                <label className="text-sm font-medium mb-1 block">{labelCampo("Bloco", "bloco_id")}</label>
                 <Select value={blocoId} onValueChange={setBlocoId} disabled={isTecnico && !!editing}>
                   <SelectTrigger><SelectValue placeholder="Selecione o bloco" /></SelectTrigger>
                   <SelectContent>
@@ -1435,11 +1506,11 @@ fetchData();
                 </Select>
               </div>
               <div>
-                <label className="text-sm font-medium mb-1 block">Andar</label>
+                <label className="text-sm font-medium mb-1 block">{labelCampo("Andar", "andar")}</label>
                 <Input value={andar} onChange={(e) => setAndar(e.target.value)} placeholder="Ex: 3º" disabled={isTecnico && !!editing} />
               </div>
               <div>
-                <label className="text-sm font-medium mb-1 block">Sala</label>
+                <label className="text-sm font-medium mb-1 block">{labelCampo("Sala", "sala")}</label>
                 <Input value={sala} onChange={(e) => setSala(e.target.value)} placeholder="Ex: 301" disabled={isTecnico && !!editing} />
               </div>
             </div>
@@ -1455,7 +1526,7 @@ fetchData();
               </div>
               {!(isTecnico && editing) ? (
               <div>
-                <label className="text-sm font-medium mb-1 block">Prioridade</label>
+                <label className="text-sm font-medium mb-1 block">{labelCampo("Prioridade", "prioridade")}</label>
                 <Select value={prioridade} onValueChange={setPrioridade}>
                   <SelectTrigger><SelectValue placeholder="Prioridade" /></SelectTrigger>
                   <SelectContent>
@@ -1472,7 +1543,7 @@ fetchData();
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium mb-1 block">Tipo de Serviço</label>
+                <label className="text-sm font-medium mb-1 block">{labelCampo("Tipo de Serviço", "tipo_servico")}</label>
                 <Select value={tipoServico || "__none__"} onValueChange={(v) => setTipoServico(v === "__none__" ? "" : v)} disabled={isTecnico && !!editing}>
                   <SelectTrigger><SelectValue placeholder="Selecione o tipo (opcional)" /></SelectTrigger>
                   <SelectContent>
@@ -1497,7 +1568,7 @@ fetchData();
                 excludeIds={formColaboradores}
               />
             </div>
-            {/* Auxiliares multi-select */}
+          {/* Auxiliares multi-select */}
             {!(isTecnico && editing) && (
               <MultiUserSelect
                 label="Auxiliares"
@@ -1505,7 +1576,18 @@ fetchData();
                 selected={formColaboradores}
                 onChange={setFormColaboradores}
                 placeholder="Adicionar auxiliar..."
-                excludeIds={formResponsaveis}
+                excludeIds={[...formResponsaveis, ...formFiscais]}
+              />
+            )}
+            {/* Fiscais multi-select */}
+            {!(isTecnico && editing) && (
+              <MultiUserSelect
+                label="Fiscais (Aprovação de Orçamento)"
+                options={tecnicosOptions}
+                selected={formFiscais}
+                onChange={setFormFiscais}
+                placeholder="Adicionar fiscal..."
+                excludeIds={[...formResponsaveis, ...formColaboradores]}
               />
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1521,17 +1603,25 @@ fetchData();
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">Ativo vinculado</label>
-                <Select value={ativoId} onValueChange={setAtivoId}>
-                  <SelectTrigger><SelectValue placeholder="Selecione um ativo (opcional)" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Nenhum</SelectItem>
-                    {ativosOptions.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>
-                        {a.nome}{a.codigo_identificacao ? ` (${a.codigo_identificacao})` : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1 justify-start font-normal"
+                    onClick={() => setAtivoModalOpen(true)}
+                    disabled={isTecnico && !!editing}
+                  >
+                    {ativoId && ativoId !== "__none__"
+                      ? ativosOptions.find(a => a.id === ativoId)?.nome || "Ativo selecionado"
+                      : <span className="text-muted-foreground">Selecione um ativo (opcional)</span>
+                    }
+                  </Button>
+                  {ativoId && ativoId !== "__none__" && (
+                    <Button type="button" variant="ghost" size="icon" onClick={() => setAtivoId("")}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
             {isTecnico && editing ? (
@@ -1542,18 +1632,18 @@ fetchData();
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <DatePickerField label="Prazo" value={prazo} onChange={setPrazo} />
-                <DatePickerField label="Data Início" value={dataInicio} onChange={setDataInicio} />
-                <DatePickerField label="Data Término" value={dataTermino} onChange={setDataTermino} />
+                <DatePickerField label={labelCampo("Prazo", "prazo")} value={prazo} onChange={setPrazo} />
+                <DatePickerField label={labelCampo("Data Início", "data_inicio")} value={dataInicio} onChange={setDataInicio} />
+                <DatePickerField label={labelCampo("Data Término", "data_termino")} value={dataTermino} onChange={setDataTermino} />
               </div>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium mb-1 block">Equipamentos</label>
+                <label className="text-sm font-medium mb-1 block">{labelCampo("Equipamentos", "equipamentos")}</label>
                 <Textarea value={equipamentos} onChange={(e) => setEquipamentos(e.target.value)} placeholder={"Ex:\n1 aparelho split 12.000 BTU/h\n2 aparelhos cassete 24.000 BTU/h"} rows={4} disabled={isTecnico && !!editing} />
               </div>
               <div>
-                <label className="text-sm font-medium mb-1 block">Observações</label>
+                <label className="text-sm font-medium mb-1 block">{labelCampo("Observações", "observacoes")}</label>
                 <Textarea value={observacoes} onChange={(e) => setObservacoes(e.target.value)} placeholder="Observações" rows={4} disabled={isTecnico && !!editing} />
               </div>
             </div>
@@ -1589,6 +1679,15 @@ fetchData();
               </div>
             )}
           </div>
+          <AtivoQuickModal
+  open={ativoModalOpen}
+  onClose={() => setAtivoModalOpen(false)}
+  onSelect={(id, nome) => {
+    setAtivoId(id);
+    setAtivosOptions(prev => prev.find(a => a.id === id) ? prev : [...prev, { id, nome, codigo_identificacao: null }]);
+  }}
+  companyId={companyId}
+/>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setDialogOpen(false); resetForm(); }}>Cancelar</Button>
             {(can("painel_os.criar") || can("painel_os.editar") || (isTecnico && editing)) && (

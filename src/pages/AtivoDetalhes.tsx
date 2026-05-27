@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Pencil, MapPin, Cpu, Info, ClipboardList, FileText, History, QrCode, Download, Zap, Users, Thermometer, MessagesSquare } from "@/lib/icons";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -44,6 +45,8 @@ type Ativo = {
   ocupantes_fixos: number | null;
   ocupantes_flutuantes: number | null;
   carga_termica: number | null;
+  disponibilidade: string | null;
+  data_ultima_manutencao: string | null;
 };
 
 type OSVinculada = {
@@ -99,8 +102,68 @@ export default function AtivoDetalhes() {
   const [historico, setHistorico] = useState<HistoricoAtivo[]>([]);
   const [loadingHist, setLoadingHist] = useState(true);
   const [qrOpen, setQrOpen] = useState(false);
+const [disponibilidadeOpen, setDisponibilidadeOpen] = useState(false);
+const [novaDisponibilidade, setNovaDisponibilidade] = useState<"disponivel" | "indisponivel">("disponivel");
+const [obsDisponibilidade, setObsDisponibilidade] = useState("");
+const [savingDisp, setSavingDisp] = useState(false);
+const [manutencoes, setManutencoes] = useState<any[]>([]);
 
   const ativoUrl = `${PUBLISHED_URL}/ativo/${id}`;
+  const handleSalvarDisponibilidade = async () => {
+  if (!ativo || !id) return;
+  setSavingDisp(true);
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: profile }: any = await supabase.from("profiles").select("company_id").eq("user_id", user!.id).single();
+
+    if (novaDisponibilidade === "indisponivel") {
+      // Registra início de manutenção
+      await (supabase as any).from("ativo_manutencoes").insert({
+        ativo_id: id,
+        company_id: profile.company_id,
+        status: "indisponivel",
+        data_inicio: new Date().toISOString(),
+        observacao: obsDisponibilidade.trim() || null,
+      });
+    } else {
+      // Fecha manutenção aberta
+      const { data: manutAberta } = await (supabase as any)
+        .from("ativo_manutencoes")
+        .select("id, data_inicio")
+        .eq("ativo_id", id)
+        .is("data_fim", null)
+        .order("data_inicio", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (manutAberta) {
+        const inicio = new Date(manutAberta.data_inicio);
+        const fim = new Date();
+        const minutos = Math.round((fim.getTime() - inicio.getTime()) / 60000);
+        await (supabase as any).from("ativo_manutencoes").update({
+          data_fim: fim.toISOString(),
+          tempo_parado_minutos: minutos,
+          observacao: obsDisponibilidade.trim() || null,
+        }).eq("id", manutAberta.id);
+      }
+    }
+
+    // Atualiza disponibilidade do ativo
+    await (supabase as any).from("ativos").update({
+      disponibilidade: novaDisponibilidade,
+      status: novaDisponibilidade === "indisponivel" ? "manutenção" : "ativo",
+      data_ultima_manutencao: novaDisponibilidade === "indisponivel" ? new Date().toISOString() : ativo.data_ultima_manutencao,
+    }).eq("id", id);
+
+    toast({ title: novaDisponibilidade === "indisponivel" ? "Ativo marcado como indisponível" : "Ativo marcado como disponível" });
+    setDisponibilidadeOpen(false);
+    fetchAtivo();
+  } catch (e: any) {
+    toast({ title: "Erro ao salvar", description: e.message, variant: "destructive" });
+  } finally {
+    setSavingDisp(false);
+  }
+};
 
   const handleDownloadQR = () => {
     const svg = document.getElementById("qr-ativo-svg");
@@ -202,7 +265,43 @@ export default function AtivoDetalhes() {
       <Icon className="h-3.5 w-3.5" /> {title}
     </h3>
   );
-
+const DialogDisponibilidade = (
+  <Dialog open={disponibilidadeOpen} onOpenChange={setDisponibilidadeOpen}>
+    <DialogContent className="sm:max-w-[400px]">
+      <DialogHeader>
+        <DialogTitle>
+          {novaDisponibilidade === "indisponivel" ? "Marcar como Indisponível" : "Marcar como Disponível"}
+        </DialogTitle>
+      </DialogHeader>
+      <div className="space-y-4 py-2">
+        <p className="text-sm text-muted-foreground">
+          {novaDisponibilidade === "indisponivel"
+            ? "O ativo será marcado como indisponível e o tempo de parada começará a ser contabilizado."
+            : "O ativo voltará a ficar disponível e o tempo de parada será registrado."}
+        </p>
+        <div>
+          <label className="text-sm font-medium mb-1 block">Observação (opcional)</label>
+          <Textarea
+            value={obsDisponibilidade}
+            onChange={e => setObsDisponibilidade(e.target.value)}
+            placeholder="Ex: Aguardando peça, Em manutenção preventiva..."
+            rows={3}
+          />
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setDisponibilidadeOpen(false)}>Cancelar</Button>
+          <Button
+            onClick={handleSalvarDisponibilidade}
+            disabled={savingDisp}
+            className={novaDisponibilidade === "indisponivel" ? "bg-red-600 hover:bg-red-700" : "bg-emerald-600 hover:bg-emerald-700"}
+          >
+            {savingDisp ? "Salvando..." : "Confirmar"}
+          </Button>
+        </div>
+      </div>
+    </DialogContent>
+  </Dialog>
+);
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Header — mobile-first */}
@@ -231,12 +330,28 @@ export default function AtivoDetalhes() {
           </span>
         </div>
 
-        <div className="flex items-center gap-2 pl-1">
+        <div className="flex items-center gap-2 pl-1 flex-wrap">
           <Button variant="outline" size="sm" onClick={() => setQrOpen(true)}>
             <QrCode className="mr-1.5 h-3.5 w-3.5" /> QR Code
           </Button>
           <Button variant="outline" size="sm" onClick={() => navigate(`/ativos?edit=${ativo.id}`)}>
             <Pencil className="mr-1.5 h-3.5 w-3.5" /> Editar
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn(
+              ativo.disponibilidade === "indisponivel"
+                ? "border-red-300 text-red-700 hover:bg-red-50"
+                : "border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+            )}
+            onClick={() => {
+              setNovaDisponibilidade(ativo.disponibilidade === "indisponivel" ? "disponivel" : "indisponivel");
+              setObsDisponibilidade("");
+              setDisponibilidadeOpen(true);
+            }}
+          >
+            {ativo.disponibilidade === "indisponivel" ? "🔴 Indisponível" : "🟢 Disponível"}
           </Button>
         </div>
       </div>
@@ -488,6 +603,7 @@ export default function AtivoDetalhes() {
           </Button>
         </DialogContent>
       </Dialog>
+    {DialogDisponibilidade}
     </div>
   );
 }

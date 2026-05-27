@@ -1,8 +1,10 @@
+import Materiais from "@/pages/Materiais";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { SpeedInsights } from "@vercel/speed-insights/react"
 import { AuthProvider } from "@/hooks/useAuth";
 import Layout from "@/components/Layout";
+import TiposSistema from "@/pages/TiposSistema";
 import ScrollToTop from "@/components/ScrollToTop";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { Toaster } from "@/components/ui/toaster";
@@ -40,6 +42,9 @@ import ChamadosOS from "@/pages/ChamadosOS";
 import ChamadosExternos from "@/pages/ChamadosExternos";
 import AuthCallback from "@/pages/AuthCallback";
 import Onboarding from "@/pages/Onboarding";
+import Aprovacoes from "@/pages/Aprovacoes";
+import RelatorioAtivos from "@/pages/RelatorioAtivos";
+import OsCamposConfig from "@/pages/OsCamposConfig";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -55,6 +60,7 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/blocos" element={<Blocos />} />
             <Route path="/ordens-servico" element={<ErrorBoundary fallbackMessage="Erro ao carregar Ordens de Serviço"><OrdensServico /></ErrorBoundary>} />
+            <Route path="/os-campos-config" element={<OsCamposConfig />} />
             <Route path="/minhas-ordens-servico" element={<ErrorBoundary fallbackMessage="Erro ao carregar Minhas O.S."><MinhasOrdensServico /></ErrorBoundary>} />
             <Route path="/gastos" element={<Gastos />} />
             <Route path="/relatorios" element={<Relatorios />} />
@@ -63,8 +69,9 @@ const App = () => (
             <Route path="/ativos" element={<Ativos />} />
             <Route path="/ativos/etiquetas" element={<AtivoEtiquetas />} />
             <Route path="/ativos/:id" element={<AtivoDetalhes />} />
+            <Route path="/relatorio-ativos" element={<RelatorioAtivos />} />
             <Route path="/controle-acesso" element={<ControleAcesso />} />
-            
+            <Route path="/materiais" element={<Materiais />} />
             <Route path="/historico-atividades" element={<HistoricoAtividades />} />
             <Route path="/perfis-acesso" element={<PerfisAcesso />} />
             <Route path="/sla" element={<SlaDefinicoes />} />
@@ -76,6 +83,8 @@ const App = () => (
             <Route path="/checklist-templates" element={<ChecklistTemplates />} />
             <Route path="/tipos-gasto" element={<TiposGasto />} />
             <Route path="/tipos-atividade" element={<TiposAtividade />} />
+            <Route path="/tipos-sistema" element={<TiposSistema />} />
+            <Route path="/aprovacoes" element={<Aprovacoes />} />
             <Route path="/relatorio-homem-hora" element={<RelatorioHomemHora />} />
           </Route>
 <Route path="/login" element={<Login />} />
