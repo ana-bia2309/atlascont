@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, memo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -29,8 +29,63 @@ const UNIDADE_OPTIONS = [
   "4º Pavimento", "5º Pavimento", "Cobertura", "Garagem", "Outro",
 ];
 
+// ─── Componentes auxiliares fora do render principal (fix #5) ───────────────
+const FieldText = memo(({ label, value, onChange, placeholder, disabled }: {
+  label: string; value: string; onChange: (v: string) => void;
+  placeholder?: string; disabled?: boolean;
+}) => (
+  <div>
+    <label className="text-xs font-medium mb-1 block">{label}</label>
+    <Input
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder={placeholder}
+      disabled={disabled}
+      className="h-8 text-sm"
+    />
+  </div>
+));
+FieldText.displayName = "FieldText";
+
+const FieldSelect = memo(({ label, value, onChange, options }: {
+  label: string; value: string; onChange: (v: string) => void; options: string[];
+}) => (
+  <div>
+    <label className="text-xs font-medium mb-1 block">{label}</label>
+    <Select value={value || "__none__"} onValueChange={v => onChange(v === "__none__" ? "" : v)}>
+      <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
+      <SelectContent>
+        <SelectItem value="__none__">— Nenhum —</SelectItem>
+        {options.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+      </SelectContent>
+    </Select>
+  </div>
+));
+FieldSelect.displayName = "FieldSelect";
+
+const FieldNumber = memo(({ label, value, onChange, unit }: {
+  label: string; value: string; onChange: (v: string) => void; unit?: string;
+}) => (
+  <div>
+    <label className="text-xs font-medium mb-1 block">
+      {label}{unit && <span className="text-muted-foreground ml-1">({unit})</span>}
+    </label>
+    <Input
+      type="number"
+      value={value}
+      onChange={e => onChange(e.target.value === "" ? "" : String(Number(e.target.value)))}
+      className="h-8 text-sm"
+    />
+  </div>
+));
+FieldNumber.displayName = "FieldNumber";
+// ────────────────────────────────────────────────────────────────────────────
+
 type Bloco = { id: string; nome: string | null };
-type AtivoOption = { id: string; nome: string; codigo_identificacao: string | null; area_pavimento: string | null; identificacao_ambiente: string | null };
+type AtivoOption = {
+  id: string; nome: string; codigo_identificacao: string | null;
+  area_pavimento: string | null; identificacao_ambiente: string | null;
+};
 
 interface AtivoQuickModalProps {
   open: boolean;
@@ -59,14 +114,25 @@ export default function AtivoQuickModal({ open, onClose, onSelect, companyId }: 
   const fetchAtivos = useCallback(async () => {
     if (!companyId) return;
     const [ativosRes, blocosRes] = await Promise.all([
-      (supabase as any).from("ativos").select("id, nome, codigo_identificacao, area_pavimento, identificacao_ambiente").eq("company_id", companyId).eq("status", "ativo").order("nome"),
-      (supabase as any).from("blocos").select("id, nome").eq("company_id", companyId).order("nome"),
+      (supabase as any)
+        .from("ativos")
+        .select("id, nome, codigo_identificacao, area_pavimento, identificacao_ambiente")
+        .eq("company_id", companyId)
+        .eq("status", "ativo")
+        .order("nome"),
+      (supabase as any)
+        .from("blocos")
+        .select("id, nome")
+        .eq("company_id", companyId)
+        .order("nome"),
     ]);
     setAtivos(ativosRes.data || []);
     setBlocos(blocosRes.data || []);
   }, [companyId]);
 
-  useEffect(() => { if (open) { fetchAtivos(); setMode("choose"); setBusca(""); setForm(emptyForm); } }, [open, fetchAtivos]);
+  useEffect(() => {
+    if (open) { fetchAtivos(); setMode("choose"); setBusca(""); setForm(emptyForm); }
+  }, [open, fetchAtivos]);
 
   const filtrados = ativos.filter(a => {
     const q = busca.toLowerCase();
@@ -77,6 +143,10 @@ export default function AtivoQuickModal({ open, onClose, onSelect, companyId }: 
       (a.identificacao_ambiente || "").toLowerCase().includes(q)
     );
   });
+
+  const setField = useCallback((key: keyof typeof emptyForm) => (v: string) => {
+    setForm(f => ({ ...f, [key]: v }));
+  }, []);
 
   const handleCreate = async () => {
     if (!form.nome.trim()) { toast({ title: "Nome é obrigatório", variant: "destructive" }); return; }
@@ -113,7 +183,8 @@ export default function AtivoQuickModal({ open, onClose, onSelect, companyId }: 
         categoria: form.categoria.trim() || null,
         status: form.status,
       };
-      const { data, error } = await (supabase as any).from("ativos").insert(payload).select("id, nome").single();
+      const { data, error } = await (supabase as any)
+        .from("ativos").insert(payload).select("id, nome").single();
       if (error) throw error;
       toast({ title: "Ativo cadastrado e vinculado!" });
       onSelect(data.id, data.nome);
@@ -125,40 +196,14 @@ export default function AtivoQuickModal({ open, onClose, onSelect, companyId }: 
     }
   };
 
-  const F = ({ label, value, onChange, placeholder, disabled }: any) => (
-    <div>
-      <label className="text-xs font-medium mb-1 block">{label}</label>
-      <Input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} disabled={disabled} className="h-8 text-sm" />
-    </div>
-  );
-
-  const S = ({ label, value, onChange, options }: any) => (
-    <div>
-      <label className="text-xs font-medium mb-1 block">{label}</label>
-      <Select value={value || "__none__"} onValueChange={v => onChange(v === "__none__" ? "" : v)}>
-        <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
-        <SelectContent>
-          <SelectItem value="__none__">— Nenhum —</SelectItem>
-          {options.map((o: string) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-        </SelectContent>
-      </Select>
-    </div>
-  );
-
-  const N = ({ label, value, onChange, unit }: any) => (
-    <div>
-      <label className="text-xs font-medium mb-1 block">{label}{unit && <span className="text-muted-foreground ml-1">({unit})</span>}</label>
-      <Input type="number" value={value} onChange={e => onChange(e.target.value)} className="h-8 text-sm" />
-    </div>
-  );
-
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+    <Dialog open={open} onOpenChange={o => { if (!o) onClose(); }}>
       <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Ativo Vinculado</DialogTitle>
         </DialogHeader>
 
+        {/* ── CHOOSE ── */}
         {mode === "choose" && (
           <div className="grid grid-cols-2 gap-4 py-4">
             <button
@@ -184,6 +229,7 @@ export default function AtivoQuickModal({ open, onClose, onSelect, companyId }: 
           </div>
         )}
 
+        {/* ── SEARCH ── */}
         {mode === "search" && (
           <div className="space-y-3 py-2">
             <div className="relative">
@@ -207,7 +253,9 @@ export default function AtivoQuickModal({ open, onClose, onSelect, companyId }: 
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-medium">{a.nome}</span>
-                    {a.codigo_identificacao && <span className="font-mono text-xs text-muted-foreground">{a.codigo_identificacao}</span>}
+                    {a.codigo_identificacao && (
+                      <span className="font-mono text-xs text-muted-foreground">{a.codigo_identificacao}</span>
+                    )}
                   </div>
                   {(a.area_pavimento || a.identificacao_ambiente) && (
                     <p className="text-xs text-muted-foreground mt-0.5">
@@ -223,6 +271,7 @@ export default function AtivoQuickModal({ open, onClose, onSelect, companyId }: 
           </div>
         )}
 
+        {/* ── CREATE ── */}
         {mode === "create" && (
           <div className="space-y-4 py-2">
             <p className="text-xs text-muted-foreground bg-muted/30 rounded-md p-2">
@@ -232,15 +281,15 @@ export default function AtivoQuickModal({ open, onClose, onSelect, companyId }: 
             <div className="space-y-3">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Identificação</p>
               <div className="grid grid-cols-2 gap-3">
-                <F label="Nome *" value={form.nome} onChange={(v: string) => setForm(f => ({ ...f, nome: v }))} placeholder="Ex: Split Hi-Wall" />
-                <F label="Código" value={form.codigo_identificacao} onChange={(v: string) => setForm(f => ({ ...f, codigo_identificacao: v }))} placeholder="Ex: EQ-001" />
-                <S label="Tipo" value={form.tipo} onChange={(v: string) => setForm(f => ({ ...f, tipo: v }))} options={TIPO_EQUIPAMENTO_OPTIONS} />
-                <S label="Sistema" value={form.sistema} onChange={(v: string) => setForm(f => ({ ...f, sistema: v }))} options={SISTEMA_OPTIONS} />
-                <S label="Grupo" value={form.grupo_equipamentos} onChange={(v: string) => setForm(f => ({ ...f, grupo_equipamentos: v }))} options={GRUPO_EQUIPAMENTOS_OPTIONS} />
-                <F label="Marca" value={form.marca} onChange={(v: string) => setForm(f => ({ ...f, marca: v }))} placeholder="Ex: Carrier" />
-                <F label="Modelo" value={form.modelo} onChange={(v: string) => setForm(f => ({ ...f, modelo: v }))} placeholder="Ex: 42LUQA" />
-                <F label="Nº Série" value={form.numero_serie} onChange={(v: string) => setForm(f => ({ ...f, numero_serie: v }))} placeholder="S/N" />
-                <F label="Patrimônio" value={form.patrimonio} onChange={(v: string) => setForm(f => ({ ...f, patrimonio: v }))} placeholder="Nº patrimônio" />
+                <FieldText label="Nome *" value={form.nome} onChange={setField("nome")} placeholder="Ex: Split Hi-Wall" />
+                <FieldText label="Código" value={form.codigo_identificacao} onChange={setField("codigo_identificacao")} placeholder="Ex: EQ-001" />
+                <FieldSelect label="Tipo" value={form.tipo} onChange={setField("tipo")} options={TIPO_EQUIPAMENTO_OPTIONS} />
+                <FieldSelect label="Sistema" value={form.sistema} onChange={setField("sistema")} options={SISTEMA_OPTIONS} />
+                <FieldSelect label="Grupo" value={form.grupo_equipamentos} onChange={setField("grupo_equipamentos")} options={GRUPO_EQUIPAMENTOS_OPTIONS} />
+                <FieldText label="Marca" value={form.marca} onChange={setField("marca")} placeholder="Ex: Carrier" />
+                <FieldText label="Modelo" value={form.modelo} onChange={setField("modelo")} placeholder="Ex: 42LUQA" />
+                <FieldText label="Nº Série" value={form.numero_serie} onChange={setField("numero_serie")} placeholder="S/N" />
+                <FieldText label="Patrimônio" value={form.patrimonio} onChange={setField("patrimonio")} placeholder="Nº patrimônio" />
               </div>
             </div>
 
@@ -249,7 +298,10 @@ export default function AtivoQuickModal({ open, onClose, onSelect, companyId }: 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-medium mb-1 block">Unidade (Bloco)</label>
-                  <Select value={form.bloco_id || "__none__"} onValueChange={v => setForm(f => ({ ...f, bloco_id: v === "__none__" ? "" : v }))}>
+                  <Select
+                    value={form.bloco_id || "__none__"}
+                    onValueChange={v => setForm(f => ({ ...f, bloco_id: v === "__none__" ? "" : v }))}
+                  >
                     <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__none__">— Nenhum —</SelectItem>
@@ -257,42 +309,45 @@ export default function AtivoQuickModal({ open, onClose, onSelect, companyId }: 
                     </SelectContent>
                   </Select>
                 </div>
-                <S label="Grupo de Áreas" value={form.grupo_areas} onChange={(v: string) => setForm(f => ({ ...f, grupo_areas: v }))} options={["Ala Norte", "Ala Sul", "Ala Leste", "Ala Oeste", "Ala A", "Ala B", "Ala C", "Bloco Principal", "Anexo", "Outro"]} />
-                <S label="Área / Pavimento" value={form.area_pavimento} onChange={(v: string) => setForm(f => ({ ...f, area_pavimento: v }))} options={UNIDADE_OPTIONS} />
-                <F label="Identificação do Ambiente" value={form.identificacao_ambiente} onChange={(v: string) => setForm(f => ({ ...f, identificacao_ambiente: v }))} placeholder="Ex: Sala 301" />
-                <S label="Tipo de Atividade" value={form.tipo_atividade} onChange={(v: string) => setForm(f => ({ ...f, tipo_atividade: v }))} options={TIPO_ATIVIDADE_OPTIONS} />
+                <FieldSelect label="Grupo de Áreas" value={form.grupo_areas} onChange={setField("grupo_areas")}
+                  options={["Ala Norte", "Ala Sul", "Ala Leste", "Ala Oeste", "Ala A", "Ala B", "Ala C", "Bloco Principal", "Anexo", "Outro"]} />
+                <FieldSelect label="Área / Pavimento" value={form.area_pavimento} onChange={setField("area_pavimento")} options={UNIDADE_OPTIONS} />
+                <FieldText label="Identificação do Ambiente" value={form.identificacao_ambiente} onChange={setField("identificacao_ambiente")} placeholder="Ex: Sala 301" />
+                <FieldSelect label="Tipo de Atividade" value={form.tipo_atividade} onChange={setField("tipo_atividade")} options={TIPO_ATIVIDADE_OPTIONS} />
               </div>
             </div>
 
             <div className="space-y-3 border-t pt-3">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Dados Técnicos</p>
               <div className="grid grid-cols-4 gap-3">
-                <N label="Corrente" unit="A" value={form.corrente} onChange={(v: string) => setForm(f => ({ ...f, corrente: v }))} />
-                <N label="Capacidade" unit="BTU/h" value={form.capacidade_btu} onChange={(v: string) => setForm(f => ({ ...f, capacidade_btu: v }))} />
-                <N label="Tensão" unit="V" value={form.tensao} onChange={(v: string) => setForm(f => ({ ...f, tensao: v }))} />
-                <N label="Potência" unit="W" value={form.potencia} onChange={(v: string) => setForm(f => ({ ...f, potencia: v }))} />
+                <FieldNumber label="Corrente" unit="A" value={form.corrente} onChange={setField("corrente")} />
+                <FieldNumber label="Capacidade" unit="BTU/h" value={form.capacidade_btu} onChange={setField("capacidade_btu")} />
+                <FieldNumber label="Tensão" unit="V" value={form.tensao} onChange={setField("tensao")} />
+                <FieldNumber label="Potência" unit="W" value={form.potencia} onChange={setField("potencia")} />
               </div>
             </div>
 
             <div className="space-y-3 border-t pt-3">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Dados Operacionais</p>
               <div className="grid grid-cols-4 gap-3">
-                <N label="Área Climatizada" unit="m²" value={form.area_climatizada} onChange={(v: string) => setForm(f => ({ ...f, area_climatizada: v }))} />
-                <N label="Ocup. Fixos" value={form.ocupantes_fixos} onChange={(v: string) => setForm(f => ({ ...f, ocupantes_fixos: v }))} />
-                <N label="Ocup. Flutuantes" value={form.ocupantes_flutuantes} onChange={(v: string) => setForm(f => ({ ...f, ocupantes_flutuantes: v }))} />
-                <N label="Carga Térmica" unit="BTU/h" value={form.carga_termica} onChange={(v: string) => setForm(f => ({ ...f, carga_termica: v }))} />
+                <FieldNumber label="Área Climatizada" unit="m²" value={form.area_climatizada} onChange={setField("area_climatizada")} />
+                <FieldNumber label="Ocup. Fixos" value={form.ocupantes_fixos} onChange={setField("ocupantes_fixos")} />
+                <FieldNumber label="Ocup. Flutuantes" value={form.ocupantes_flutuantes} onChange={setField("ocupantes_flutuantes")} />
+                <FieldNumber label="Carga Térmica" unit="BTU/h" value={form.carga_termica} onChange={setField("carga_termica")} />
               </div>
             </div>
 
             <div className="space-y-3 border-t pt-3">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Informações Adicionais</p>
               <div className="grid grid-cols-2 gap-3">
-                <F label="Responsável Técnico" value={form.responsavel_tecnico} onChange={(v: string) => setForm(f => ({ ...f, responsavel_tecnico: v }))} placeholder="Nome" />
+                <FieldText label="Responsável Técnico" value={form.responsavel_tecnico} onChange={setField("responsavel_tecnico")} placeholder="Nome" />
                 <div>
                   <label className="text-xs font-medium mb-1 block">Data de Instalação</label>
-                  <Input type="date" value={form.data_instalacao} onChange={e => setForm(f => ({ ...f, data_instalacao: e.target.value }))} className="h-8 text-sm" />
+                  <Input type="date" value={form.data_instalacao}
+                    onChange={e => setForm(f => ({ ...f, data_instalacao: e.target.value }))}
+                    className="h-8 text-sm" />
                 </div>
-                <F label="Categoria" value={form.categoria} onChange={(v: string) => setForm(f => ({ ...f, categoria: v }))} placeholder="Ex: Climatização" />
+                <FieldText label="Categoria" value={form.categoria} onChange={setField("categoria")} placeholder="Ex: Climatização" />
                 <div>
                   <label className="text-xs font-medium mb-1 block">Status</label>
                   <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))}>
@@ -306,7 +361,9 @@ export default function AtivoQuickModal({ open, onClose, onSelect, companyId }: 
               </div>
               <div>
                 <label className="text-xs font-medium mb-1 block">Observações</label>
-                <Textarea value={form.observacoes} onChange={e => setForm(f => ({ ...f, observacoes: e.target.value }))} rows={2} className="text-sm" />
+                <Textarea value={form.observacoes}
+                  onChange={e => setForm(f => ({ ...f, observacoes: e.target.value }))}
+                  rows={2} className="text-sm" />
               </div>
             </div>
 

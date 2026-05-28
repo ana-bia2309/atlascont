@@ -4,7 +4,6 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
@@ -29,8 +28,10 @@ type Material = {
   unidade: string | null;
   valor_unitario: number | null;
   tipo_sistema: string | null;
+  fornecedor: string | null;
   status: string;
   created_at: string;
+  data_compra: string | null;
 };
 
 const emptyForm = {
@@ -38,7 +39,9 @@ const emptyForm = {
   descricao: "",
   unidade: "",
   valor_unitario: "",
+  data_compra: "",
   tipo_sistema: "",
+  fornecedor: "",
   status: "ativo",
 };
 
@@ -90,7 +93,9 @@ export default function Materiais() {
       unidade: form.unidade || null,
       valor_unitario: form.valor_unitario ? Number(form.valor_unitario) : null,
       tipo_sistema: form.tipo_sistema || null,
+      fornecedor: form.fornecedor.trim() || null,
       status: form.status,
+      data_compra: form.data_compra || null,
     };
 
     if (editing) {
@@ -119,7 +124,9 @@ export default function Materiais() {
       descricao: m.descricao,
       unidade: m.unidade || "",
       valor_unitario: m.valor_unitario?.toString() || "",
+      data_compra: m.data_compra || "",
       tipo_sistema: m.tipo_sistema || "",
+      fornecedor: m.fornecedor || "",
       status: m.status,
     });
     setOpen(true);
@@ -133,7 +140,7 @@ export default function Materiais() {
       if (filterSistema !== "all" && m.tipo_sistema !== filterSistema) return false;
       if (filterSearch.trim()) {
         const q = filterSearch.toLowerCase();
-        if (![m.descricao, m.codigo, m.tipo_sistema].some(f => (f || "").toLowerCase().includes(q))) return false;
+        if (![m.descricao, m.codigo, m.tipo_sistema, m.fornecedor].some(f => (f || "").toLowerCase().includes(q))) return false;
       }
       return true;
     });
@@ -166,7 +173,7 @@ export default function Materiais() {
           <label className="text-xs font-medium text-muted-foreground mb-1 block">Buscar</label>
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input value={filterSearch} onChange={e => setFilterSearch(e.target.value)} placeholder="Descrição, código..." className="pl-9" />
+            <Input value={filterSearch} onChange={e => setFilterSearch(e.target.value)} placeholder="Descrição, código, fornecedor..." className="pl-9" />
           </div>
         </div>
         <div className="min-w-[160px]">
@@ -207,6 +214,7 @@ export default function Materiais() {
               <TableHead>Descrição</TableHead>
               <TableHead>Unidade</TableHead>
               <TableHead>Valor Unit.</TableHead>
+              <TableHead>Fornecedor</TableHead>
               <TableHead>Sistema</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Ações</TableHead>
@@ -214,15 +222,16 @@ export default function Materiais() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
             ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum material encontrado</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum material encontrado</TableCell></TableRow>
             ) : filtered.map(m => (
               <TableRow key={m.id}>
                 <TableCell className="font-mono text-sm">{m.codigo || "—"}</TableCell>
                 <TableCell className="font-medium">{m.descricao}</TableCell>
                 <TableCell>{m.unidade || "—"}</TableCell>
                 <TableCell>{m.valor_unitario != null ? `R$ ${Number(m.valor_unitario).toFixed(2)}` : "—"}</TableCell>
+                <TableCell>{m.fornecedor || "—"}</TableCell>
                 <TableCell>{m.tipo_sistema || "—"}</TableCell>
                 <TableCell>
                   <Badge variant="outline" className={cn(
@@ -245,7 +254,7 @@ export default function Materiais() {
 
       {/* Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[520px]">
           <DialogHeader>
             <DialogTitle>{editing ? "Editar Material" : "Novo Material"}</DialogTitle>
           </DialogHeader>
@@ -285,6 +294,19 @@ export default function Materiais() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+            {/* Fornecedor — agora no cadastro */}
+            <div>
+              <label className="text-sm font-medium mb-1 block">Fornecedor</label>
+              <Input
+                value={form.fornecedor}
+                onChange={e => setForm(f => ({ ...f, fornecedor: e.target.value }))}
+                placeholder="Ex: Distribuidora XYZ"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Data de Compra</label>
+              <Input type="date" value={form.data_compra} onChange={e => setForm(f => ({ ...f, data_compra: e.target.value }))} />
             </div>
             <div>
               <label className="text-sm font-medium mb-1 block">Status</label>

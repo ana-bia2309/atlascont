@@ -1579,17 +1579,7 @@ fetchData();
                 excludeIds={[...formResponsaveis, ...formFiscais]}
               />
             )}
-            {/* Fiscais multi-select */}
-            {!(isTecnico && editing) && (
-              <MultiUserSelect
-                label="Fiscais (Aprovação de Orçamento)"
-                options={tecnicosOptions}
-                selected={formFiscais}
-                onChange={setFormFiscais}
-                placeholder="Adicionar fiscal..."
-                excludeIds={[...formResponsaveis, ...formColaboradores]}
-              />
-            )}
+            
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium mb-1 block">Cronograma</label>
