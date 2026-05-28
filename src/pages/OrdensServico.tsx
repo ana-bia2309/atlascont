@@ -50,6 +50,7 @@ import { logActivity, computeDiff } from "@/lib/activity-log";
 import { computeSlaStatus, formatSlaDeadline } from "@/lib/sla-utils";
 import { STATUS_OPTIONS, getStatusColor, isFinishedStatus } from "@/lib/os-status";
 import AtivoQuickModal from "@/components/os/AtivoQuickModal";
+import AtivoDisponibilidadeSection from "@/components/os/AtivoDisponibilidadeSection";
 
 type Bloco = { id: string; nome: string | null };
 type CronogramaOption = { id: string; titulo: string };
@@ -127,6 +128,28 @@ function DatePickerField({
   );
 }
 
+function AtivoStatusBadge({ ativoId, nome }: { ativoId: string; nome: string }) {
+  const [status, setStatus] = useState<string | null>(null);
+  useEffect(() => {
+    (supabase as any).from("ativos").select("disponibilidade_status")
+      .eq("id", ativoId).single()
+      .then(({ data }: any) => setStatus(data?.disponibilidade_status || null));
+  }, [ativoId]);
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="font-medium">{nome}</span>
+      {status && (
+        <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${
+          status === "indisponivel"
+            ? "bg-red-50 text-red-700 border-red-200"
+            : "bg-emerald-50 text-emerald-700 border-emerald-200"
+        }`}>
+          {status === "indisponivel" ? "🔴 Indisponível" : "🟢 Disponível"}
+        </span>
+      )}
+    </div>
+  );
+}
 export default function OrdensServico() {
   const { companyId } = useCompany();
   const { can } = usePermissions();
@@ -1693,6 +1716,16 @@ fetchData();
                 <Textarea value={observacoes} onChange={(e) => setObservacoes(e.target.value)} placeholder="Observações" rows={4} disabled={isTecnico && !!editing} />
               </div>
             </div>
+            {editing?.id && ativoId && ativoId !== "__none__" && (
+              <div className="border-t pt-4">
+                <AtivoDisponibilidadeSection
+                  osId={editing.id}
+                  ativoId={ativoId}
+                  ativoNome={ativosOptions.find(a => a.id === ativoId)?.nome || "Ativo"}
+                  readOnly={!can("painel_os.editar") && !isTecnicoAssigned(editing)}
+                />
+              </div>
+            )}
             {!(isTecnico && editing) && (
               <div className="border-t pt-4">
                 <MateriaisSection ref={materiaisRef} osId={editing?.id || null} readOnly={!can("painel_os.editar") && !can("painel_os.criar")} />
@@ -1782,11 +1815,14 @@ fetchData();
                 <div><span className="text-muted-foreground">Início:</span> <span className="font-medium">{fmtDate(viewing.data_inicio)}</span></div>
                 <div><span className="text-muted-foreground">Término:</span> <span className="font-medium">{fmtDate(viewing.data_termino)}</span></div>
                 <div><span className="text-muted-foreground">Custo Total:</span> <span className="font-semibold text-primary">{viewing.custo_total ? `R$ ${Number(viewing.custo_total).toFixed(2)}` : "—"}</span></div>
-                <div><span className="text-muted-foreground">Ativo:</span> <span className="font-medium">{
-                  (viewing as any).ativo_id
-                    ? ativosOptions.find(a => a.id === (viewing as any).ativo_id)?.nome || "—"
-                    : "—"
-                }</span></div>
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Ativo:</span>
+                  {(viewing as any).ativo_id ? (
+                    <AtivoStatusBadge ativoId={(viewing as any).ativo_id} nome={ativosOptions.find(a => a.id === (viewing as any).ativo_id)?.nome || "—"} />
+                  ) : (
+                    <span className="font-medium">—</span>
+                  )}
+                </div>
                 <div><span className="text-muted-foreground">Responsável:</span> <span className="font-medium">{
                   (responsaveisMap[viewing.id] || []).length > 0 ? responsaveisMap[viewing.id].join(", ") : "—"
                 }</span></div>
