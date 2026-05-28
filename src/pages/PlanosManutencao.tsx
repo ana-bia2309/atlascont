@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePermissions } from "@/hooks/use-permissions";
+import { useCompany } from "@/hooks/use-company";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { migrateLegacyPreventiveOrdersIfNeeded } from "@/lib/migrateLegacyPreventiveOrders";
 import { createPreventiveOrder } from "@/lib/createPreventiveOrder";
+import { autoGeneratePreventivas } from "@/lib/autoGeneratePreventivas";
 
 type Bloco = { id: string; nome: string | null };
 type Ativo = {
@@ -228,6 +230,7 @@ const opStatusDot = (s: string | null | undefined) => {
 export default function PlanosManutencao() {
   const navigate = useNavigate();
   const { can } = usePermissions();
+  const { companyId } = useCompany();
 
   const [planos, setPlanos] = useState<Plano[]>([]);
   const [ativos, setAtivos] = useState<Ativo[]>([]);
@@ -297,14 +300,18 @@ export default function PlanosManutencao() {
   const [deletePrevId, setDeletePrevId] = useState<string | null>(null);
   const [openingPreventivaId, setOpeningPreventivaId] = useState<string | null>(null);
 
+  
   const fetchAll = useCallback(async () => {
+    if (!companyId) return;
+    console.log("fetchAll companyId:", companyId);
     setLoading(true);
     await migrateLegacyPreventiveOrdersIfNeeded();
+    await autoGeneratePreventivas();
     const [planosRes, ativosRes, blocosRes, profilesRes, paRes, atRes, prevRes, opRes, histPrevRes] = await Promise.all([
       supabase.from("planos_manutencao").select("*").order("created_at", { ascending: false }),
-      supabase.from("ativos").select("id, nome, codigo_identificacao, bloco_id, andar, sala, identificacao_ambiente, area_pavimento, grupo_areas").order("nome"),
+      (supabase as any).from("ativos").select("id, nome, codigo_identificacao, bloco_id, andar, sala, identificacao_ambiente, area_pavimento, grupo_areas").eq("company_id", companyId).order("nome"),
       supabase.from("blocos").select("id, nome"),
-      supabase.from("profiles").select("id, nome").eq("status", "ativo").order("nome"),
+      (supabase as any).from("profiles").select("id, nome").eq("status", "ativo").eq("company_id", companyId).order("nome"),
       supabase.from("plano_ativos").select("*"),
       supabase.from("plano_atividades").select("*").order("ordem"),
       supabase.from("manutencao_preventiva").select("id, titulo, ativo_id, bloco_id, frequencia, proxima_execucao, ultima_execucao, ativo, plano_id"),
@@ -330,7 +337,7 @@ export default function PlanosManutencao() {
     }));
     setOrdensPreventivas(opsHydrated);
     setLoading(false);
-  }, []);
+  }, [companyId]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -1182,15 +1189,7 @@ for (const mestre of existentesArr) {
                   {can("preventivas.criar") && (
                     <div className="px-4 pl-5 py-3 border-b border-border/60 bg-muted/20">
                       <div className="flex flex-wrap items-center justify-end gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => { setAtivoDialogPlanoId(p.id); setSelectedAtivoId(""); setAtivoDialogOpen(true); }}
-                          className="h-8 gap-1.5 text-xs font-medium"
-                        >
-                          <Wrench className="h-3.5 w-3.5" /> Vincular ativo
-                        </Button>
+                
                         <Button
                           type="button"
                           size="sm"
