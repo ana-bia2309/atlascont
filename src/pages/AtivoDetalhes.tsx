@@ -337,22 +337,6 @@ const DialogDisponibilidade = (
           <Button variant="outline" size="sm" onClick={() => navigate(`/ativos?edit=${ativo.id}`)}>
             <Pencil className="mr-1.5 h-3.5 w-3.5" /> Editar
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className={cn(
-              ativo.disponibilidade === "indisponivel"
-                ? "border-red-300 text-red-700 hover:bg-red-50"
-                : "border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-            )}
-            onClick={() => {
-              setNovaDisponibilidade(ativo.disponibilidade === "indisponivel" ? "disponivel" : "indisponivel");
-              setObsDisponibilidade("");
-              setDisponibilidadeOpen(true);
-            }}
-          >
-            {ativo.disponibilidade === "indisponivel" ? "🔴 Indisponível" : "🟢 Disponível"}
-          </Button>
         </div>
       </div>
 
@@ -603,7 +587,6 @@ const DialogDisponibilidade = (
           </Button>
         </DialogContent>
       </Dialog>
-    {DialogDisponibilidade}
     </div>
   );
 }
