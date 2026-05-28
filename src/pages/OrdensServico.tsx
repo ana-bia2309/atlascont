@@ -107,6 +107,13 @@ const PRIORIDADE_COLORS: Record<string, string> = {
   "Crítica": "bg-red-50 text-red-700 border-red-200",
 };
 
+const PRIORIDADE_ICONS: Record<string, string> = {
+  "Baixa": "🔵",
+  "Média": "🟡",
+  "Alta": "🟠",
+  "Crítica": "🔴",
+};
+
 function DatePickerField({
   label, value, onChange,
 }: { label: React.ReactNode; value: Date | undefined; onChange: (date: Date | undefined) => void }) {
@@ -1442,10 +1449,10 @@ fetchData();
                     {/* Prioridade */}
                     <TableCell>
                       <span className={cn(
-                        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border",
+                        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border gap-1",
                         PRIORIDADE_COLORS[os.prioridade || "Média"] || "",
                       )}>
-                        {os.prioridade || "Média"}
+                        {PRIORIDADE_ICONS[os.prioridade || "Média"]} {os.prioridade || "Média"}
                       </span>
                     </TableCell>
 
@@ -1789,8 +1796,8 @@ fetchData();
                 <div><span className="text-muted-foreground">Status:</span> <span className="font-medium">{viewing.status || "—"}</span></div>
                 <div>
                   <span className="text-muted-foreground">Prioridade:</span>{" "}
-                  <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold border", PRIORIDADE_COLORS[viewing.prioridade || "Média"] || "")}>
-                    {viewing.prioridade || "Média"}
+                  <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold border", PRIORIDADE_COLORS[viewing.prioridade || "Média"] || "")}>
+                    {PRIORIDADE_ICONS[viewing.prioridade || "Média"]} {viewing.prioridade || "Média"}
                   </span>
                 </div>
                 <div><span className="text-muted-foreground">Bloco:</span> <span className="font-medium">{viewing.bloco_id ? blocosMap[viewing.bloco_id] || "—" : "—"}</span></div>
