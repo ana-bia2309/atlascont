@@ -936,6 +936,31 @@ const labelCampo = (label: string, campo: string) => (
     setBulkDeleteOpen(false);
   };
 
+  const handleReopen = async (os: OrdemServico) => {
+  if (!can("painel_os.editar")) {
+    toast({ title: "Sem permissão para reabrir O.S.", variant: "destructive" });
+    return;
+  }
+  const profileId = await getCurrentProfileId();
+  const { error } = await (supabase as any)
+    .from("ordens_servico")
+    .update({
+      status: "Em Execução",
+      finalizado_por: null,
+      finalizado_em: null,
+      editado_por: profileId,
+      editado_em: new Date().toISOString(),
+    })
+    .eq("id", os.id)
+    .eq("company_id", companyId);
+  if (error) {
+    toast({ title: "Erro ao reabrir", description: error.message, variant: "destructive" });
+    return;
+  }
+  await logHistoricoOS(os.id, "Reabertura", `Reabriu O.S. ${os.codigo_os || os.id}`, { status: os.status }, { status: "Em Execução" });
+  toast({ title: `O.S. ${os.codigo_os || ""} reaberta!` });
+  fetchData();
+};
   const handleFinalize = async (os: OrdemServico) => {
 
   if (!can("painel_os.editar")) {
@@ -943,12 +968,32 @@ const labelCampo = (label: string, campo: string) => (
     return;
   }
 
-  // Bloqueia se houver orçamento pendente ou reprovado
+ // Bloqueia se houver orçamento pendente, reprovado ou não enviado
   const orcamentoStatus = (os as any).orcamento_status;
-  if (orcamentoStatus === "pendente" || orcamentoStatus === "reprovado") {
+  const temMateriais = (materiaisMap[os.id] || []).length > 0;
+
+  if (temMateriais && !orcamentoStatus) {
     toast({
-      title: "Não é possível finalizar a O.S.",
-      description: "Não é possível finalizar a Ordem de Serviço sem aprovação do orçamento.",
+      title: "Orçamento não enviado",
+      description: "Esta O.S. possui materiais mas o orçamento ainda não foi enviado para aprovação.",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  if (orcamentoStatus === "pendente") {
+    toast({
+      title: "Orçamento aguardando aprovação",
+      description: "Aguarde a aprovação do orçamento antes de finalizar.",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  if (orcamentoStatus === "reprovado") {
+    toast({
+      title: "Orçamento reprovado",
+      description: "O orçamento foi reprovado. Revise os materiais e reenvie para aprovação.",
       variant: "destructive",
     });
     return;
@@ -1438,6 +1483,17 @@ fetchData();
                     {/* Ações */}
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-0.5">
+                        {can("painel_os.editar") && isFinishedStatus(os.status) && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleReopen(os)}
+                            title="Reabrir O.S."
+                            className="text-amber-600 hover:text-amber-400"
+                          >
+                            <RefreshCw className="h-4 w-4" />
+                          </Button>
+                        )}
                        {can("painel_os.editar") && !isFinishedStatus(os.status) && (
                           <Button
                             variant="ghost"
@@ -1457,7 +1513,7 @@ fetchData();
                             <DownloadIcon className="h-4 w-4" />
                           </Button>
                         )}
-                        {(can("painel_os.editar") || isTecnicoAssigned(os)) && (
+                        {(can("painel_os.editar") || isTecnicoAssigned(os)) && !isFinishedStatus(os.status) && (
                           <Button variant="ghost" size="icon" onClick={() => openEdit(os)} title="Editar">
                             <Pencil className="h-4 w-4" />
                           </Button>
@@ -1579,7 +1635,7 @@ fetchData();
                 excludeIds={[...formResponsaveis, ...formFiscais]}
               />
             )}
-            
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium mb-1 block">Cronograma</label>
@@ -1816,6 +1872,15 @@ fetchData();
             </div>
           )}
           <DialogFooter className="flex gap-2">
+            {viewing && isFinishedStatus(viewing.status) && can("painel_os.editar") && (
+              <Button
+                variant="outline"
+                className="border-amber-400 text-amber-700 hover:bg-amber-50"
+                onClick={() => { handleReopen(viewing); setViewing(null); }}
+              >
+                <RefreshCw className="mr-2 h-4 w-4" /> Reabrir
+              </Button>
+            )}
             {viewing && !isFinishedStatus(viewing.status) && can("painel_os.editar") && (
               <Button
                 variant="default"
@@ -1830,7 +1895,7 @@ fetchData();
                 <DownloadIcon className="mr-2 h-4 w-4" /> Baixar PDF
               </Button>
             )}
-            {viewing && (can("painel_os.editar") || isTecnicoAssigned(viewing)) && (
+            {viewing && (can("painel_os.editar") || isTecnicoAssigned(viewing)) && !isFinishedStatus(viewing.status) && (
               <Button variant="outline" onClick={() => { setPendingEdit(viewing); setViewing(null); }}>
                 <Pencil className="mr-2 h-4 w-4" /> Editar
               </Button>
