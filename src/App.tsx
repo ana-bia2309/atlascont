@@ -49,6 +49,7 @@ import OsCamposConfig from "@/pages/OsCamposConfig";
 import RegrasPrioridade from "@/pages/RegrasPrioridade";
 import Estoque from "@/pages/Estoque";
 import CentralPlanejamento from "@/pages/CentralPlanejamento";
+import Agenda from "@/pages/Agenda";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -94,6 +95,7 @@ const App = () => (
             <Route path="/regras-prioridade" element={<RegrasPrioridade />} />
             <Route path="/estoque" element={<Estoque />} />
             <Route path="/planejamento" element={<CentralPlanejamento />} />
+            <Route path="/agenda" element={<Agenda />} />
           </Route>
 <Route path="/login" element={<Login />} />
 <Route path="/onboarding" element={<Onboarding />} />
