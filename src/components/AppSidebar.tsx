@@ -1,7 +1,7 @@
 import {
   Gauge, ClipboardList, CalendarRange, Wrench, BarChart3, Clock, Activity,
   DollarSign, Timer, ListChecks, Building2, Box, ShieldCheck, KeyRound, LogOut, User, Settings, Settings2, Briefcase, ChevronRight, MessagesSquare, Package,
-  CheckCircle2,
+  CheckCircle2, Bot,
 } from "@/lib/icons";
 import { usePendingCounts } from "@/hooks/use-pending-counts";
 import { NotificationsPanel } from "@/components/NotificationsPanel";
@@ -100,7 +100,7 @@ const relatoriosGroup: MenuGroup = {
 };
 
 const custosGroup: MenuGroup = {
-  id: "custos", title: "Gestão de Custos", icon: DollarSign, iconColor: "#F59E0B", menuKey: "menu.custos",
+  id: "custos", title: "Gestão Financeira", icon: DollarSign, iconColor: "#F59E0B", menuKey: "menu.custos",
   items: [
     { title: "Gastos", url: "/gastos", icon: DollarSign, requiredPermission: "gastos.visualizar" },
     { title: "Relatório Mensal", url: "/relatorio-mensal", icon: CalendarRange, requiredPermission: "relatorio_mensal.visualizar" },
@@ -267,9 +267,7 @@ export function AppSidebar() {
     "/cronogramas": cronogramasPendentes,
   };
 
-  // Accordion: only one group open at a time
-  const allGroups = [osGroup, preventivaGroup, relatoriosGroup, custosGroup, almoxarifadoGroup, configGroup, cadastrosGroup];
-  const initialOpen = allGroups.find((g) =>
+const allGroups = [osGroup, preventivaGroup, relatoriosGroup, custosGroup, almoxarifadoGroup, configGroup, cadastrosGroup];  const initialOpen = allGroups.find((g) =>
     g.items.some((i) => location.pathname === i.url || location.pathname.startsWith(i.url + "/"))
   )?.id ?? null;
 
@@ -354,7 +352,7 @@ const filterItems = useCallback(
 
         <Separator className="mx-3 my-1 w-auto" />
 
-        {/* Gestão */}
+     {/* Gestão */}
         <SidebarGroup>
           {!collapsed && (
             <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
@@ -366,6 +364,24 @@ const filterItems = useCallback(
               <CollapsibleGroup {...groupProps(relatoriosGroup)} />
               <CollapsibleGroup {...groupProps(custosGroup)} />
               <CollapsibleGroup {...groupProps(almoxarifadoGroup)} />
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <Separator className="mx-3 my-1 w-auto" />
+
+        {/* IA Atlas */}
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <a href="/ia" className="flex items-center gap-2">
+                    <Bot className="h-4 w-4 shrink-0" style={{ color: "#8B5CF6" }} />
+                    {!collapsed && <span className="font-medium">IA Atlas</span>}
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
