@@ -111,6 +111,7 @@ const almoxarifadoGroup: MenuGroup = {
   id: "almoxarifado", title: "Almoxarifado", icon: Package, iconColor: "#8B5CF6",
   items: [
     { title: "Cadastro de Materiais", url: "/materiais", icon: Package, iconColor: "#8B5CF6" },
+    { title: "Estoque", url: "/estoque", icon: Package, iconColor: "#10B981" },
   ],
 };
 

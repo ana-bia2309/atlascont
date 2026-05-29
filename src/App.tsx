@@ -47,6 +47,7 @@ import RelatorioAtivos from "@/pages/RelatorioAtivos";
 import IAAtlas from "@/pages/IAAtlas";
 import OsCamposConfig from "@/pages/OsCamposConfig";
 import RegrasPrioridade from "@/pages/RegrasPrioridade";
+import Estoque from "@/pages/Estoque";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -90,6 +91,7 @@ const App = () => (
             <Route path="/relatorio-homem-hora" element={<RelatorioHomemHora />} />
             <Route path="/ia" element={<IAAtlas />} />
             <Route path="/regras-prioridade" element={<RegrasPrioridade />} />
+            <Route path="/estoque" element={<Estoque />} />
           </Route>
 <Route path="/login" element={<Login />} />
 <Route path="/onboarding" element={<Onboarding />} />
