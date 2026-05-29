@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Search, Star, StarOff, Pencil, Trash2, Lightbulb, BookOpen, RefreshCw, X, Calendar } from "@/lib/icons";
+import { Plus, Search, Star, StarOff, Pencil, Trash2, Lightbulb, BookOpen, RefreshCw, X, Calendar, LayoutGrid } from "@/lib/icons";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -55,7 +55,7 @@ const STATUS_ICONS: Record<string, string> = {
 export default function CentralPlanejamento() {
   const { companyId } = useCompany();
   const [userId, setUserId] = useState<string | null>(null);
-  const [tab, setTab] = useState<"notas" | "ideias" | "agenda">("notas");
+  const [tab, setTab] = useState<"notas" | "ideias" | "agenda" | "kanban">("notas");
 
   // Notas
   const [notas, setNotas] = useState<Nota[]>([]);
@@ -238,7 +238,7 @@ export default function CentralPlanejamento() {
           <Button variant="outline" size="icon" onClick={() => { fetchNotas(); fetchIdeias(); }}>
             <RefreshCw className="h-4 w-4" />
           </Button>
-          <Button onClick={() => tab === "notas" ? openNota() : tab === "ideias" ? openIdeia() : window.location.href = "/agenda"}>
+          <Button onClick={() => tab === "notas" ? openNota() : tab === "ideias" ? openIdeia() : tab === "kanban" ? window.location.href = "/kanban" : window.location.href = "/agenda"}>
             <Plus className="h-4 w-4 mr-2" />
             {tab === "notas" ? "Nova Nota" : tab === "ideias" ? "Nova Ideia" : "Novo Evento"}
           </Button>
@@ -258,6 +258,11 @@ export default function CentralPlanejamento() {
             tab === "ideias" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>
           <Lightbulb className="h-4 w-4" /> Banco de Ideias
           <span className="text-xs bg-muted px-1.5 py-0.5 rounded-full">{ideias.length}</span>
+        </button>
+        <button onClick={() => setTab("kanban")}
+          className={cn("px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2",
+            tab === "kanban" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>
+          <LayoutGrid className="h-4 w-4" /> Kanban
         </button>
         <button onClick={() => setTab("agenda")}
           className={cn("px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2",
@@ -447,7 +452,21 @@ export default function CentralPlanejamento() {
           )}
         </>
       )}
-      
+
+{/* ── KANBAN ── */}
+      {tab === "kanban" && (
+        <div className="flex flex-col items-center py-16 gap-4">
+          <LayoutGrid className="h-16 w-16 text-primary opacity-80" />
+          <div className="text-center">
+            <h2 className="text-xl font-bold mb-2">Kanban de Projetos</h2>
+            <p className="text-muted-foreground mb-4">Gerencie projetos com quadros visuais e drag & drop</p>
+            <Button onClick={() => window.location.href = "/kanban"}>
+              <LayoutGrid className="h-4 w-4 mr-2" /> Abrir Kanban
+            </Button>
+          </div>
+        </div>
+      )}
+
 {/* ── AGENDA ── */}
       {tab === "agenda" && (
         <div className="flex flex-col items-center py-16 gap-4">

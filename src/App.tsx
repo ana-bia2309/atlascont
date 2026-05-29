@@ -50,6 +50,7 @@ import RegrasPrioridade from "@/pages/RegrasPrioridade";
 import Estoque from "@/pages/Estoque";
 import CentralPlanejamento from "@/pages/CentralPlanejamento";
 import Agenda from "@/pages/Agenda";
+import Kanban from "@/pages/Kanban";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -95,6 +96,7 @@ const App = () => (
             <Route path="/regras-prioridade" element={<RegrasPrioridade />} />
             <Route path="/estoque" element={<Estoque />} />
             <Route path="/planejamento" element={<CentralPlanejamento />} />
+            <Route path="/kanban" element={<Kanban />} />
             <Route path="/agenda" element={<Agenda />} />
           </Route>
 <Route path="/login" element={<Login />} />
