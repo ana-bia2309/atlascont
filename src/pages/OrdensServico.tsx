@@ -556,6 +556,26 @@ const { data: colabData } = await (supabase as any)
   const [codigoOs, setCodigoOs] = useState("");
   const [status, setStatus] = useState("Não Iniciada");
   const [prioridade, setPrioridade] = useState("Média");
+
+  const handlePrioridadeChange = useCallback(async (novaPrioridade: string) => {
+    setPrioridade(novaPrioridade);
+    console.log("prioridade mudou:", novaPrioridade, "companyId:", companyId);
+    if (!companyId) return;
+    try {
+      const { data } = await (supabase as any)
+        .from("prioridade_regras")
+        .select("prazo_horas")
+        .eq("company_id", companyId)
+        .eq("prioridade", novaPrioridade)
+        .maybeSingle();
+      if (data?.prazo_horas) {
+        const novoPrazo = new Date();
+        novoPrazo.setHours(novoPrazo.getHours() + data.prazo_horas);
+        setPrazo(novoPrazo);
+        toast({ title: `Prazo definido automaticamente: ${format(novoPrazo, "dd/MM/yyyy")}` });
+      }
+    } catch { /* silencioso */ }
+  }, [companyId]);
   const [blocoId, setBlocoId] = useState("");
   const [prazo, setPrazo] = useState<Date | undefined>();
   const [dataInicio, setDataInicio] = useState<Date | undefined>();
@@ -1613,7 +1633,7 @@ fetchData();
               {!(isTecnico && editing) ? (
               <div>
                 <label className="text-sm font-medium mb-1 block">{labelCampo("Prioridade", "prioridade")}</label>
-                <Select value={prioridade} onValueChange={setPrioridade}>
+                <Select value={prioridade} onValueChange={handlePrioridadeChange}>
                   <SelectTrigger><SelectValue placeholder="Prioridade" /></SelectTrigger>
                   <SelectContent>
                     {PRIORIDADE_OPTIONS.map((p) => (<SelectItem key={p} value={p}>{p}</SelectItem>))}
@@ -1708,7 +1728,12 @@ fetchData();
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <DatePickerField label={labelCampo("Prazo", "prazo")} value={prazo} onChange={setPrazo} />
+                <div>
+                  <label className="text-sm font-medium mb-1 block">{labelCampo("Prazo", "prazo")}</label>
+                  <div className="flex items-center gap-2 h-10 px-3 rounded-md border bg-muted text-sm text-muted-foreground cursor-not-allowed">
+                    {prazo ? format(prazo, "dd/MM/yyyy") : "Definido automaticamente pela prioridade"}
+                  </div>
+                </div>
                 <DatePickerField label={labelCampo("Data Início", "data_inicio")} value={dataInicio} onChange={setDataInicio} />
                 <DatePickerField label={labelCampo("Data Término", "data_termino")} value={dataTermino} onChange={setDataTermino} />
               </div>

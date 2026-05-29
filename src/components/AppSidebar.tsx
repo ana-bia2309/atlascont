@@ -123,6 +123,7 @@ const configGroup: MenuGroup = {
     { title: "Tipos de Atividade", url: "/tipos-atividade", icon: ClipboardList, requiredPermission: "sla.visualizar" },
     { title: "Tipos de Sistema", url: "/tipos-sistema", icon: Settings2, requiredPermission: "sla.visualizar" },
     { title: "Campos Obrigatórios O.S.", url: "/os-campos-config", icon: Settings2 },
+    { title: "Regras de Prioridade", url: "/regras-prioridade", icon: Timer },
   ],
 };
 
