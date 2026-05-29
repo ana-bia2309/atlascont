@@ -100,22 +100,38 @@ export default function IAAtlas() {
       let ctx = "";
       if (companyId) {
         const [osRes, ativosRes] = await Promise.all([
-          (supabase as any).from("ordens_servico").select("codigo_os, status, prioridade, bloco_id, custo_total").eq("company_id", companyId).limit(50),
-          (supabase as any).from("ativos").select("nome, disponibilidade_status, sistema").eq("company_id", companyId).limit(30),
+          (supabase as any).from("ordens_servico")
+            .select("codigo_os, status, prioridade, bloco_id, custo_total, created_at")
+            .eq("company_id", companyId)
+            .order("created_at", { ascending: false })
+            .limit(200),
+          (supabase as any).from("ativos")
+            .select("nome, disponibilidade_status, sistema")
+            .eq("company_id", companyId)
+            .limit(100),
         ]);
-        if (osRes.data?.length) ctx += `\nOS: ${JSON.stringify(osRes.data)}`;
+        if (osRes.data?.length) {
+          const osAbertas = osRes.data.filter((os: any) => !["Concluída", "Cancelada"].includes(os.status));
+          const osConcluidas = osRes.data.filter((os: any) => os.status === "Concluída");
+          ctx += `\nTotal de OS: ${osRes.data.length}`;
+          ctx += `\nOS em aberto (não concluídas/canceladas): ${osAbertas.length}`;
+          ctx += `\nOS concluídas: ${osConcluidas.length}`;
+          ctx += `\nDetalhes das OS: ${JSON.stringify(osRes.data)}`;
+        }
         if (ativosRes.data?.length) ctx += `\nAtivos: ${JSON.stringify(ativosRes.data)}`;
       }
 
-      const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
       const isRelatorio = /excel|pdf|relat[oó]rio|planilha/i.test(content);
       const userContent = ctx
         ? `${content}\n\n[CONTEXTO DO SISTEMA:${ctx}]${isRelatorio ? "\n[INSTRUÇÃO: Use as tags <excel> ou <pdf> para gerar o relatório]" : ""}`
         : content;
 
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      const response = await fetch("https://tayxbbpyxbomiatbiirx.supabase.co/functions/v1/openai-proxy", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
         body: JSON.stringify({
           model: "gpt-4o-mini",
           messages: [
