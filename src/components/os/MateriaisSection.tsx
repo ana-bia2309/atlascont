@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Pencil, Trash2, Save, X, Send, ShoppingCart, Package } from "@/lib/icons";
 import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 export type LocalMaterial = {
   _localId: string;
@@ -46,7 +47,7 @@ interface MateriaisSectionProps {
   readOnly?: boolean;
 }
 
-// ── FiscaisSelector — declarado ANTES de MateriaisSection ────────────────────
+// ── FiscaisSelector ──────────────────────────────────────────────────────────
 function FiscaisSelector({ osId }: { osId: string }) {
   const [fiscais, setFiscais] = useState<{ id: string; profile_id: string; nome: string }[]>([]);
   const [profiles, setProfiles] = useState<{ id: string; nome: string }[]>([]);
@@ -65,7 +66,6 @@ function FiscaisSelector({ osId }: { osId: string }) {
     supabase.from("profiles").select("id, nome, company_id").eq("status", "ativo").order("nome")
       .then(({ data }) => {
         if (data) {
-          // Pega company_id do primeiro fiscal ou do osId
           supabase.from("ordens_servico").select("company_id").eq("id", osId).single()
             .then(({ data: osData }) => {
               if (osData?.company_id) {
@@ -96,8 +96,7 @@ function FiscaisSelector({ osId }: { osId: string }) {
     <div className="px-4 py-3 border-t border-amber-100 bg-amber-50/60 space-y-2">
       <div className="flex items-center justify-between">
         <span className="text-xs font-semibold text-amber-700">Fiscais para Aprovação</span>
-        <Button variant="ghost" size="sm"
-          className="h-6 text-xs gap-1 text-amber-700 hover:bg-amber-100"
+        <Button variant="ghost" size="sm" className="h-6 text-xs gap-1 text-amber-700 hover:bg-amber-100"
           onClick={() => setShowSelect(s => !s)}>
           <Plus className="h-3 w-3" /> Adicionar fiscal
         </Button>
@@ -117,8 +116,7 @@ function FiscaisSelector({ osId }: { osId: string }) {
         : (
           <div className="flex flex-wrap gap-1.5">
             {fiscais.map(f => (
-              <div key={f.id}
-                className="flex items-center gap-1 bg-amber-50 border border-amber-200 text-amber-800 rounded-full px-2.5 py-1 text-xs font-medium">
+              <div key={f.id} className="flex items-center gap-1 bg-amber-50 border border-amber-200 text-amber-800 rounded-full px-2.5 py-1 text-xs font-medium">
                 {f.nome}
                 <button onClick={() => remove(f.id)} className="ml-0.5 hover:text-destructive">
                   <X className="h-2.5 w-2.5" />
@@ -132,7 +130,7 @@ function FiscaisSelector({ osId }: { osId: string }) {
   );
 }
 
-// ── MaterialForm — declarado ANTES de MateriaisSection ───────────────────────
+// ── MaterialForm ─────────────────────────────────────────────────────────────
 function MaterialForm({
   draft, setDraft, onSave, onCancel, calcTotal, saveLabel, companyId,
 }: {
@@ -151,6 +149,8 @@ function MaterialForm({
   }[]>([]);
   const [busca, setBusca] = useState("");
   const [showList, setShowList] = useState(false);
+  const [estoqueInfo, setEstoqueInfo] = useState<{ disponivel: number; unidade: string } | null>(null);
+  const [materialId, setMaterialId] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -180,7 +180,7 @@ function MaterialForm({
         return m.descricao.toLowerCase().includes(q) || (m.codigo || "").toLowerCase().includes(q);
       });
 
-  const selecionarMaterial = (m: typeof materiais[0]) => {
+  const selecionarMaterial = async (m: typeof materiais[0]) => {
     setDraft({
       ...draft,
       nome_material: m.descricao,
@@ -191,11 +191,20 @@ function MaterialForm({
     });
     setBusca(m.codigo ? `${m.codigo} — ${m.descricao}` : m.descricao);
     setShowList(false);
+    setMaterialId(m.id);
+
+    // Busca estoque disponível
+    const { data } = await (supabase as any)
+      .from("estoque")
+      .select("quantidade_disponivel")
+      .eq("material_id", m.id)
+      .maybeSingle();
+    setEstoqueInfo({ disponivel: Number(data?.quantidade_disponivel || 0), unidade: m.unidade || "un" });
   };
 
   const limpar = () => {
     setDraft({ ...draft, nome_material: "", custo_unitario: "0", unidade: "un", fornecedor: "", data_compra: "" });
-    setBusca("");
+    setBusca(""); setEstoqueInfo(null); setMaterialId(null);
   };
 
   return (
@@ -204,7 +213,7 @@ function MaterialForm({
         <label className="text-xs text-muted-foreground">Buscar material (nome ou código)</label>
         <Input
           value={busca}
-          onChange={e => { setBusca(e.target.value); setShowList(true); setDraft({ ...draft, nome_material: "" }); }}
+          onChange={e => { setBusca(e.target.value); setShowList(true); setDraft({ ...draft, nome_material: "" }); setEstoqueInfo(null); }}
           onFocus={() => setShowList(true)}
           onKeyDown={e => {
             if (e.key === "Enter" && filtrados.length > 0) selecionarMaterial(filtrados[0]);
@@ -240,6 +249,24 @@ function MaterialForm({
           <button onClick={limpar} className="text-muted-foreground hover:text-destructive">
             <X className="h-3 w-3" />
           </button>
+        </div>
+      )}
+
+      {/* Indicador de estoque */}
+      {estoqueInfo !== null && (
+        <div className={cn(
+          "flex items-center gap-2 rounded-md px-3 py-2 text-xs font-medium border",
+          estoqueInfo.disponivel === 0
+            ? "bg-red-50 border-red-200 text-red-700"
+            : estoqueInfo.disponivel <= 5
+              ? "bg-amber-50 border-amber-200 text-amber-700"
+              : "bg-emerald-50 border-emerald-200 text-emerald-700"
+        )}>
+          {estoqueInfo.disponivel === 0 ? "🔴" : estoqueInfo.disponivel <= 5 ? "🟡" : "🟢"}
+          <span>
+            Estoque disponível: <strong>{estoqueInfo.disponivel} {estoqueInfo.unidade}</strong>
+            {estoqueInfo.disponivel === 0 && " — Atenção: estoque zerado!"}
+          </span>
         </div>
       )}
 
@@ -404,7 +431,6 @@ const MateriaisSection = forwardRef<MateriaisSectionHandle, MateriaisSectionProp
 
     return (
       <div className="rounded-xl border-2 border-primary/20 bg-card shadow-sm overflow-hidden">
-        {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 bg-primary/5 border-b border-primary/10">
           <div className="flex items-center gap-2">
             <ShoppingCart className="h-4 w-4 text-primary" />
@@ -423,7 +449,6 @@ const MateriaisSection = forwardRef<MateriaisSectionHandle, MateriaisSectionProp
           )}
         </div>
 
-        {/* Lista */}
         <div className="p-4 space-y-2">
           {loading ? (
             <p className="text-xs text-muted-foreground">Carregando...</p>
@@ -491,7 +516,6 @@ const MateriaisSection = forwardRef<MateriaisSectionHandle, MateriaisSectionProp
               </div>
         )}
 
-        {/* Rodapé total */}
         {items.length > 0 && (
           <div className="flex items-center justify-between px-4 py-3 bg-primary/5 border-t border-primary/10">
             <div className="flex items-center gap-2">

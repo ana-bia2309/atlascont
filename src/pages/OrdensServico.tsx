@@ -1011,14 +1011,42 @@ const labelCampo = (label: string, campo: string) => (
   toast({ title: `O.S. ${os.codigo_os || ""} reaberta!` });
   fetchData();
 };
-  const handleFinalize = async (os: OrdemServico) => {
-
+ const handleFinalize = async (os: OrdemServico) => {
   if (!can("painel_os.editar")) {
     toast({ title: "Sem permissão para finalizar O.S.", variant: "destructive" });
     return;
   }
 
- // Bloqueia se houver orçamento pendente, reprovado ou não enviado
+  // Valida estoque dos materiais
+  const { data: materiaisOs } = await (supabase as any)
+    .from("materiais_os")
+    .select("nome_material, materiais(id)")
+    .eq("os_id", os.id);
+
+  if (materiaisOs && materiaisOs.length > 0) {
+    const semEstoque: string[] = [];
+    for (const m of materiaisOs) {
+      if (!m.materiais?.id) continue;
+      const { data: est } = await (supabase as any)
+        .from("estoque")
+        .select("quantidade_disponivel")
+        .eq("material_id", m.materiais.id)
+        .maybeSingle();
+      if (est && Number(est.quantidade_disponivel) === 0) {
+        semEstoque.push(m.nome_material);
+      }
+    }
+    if (semEstoque.length > 0) {
+      toast({
+        title: "Não é possível concluir esta O.S.",
+        description: `O material '${semEstoque[0]}' está com estoque zerado. Regularize o estoque antes de prosseguir.`,
+        variant: "destructive",
+      });
+      return;
+    }
+  }
+
+  // Bloqueia se houver orçamento pendente, reprovado ou não enviado
   const orcamentoStatus = (os as any).orcamento_status;
   const temMateriais = (materiaisMap[os.id] || []).length > 0;
 
