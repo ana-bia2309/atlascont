@@ -48,6 +48,7 @@ import IAAtlas from "@/pages/IAAtlas";
 import OsCamposConfig from "@/pages/OsCamposConfig";
 import RegrasPrioridade from "@/pages/RegrasPrioridade";
 import Estoque from "@/pages/Estoque";
+import CentralPlanejamento from "@/pages/CentralPlanejamento";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -92,6 +93,7 @@ const App = () => (
             <Route path="/ia" element={<IAAtlas />} />
             <Route path="/regras-prioridade" element={<RegrasPrioridade />} />
             <Route path="/estoque" element={<Estoque />} />
+            <Route path="/planejamento" element={<CentralPlanejamento />} />
           </Route>
 <Route path="/login" element={<Login />} />
 <Route path="/onboarding" element={<Onboarding />} />

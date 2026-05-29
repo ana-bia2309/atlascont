@@ -1,7 +1,7 @@
 import {
   Gauge, ClipboardList, CalendarRange, Wrench, BarChart3, Clock, Activity,
   DollarSign, Timer, ListChecks, Building2, Box, ShieldCheck, KeyRound, LogOut, User, Settings, Settings2, Briefcase, ChevronRight, MessagesSquare, Package,
-  CheckCircle2, Bot,
+  CheckCircle2, Bot, BookOpen,
 } from "@/lib/icons";
 import { usePendingCounts } from "@/hooks/use-pending-counts";
 import { NotificationsPanel } from "@/components/NotificationsPanel";
@@ -372,7 +372,7 @@ const filterItems = useCallback(
 
         <Separator className="mx-3 my-1 w-auto" />
 
-        {/* IA Atlas */}
+       {/* IA Atlas + Planejamento */}
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -381,6 +381,14 @@ const filterItems = useCallback(
                   <a href="/ia" className="flex items-center gap-2">
                     <Bot className="h-4 w-4 shrink-0" style={{ color: "#8B5CF6" }} />
                     {!collapsed && <span className="font-medium">IA Atlas</span>}
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <a href="/planejamento" className="flex items-center gap-2">
+                    <BookOpen className="h-4 w-4 shrink-0" style={{ color: "#F59E0B" }} />
+                    {!collapsed && <span className="font-medium">Central de Planejamento</span>}
                   </a>
                 </SidebarMenuButton>
               </SidebarMenuItem>
