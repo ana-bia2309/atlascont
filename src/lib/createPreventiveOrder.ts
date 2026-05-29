@@ -52,6 +52,7 @@ export async function createPreventiveOrder(
   options?: CreatePreventiveOrderOptions,
 ) {
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
   const today_str = format(today, "yyyy-MM-dd");
   const prazo_date = calc_next_date(today, preventiva.frequencia);
   const prazo_str = format(prazo_date, "yyyy-MM-dd");
@@ -118,10 +119,12 @@ export async function createPreventiveOrder(
     observacao: options?.observacao_historico || "Geração manual",
   });
 
+  const nextDate = calc_next_date(today, preventiva.frequencia);
+  nextDate.setHours(0, 0, 0, 0);
   await (supabase.from("manutencao_preventiva" as any) as any)
     .update({
       ultima_execucao: today_str,
-      proxima_execucao: format(calc_next_date(today, preventiva.frequencia), "yyyy-MM-dd"),
+      proxima_execucao: format(nextDate, "yyyy-MM-dd"),
     })
     .eq("id", preventiva.id);
 

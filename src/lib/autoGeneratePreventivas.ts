@@ -55,16 +55,6 @@ export async function autoGeneratePreventivas(force = false): Promise<number> {
         // Verifica se proxima_execucao é hoje ou já passou
         if (!proxima || proxima > hojeStr) continue;
 
-        // Verifica se já existe uma OP gerada hoje para esta preventiva
-        const { data: opsHoje } = await (supabase as any)
-          .from("ordens_preventivas")
-          .select("id")
-          .eq("preventiva_id", prev.id)
-          .gte("created_at", hojeStr + "T00:00:00")
-          .lte("created_at", hojeStr + "T23:59:59");
-
-        if (opsHoje?.length > 0) continue; // já foi gerada hoje
-
         // Gera a OP automaticamente
         try {
           await createPreventiveOrder(
@@ -86,6 +76,13 @@ export async function autoGeneratePreventivas(force = false): Promise<number> {
           console.warn("[autoGeneratePreventivas] Erro ao gerar OP para:", prev.titulo, e);
         }
       }
+    }
+
+    console.log("[autoGeneratePreventivas] Planos encontrados:", planos?.length);
+    console.log("[autoGeneratePreventivas] Hoje:", hojeStr);
+    
+    if (geradas > 0) {
+      console.info(`[autoGeneratePreventivas] ${geradas} Ordem(ns) Preventiva(s) gerada(s) automaticamente.`);
     }
 
     if (geradas > 0) {
