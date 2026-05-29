@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Search, Star, StarOff, Pencil, Trash2, Lightbulb, BookOpen, RefreshCw, X, Calendar, LayoutGrid } from "@/lib/icons";
+import { Plus, Search, Star, StarOff, Pencil, Trash2, Lightbulb, BookOpen, RefreshCw, X, Calendar, LayoutGrid, PenLine } from "@/lib/icons";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -55,8 +55,7 @@ const STATUS_ICONS: Record<string, string> = {
 export default function CentralPlanejamento() {
   const { companyId } = useCompany();
   const [userId, setUserId] = useState<string | null>(null);
-  const [tab, setTab] = useState<"notas" | "ideias" | "agenda" | "kanban">("notas");
-
+  const [tab, setTab] = useState<"notas" | "ideias" | "agenda" | "kanban" | "canvas">("notas");
   // Notas
   const [notas, setNotas] = useState<Nota[]>([]);
   const [notasLoading, setNotasLoading] = useState(true);
@@ -238,7 +237,7 @@ export default function CentralPlanejamento() {
           <Button variant="outline" size="icon" onClick={() => { fetchNotas(); fetchIdeias(); }}>
             <RefreshCw className="h-4 w-4" />
           </Button>
-          <Button onClick={() => tab === "notas" ? openNota() : tab === "ideias" ? openIdeia() : tab === "kanban" ? window.location.href = "/kanban" : window.location.href = "/agenda"}>
+          <Button onClick={() => tab === "notas" ? openNota() : tab === "ideias" ? openIdeia() : tab === "kanban" ? window.location.href = "/kanban" : tab === "canvas" ? window.location.href = "/canvas" : window.location.href = "/agenda"}>
             <Plus className="h-4 w-4 mr-2" />
             {tab === "notas" ? "Nova Nota" : tab === "ideias" ? "Nova Ideia" : "Novo Evento"}
           </Button>
@@ -263,6 +262,11 @@ export default function CentralPlanejamento() {
           className={cn("px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2",
             tab === "kanban" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>
           <LayoutGrid className="h-4 w-4" /> Kanban
+        </button>
+        <button onClick={() => setTab("canvas")}
+          className={cn("px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2",
+            tab === "canvas" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>
+          <PenLine className="h-4 w-4" /> Canvas
         </button>
         <button onClick={() => setTab("agenda")}
           className={cn("px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2",

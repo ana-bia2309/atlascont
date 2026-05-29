@@ -51,6 +51,7 @@ import Estoque from "@/pages/Estoque";
 import CentralPlanejamento from "@/pages/CentralPlanejamento";
 import Agenda from "@/pages/Agenda";
 import Kanban from "@/pages/Kanban";
+import Canvas from "@/pages/Canvas";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -98,6 +99,7 @@ const App = () => (
             <Route path="/planejamento" element={<CentralPlanejamento />} />
             <Route path="/kanban" element={<Kanban />} />
             <Route path="/agenda" element={<Agenda />} />
+            <Route path="/canvas" element={<Canvas />} />
           </Route>
 <Route path="/login" element={<Login />} />
 <Route path="/onboarding" element={<Onboarding />} />
