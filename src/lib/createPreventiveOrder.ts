@@ -20,6 +20,7 @@ type PreventivaOrderSource = {
 
 type CreatePreventiveOrderOptions = {
   observacao_historico?: string;
+  data_inicio_override?: string; // permite gerar OP para data específica (recuperação de atrasos)
 };
 
 const FREQUENCIA_DAYS: Record<string, number> = {
@@ -36,14 +37,14 @@ const FREQUENCIA_MONTHS: Record<string, number> = {
   anual: 12,
 };
 
-function calc_next_date(from_date: Date, frequencia: string) {
+function calc_next_date(from_date: Date, frequencia: string): Date {
   const next_date = new Date(from_date);
   const days = FREQUENCIA_DAYS[frequencia];
   if (days) {
     next_date.setDate(next_date.getDate() + days);
     return next_date;
   }
-  next_date.setMonth(next_date.getMonth() + (FREQUENCIA_MONTHS[frequencia] || 1));
+  next_date.setMonth(next_date.getMonth() + (FREQUENCIA_MONTHS[frequencia] ?? 1));
   return next_date;
 }
 
@@ -51,9 +52,13 @@ export async function createPreventiveOrder(
   preventiva: PreventivaOrderSource,
   options?: CreatePreventiveOrderOptions,
 ) {
-  const today = new Date();
+  // Usa data_inicio_override se fornecida (recuperação de atrasos), senão usa hoje
+  const today = options?.data_inicio_override
+    ? new Date(options.data_inicio_override + "T00:00:00")
+    : new Date();
   today.setHours(0, 0, 0, 0);
   const today_str = format(today, "yyyy-MM-dd");
+
   const prazo_date = calc_next_date(today, preventiva.frequencia);
   const prazo_str = format(prazo_date, "yyyy-MM-dd");
 
@@ -72,7 +77,9 @@ export async function createPreventiveOrder(
       prazo: prazo_str,
       qr_code_obrigatorio: preventiva.qr_code_obrigatorio !== false,
       observacoes: [
-        `Gerada manualmente - Preventiva: ${preventiva.titulo}`,
+        options?.data_inicio_override
+          ? `Recuperação automática — competência ${today_str}`
+          : `Gerada automaticamente — Preventiva: ${preventiva.titulo}`,
         preventiva.descricao || "",
         preventiva.tipo_atividade ? `Tipo de atividade: ${preventiva.tipo_atividade}` : "",
         preventiva.tipo_medicao ? `Medição: ${preventiva.tipo_medicao}` : "",
@@ -85,6 +92,7 @@ export async function createPreventiveOrder(
 
   if (op_error || !op_data) throw op_error || new Error("Erro ao criar Ordem Preventiva");
 
+  // Copia as atividades do plano para a OP
   const { data: prev_activities, error: activities_error } = await (supabase.from("atividades_preventiva" as any) as any)
     .select("nome, descricao, ordem, tipo_atividade, tipo_medicao, unidade_medicao")
     .eq("preventiva_id", preventiva.id)
@@ -113,12 +121,14 @@ export async function createPreventiveOrder(
     if (insert_activities_error) throw insert_activities_error;
   }
 
+  // Registra no histórico
   await (supabase.from("historico_preventiva" as any) as any).insert({
     preventiva_id: preventiva.id,
     ordem_preventiva_id: op_data.id,
-    observacao: options?.observacao_historico || "Geração manual",
+    observacao: options?.observacao_historico || "Geração automática",
   });
 
+  // Atualiza proxima_execucao na preventiva mestre
   const nextDate = calc_next_date(today, preventiva.frequencia);
   nextDate.setHours(0, 0, 0, 0);
   await (supabase.from("manutencao_preventiva" as any) as any)

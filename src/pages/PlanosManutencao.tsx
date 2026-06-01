@@ -306,7 +306,7 @@ export default function PlanosManutencao() {
     console.log("fetchAll companyId:", companyId);
     setLoading(true);
     await migrateLegacyPreventiveOrdersIfNeeded();
-    await autoGeneratePreventivas();
+    await autoGeneratePreventivas(true);
     const [planosRes, ativosRes, blocosRes, profilesRes, paRes, atRes, prevRes, opRes, histPrevRes] = await Promise.all([
       supabase.from("planos_manutencao").select("*").order("created_at", { ascending: false }),
       (supabase as any).from("ativos").select("id, nome, codigo_identificacao, bloco_id, andar, sala, identificacao_ambiente, area_pavimento, grupo_areas").eq("company_id", companyId).order("nome"),

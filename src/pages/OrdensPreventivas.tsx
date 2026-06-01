@@ -84,6 +84,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 
 import { migrateLegacyPreventiveOrdersIfNeeded } from "@/lib/migrateLegacyPreventiveOrders";
+import { autoGeneratePreventivas } from "@/lib/autoGeneratePreventivas";
 
 type Bloco = {
   id: string;
@@ -263,6 +264,7 @@ const [qrResolveRef] = useState<{ resolve: ((ok: boolean) => void) | null }>({ r
     setLoading(true);
 
     await migrateLegacyPreventiveOrdersIfNeeded();
+    await autoGeneratePreventivas();
 
     const [
       opRes,
