@@ -68,6 +68,14 @@ export default function Estoque() {
   const [entradaNF, setEntradaNF] = useState("");
   const [entradaObs, setEntradaObs] = useState("");
   const [entradaSaving, setEntradaSaving] = useState(false);
+  const [saidaOpen, setSaidaOpen] = useState(false);
+  const [saidaMaterialId, setSaidaMaterialId] = useState("");
+  const [saidaQtd, setSaidaQtd] = useState("");
+  const [saidaMotivo, setSaidaMotivo] = useState("");
+  const [saidaResponsavel, setSaidaResponsavel] = useState("");
+  const [saidaDestino, setSaidaDestino] = useState("");
+  const [saidaData, setSaidaData] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [saidaSaving, setSaidaSaving] = useState(false);
   const [materiais, setMateriais] = useState<Material[]>([]);
 
   // Dialog config estoque
@@ -216,6 +224,48 @@ export default function Estoque() {
     }
   };
 
+  const handleSaida = async () => {
+    if (!saidaMaterialId || !saidaQtd || Number(saidaQtd) <= 0) {
+      toast({ title: "Preencha material e quantidade", variant: "destructive" }); return;
+    }
+    setSaidaSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const qtd = Number(saidaQtd);
+      const existing = items.find(i => i.material_id === saidaMaterialId);
+
+      if (existing && qtd > existing.quantidade_disponivel) {
+        toast({ title: "Quantidade insuficiente", description: `Disponível: ${existing.quantidade_disponivel} ${existing.material.unidade || ""}`, variant: "destructive" });
+        setSaidaSaving(false); return;
+      }
+
+      await (supabase as any).from("estoque_movimentacoes").insert({
+        material_id: saidaMaterialId,
+        company_id: companyId,
+        tipo: "saida",
+        quantidade: qtd,
+        data_movimentacao: saidaData,
+        observacoes: [saidaMotivo, saidaResponsavel, saidaDestino].filter(Boolean).join(" | ") || null,
+        created_by: user?.id,
+      });
+
+      if (existing?.id) {
+        await (supabase as any).from("estoque").update({
+          quantidade_disponivel: Math.max(existing.quantidade_disponivel - qtd, 0),
+          updated_at: new Date().toISOString(),
+        }).eq("id", existing.id);
+      }
+
+      toast({ title: "Saída registrada com sucesso!" });
+      setSaidaOpen(false);
+      setSaidaMaterialId(""); setSaidaQtd(""); setSaidaMotivo(""); setSaidaResponsavel(""); setSaidaDestino("");
+      fetchData();
+    } catch (e: any) {
+      toast({ title: "Erro ao registrar saída", description: e.message, variant: "destructive" });
+    } finally {
+      setSaidaSaving(false);
+    }
+  };
   const handleConfig = async () => {
     if (!configItem) return;
     try {
@@ -402,6 +452,10 @@ export default function Estoque() {
                           <TrendingUp className="h-3.5 w-3.5 mr-1 text-emerald-600" /> Entrada
                         </Button>
                         <Button variant="ghost" size="sm" className="h-7 text-xs"
+                          onClick={() => { setSaidaMaterialId(item.material_id); setSaidaOpen(true); }}>
+                          <TrendingDown className="h-3.5 w-3.5 mr-1 text-red-600" /> Saída
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs"
                           onClick={() => { setConfigItem(item); setConfigMin(String(item.quantidade_minima)); setConfigMax(String(item.quantidade_maxima)); setConfigOpen(true); }}>
                           Configurar
                         </Button>
@@ -515,6 +569,69 @@ export default function Estoque() {
         </DialogContent>
       </Dialog>
 
+{/* Dialog Saída */}
+      <Dialog open={saidaOpen} onOpenChange={o => { if (!o) { setSaidaOpen(false); setSaidaMaterialId(""); setSaidaQtd(""); setSaidaMotivo(""); setSaidaResponsavel(""); setSaidaDestino(""); } }}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <TrendingDown className="h-5 w-5 text-red-600" /> Registrar Saída de Material
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="text-sm font-medium mb-1 block">Material *</label>
+              <Select value={saidaMaterialId} onValueChange={setSaidaMaterialId}>
+                <SelectTrigger><SelectValue placeholder="Selecione o material" /></SelectTrigger>
+                <SelectContent>
+                  {materiais.map(m => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.codigo ? `${m.codigo} — ` : ""}{m.descricao}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {saidaMaterialId && (() => {
+                const item = items.find(i => i.material_id === saidaMaterialId);
+                return item ? (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Disponível: <strong>{item.quantidade_disponivel} {item.material.unidade || ""}</strong>
+                  </p>
+                ) : null;
+              })()}
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium mb-1 block">Quantidade *</label>
+                <Input type="number" min="0.01" step="0.01" value={saidaQtd} onChange={e => setSaidaQtd(e.target.value)} placeholder="0" />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Data da Saída</label>
+                <Input type="date" value={saidaData} onChange={e => setSaidaData(e.target.value)} />
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Motivo</label>
+              <Input value={saidaMotivo} onChange={e => setSaidaMotivo(e.target.value)} placeholder="Ex: Uso em OS-001" />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Responsável</label>
+              <Input value={saidaResponsavel} onChange={e => setSaidaResponsavel(e.target.value)} placeholder="Nome do responsável" />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Destino</label>
+              <Input value={saidaDestino} onChange={e => setSaidaDestino(e.target.value)} placeholder="Ex: Bloco A, Sala 101" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSaidaOpen(false)}>Cancelar</Button>
+            <Button onClick={handleSaida} disabled={saidaSaving || !saidaMaterialId || !saidaQtd}
+              className="bg-red-600 hover:bg-red-700">
+              {saidaSaving ? "Salvando..." : "Registrar Saída"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
       {/* Dialog Config */}
       <Dialog open={configOpen} onOpenChange={setConfigOpen}>
         <DialogContent className="sm:max-w-[380px]">
