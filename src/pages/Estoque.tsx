@@ -10,12 +10,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { Plus, RefreshCw, Search, Package, AlertTriangle, TrendingDown, TrendingUp, History, X, Upload } from "@/lib/icons";
+import { Plus, RefreshCw, Search, Package, AlertTriangle, TrendingDown, TrendingUp, History, X, Upload, Download } from "@/lib/icons";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
-import { Download } from "@/lib/icons";
 
 type Material = {
   id: string;
@@ -59,7 +58,6 @@ export default function Estoque() {
   const [filterStatus, setFilterStatus] = useState("todos");
   const [tab, setTab] = useState<"estoque" | "historico">("estoque");
 
-  // Dialog entrada
   const [entradaOpen, setEntradaOpen] = useState(false);
   const [entradaMaterialId, setEntradaMaterialId] = useState("");
   const [entradaQtd, setEntradaQtd] = useState("");
@@ -77,8 +75,6 @@ export default function Estoque() {
   const [saidaData, setSaidaData] = useState(format(new Date(), "yyyy-MM-dd"));
   const [saidaSaving, setSaidaSaving] = useState(false);
   const [materiais, setMateriais] = useState<Material[]>([]);
-
-  // Dialog config estoque
   const [configOpen, setConfigOpen] = useState(false);
   const [configItem, setConfigItem] = useState<EstoqueItem | null>(null);
   const [configMin, setConfigMin] = useState("");
@@ -89,7 +85,7 @@ export default function Estoque() {
     setLoading(true);
     try {
       const [matsRes, estoqueRes, movsRes, osMatRes] = await Promise.all([
-        (supabase as any).from("materiais").select("id, codigo, descricao, unidade, valor_unitario, tipo_sistema").eq("company_id", companyId).eq("status", "ativo").order("descricao"),
+        (supabase as any).from("materiais").select("id, codigo, descricao, unidade, valor_unitario, tipo_sistema").eq("company_id", companyId).eq("status", "ativo").order("codigo", { ascending: true }),
         (supabase as any).from("estoque").select("*").eq("company_id", companyId),
         (supabase as any).from("estoque_movimentacoes").select("*, materiais(descricao)").eq("company_id", companyId).order("created_at", { ascending: false }).limit(100),
         (supabase as any).from("materiais_os").select("nome_material, quantidade, material_id, ordens_servico!inner(company_id, orcamento_status)").eq("ordens_servico.company_id", companyId).eq("ordens_servico.orcamento_status", "aprovado"),
@@ -97,14 +93,12 @@ export default function Estoque() {
 
       setMateriais(matsRes.data || []);
 
-      // Calcula quantidade empenhada por material_id
       const empenhado: Record<string, number> = {};
       (osMatRes.data || []).forEach((m: any) => {
         const id = m.material_id;
         if (id) empenhado[id] = (empenhado[id] || 0) + Number(m.quantidade);
       });
 
-      // Monta items de estoque
       const estoqueMap: Record<string, any> = {};
       (estoqueRes.data || []).forEach((e: any) => { estoqueMap[e.material_id] = e; });
 
@@ -126,7 +120,6 @@ export default function Estoque() {
       });
 
       setItems(enriched);
-
       setMovimentacoes((movsRes.data || []).map((m: any) => ({
         id: m.id,
         material_id: m.material_id,
@@ -184,35 +177,23 @@ export default function Estoque() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const qtd = Number(entradaQtd);
-
-      // Registra movimentação
       await (supabase as any).from("estoque_movimentacoes").insert({
-        material_id: entradaMaterialId,
-        company_id: companyId,
-        tipo: "entrada",
-        quantidade: qtd,
-        data_movimentacao: entradaData,
-        fornecedor: entradaFornecedor || null,
-        numero_nf: entradaNF || null,
-        observacoes: entradaObs || null,
-        created_by: user?.id,
+        material_id: entradaMaterialId, company_id: companyId, tipo: "entrada",
+        quantidade: qtd, data_movimentacao: entradaData,
+        fornecedor: entradaFornecedor || null, numero_nf: entradaNF || null,
+        observacoes: entradaObs || null, created_by: user?.id,
       });
-
-      // Atualiza ou cria registro de estoque
       const existing = items.find(i => i.material_id === entradaMaterialId);
       if (existing?.id) {
         await (supabase as any).from("estoque").update({
-          quantidade_disponivel: existing.quantidade_disponivel + qtd,
+          quantidade_disponivel: existing.quantidade_total + qtd,
           updated_at: new Date().toISOString(),
         }).eq("id", existing.id);
       } else {
         await (supabase as any).from("estoque").insert({
-          material_id: entradaMaterialId,
-          company_id: companyId,
-          quantidade_disponivel: qtd,
+          material_id: entradaMaterialId, company_id: companyId, quantidade_disponivel: qtd,
         });
       }
-
       toast({ title: "Entrada registrada com sucesso!" });
       setEntradaOpen(false);
       setEntradaMaterialId(""); setEntradaQtd(""); setEntradaFornecedor(""); setEntradaNF(""); setEntradaObs("");
@@ -233,29 +214,22 @@ export default function Estoque() {
       const { data: { user } } = await supabase.auth.getUser();
       const qtd = Number(saidaQtd);
       const existing = items.find(i => i.material_id === saidaMaterialId);
-
       if (existing && qtd > existing.quantidade_disponivel) {
         toast({ title: "Quantidade insuficiente", description: `Disponível: ${existing.quantidade_disponivel} ${existing.material.unidade || ""}`, variant: "destructive" });
         setSaidaSaving(false); return;
       }
-
       await (supabase as any).from("estoque_movimentacoes").insert({
-        material_id: saidaMaterialId,
-        company_id: companyId,
-        tipo: "saida",
-        quantidade: qtd,
-        data_movimentacao: saidaData,
+        material_id: saidaMaterialId, company_id: companyId, tipo: "saida",
+        quantidade: qtd, data_movimentacao: saidaData,
         observacoes: [saidaMotivo, saidaResponsavel, saidaDestino].filter(Boolean).join(" | ") || null,
         created_by: user?.id,
       });
-
       if (existing?.id) {
         await (supabase as any).from("estoque").update({
-          quantidade_disponivel: Math.max(existing.quantidade_disponivel - qtd, 0),
+          quantidade_disponivel: Math.max(existing.quantidade_total - qtd, 0),
           updated_at: new Date().toISOString(),
         }).eq("id", existing.id);
       }
-
       toast({ title: "Saída registrada com sucesso!" });
       setSaidaOpen(false);
       setSaidaMaterialId(""); setSaidaQtd(""); setSaidaMotivo(""); setSaidaResponsavel(""); setSaidaDestino("");
@@ -266,6 +240,7 @@ export default function Estoque() {
       setSaidaSaving(false);
     }
   };
+
   const handleConfig = async () => {
     if (!configItem) return;
     try {
@@ -276,16 +251,14 @@ export default function Estoque() {
         }).eq("id", configItem.id);
       } else {
         await (supabase as any).from("estoque").insert({
-          material_id: configItem.material_id,
-          company_id: companyId,
+          material_id: configItem.material_id, company_id: companyId,
           quantidade_disponivel: 0,
           quantidade_minima: Number(configMin) || 0,
           quantidade_maxima: Number(configMax) || 0,
         });
       }
       toast({ title: "Configuração salva!" });
-      setConfigOpen(false);
-      fetchData();
+      setConfigOpen(false); fetchData();
     } catch (e: any) {
       toast({ title: "Erro ao salvar", description: e.message, variant: "destructive" });
     }
@@ -311,7 +284,6 @@ export default function Estoque() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <Package className="h-6 w-6 text-primary" />
@@ -324,9 +296,7 @@ export default function Estoque() {
           <Button variant="outline" onClick={exportarExcel} disabled={items.length === 0}>
             <Download className="h-4 w-4 mr-2" /> Excel
           </Button>
-          <Button variant="outline" size="icon" onClick={fetchData}>
-            <RefreshCw className="h-4 w-4" />
-          </Button>
+          <Button variant="outline" size="icon" onClick={fetchData}><RefreshCw className="h-4 w-4" /></Button>
           <Button onClick={() => setEntradaOpen(true)}>
             <Plus className="h-4 w-4 mr-2" /> Registrar Entrada
           </Button>
@@ -336,36 +306,20 @@ export default function Estoque() {
       {/* Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Card className="cursor-pointer" onClick={() => setFilterStatus("todos")}>
-          <CardHeader className="pb-1 pt-4 px-4">
-            <CardTitle className="text-xs text-muted-foreground">Total de Materiais</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <span className="text-3xl font-bold">{stats.total}</span>
-          </CardContent>
+          <CardHeader className="pb-1 pt-4 px-4"><CardTitle className="text-xs text-muted-foreground">Total de Materiais</CardTitle></CardHeader>
+          <CardContent className="px-4 pb-4"><span className="text-3xl font-bold">{stats.total}</span></CardContent>
         </Card>
         <Card className="cursor-pointer border-red-200 bg-red-50/30" onClick={() => setFilterStatus("zerado")}>
-          <CardHeader className="pb-1 pt-4 px-4">
-            <CardTitle className="text-xs text-red-600">🔴 Zerados</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <span className="text-3xl font-bold text-red-700">{stats.criticos}</span>
-          </CardContent>
+          <CardHeader className="pb-1 pt-4 px-4"><CardTitle className="text-xs text-red-600">🔴 Zerados</CardTitle></CardHeader>
+          <CardContent className="px-4 pb-4"><span className="text-3xl font-bold text-red-700">{stats.criticos}</span></CardContent>
         </Card>
         <Card className="cursor-pointer border-amber-200 bg-amber-50/30" onClick={() => setFilterStatus("baixo")}>
-          <CardHeader className="pb-1 pt-4 px-4">
-            <CardTitle className="text-xs text-amber-600">🟡 Estoque Baixo</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <span className="text-3xl font-bold text-amber-700">{stats.baixos}</span>
-          </CardContent>
+          <CardHeader className="pb-1 pt-4 px-4"><CardTitle className="text-xs text-amber-600">🟡 Estoque Baixo</CardTitle></CardHeader>
+          <CardContent className="px-4 pb-4"><span className="text-3xl font-bold text-amber-700">{stats.baixos}</span></CardContent>
         </Card>
         <Card className="cursor-pointer border-emerald-200 bg-emerald-50/30" onClick={() => setFilterStatus("ok")}>
-          <CardHeader className="pb-1 pt-4 px-4">
-            <CardTitle className="text-xs text-emerald-600">🟢 Em dia</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <span className="text-3xl font-bold text-emerald-700">{stats.ok}</span>
-          </CardContent>
+          <CardHeader className="pb-1 pt-4 px-4"><CardTitle className="text-xs text-emerald-600">🟢 Em dia</CardTitle></CardHeader>
+          <CardContent className="px-4 pb-4"><span className="text-3xl font-bold text-emerald-700">{stats.ok}</span></CardContent>
         </Card>
       </div>
 
@@ -385,7 +339,6 @@ export default function Estoque() {
 
       {tab === "estoque" && (
         <>
-          {/* Filtros */}
           <div className="flex flex-wrap gap-3 rounded-lg border bg-card p-4">
             <div className="relative flex-1 min-w-[180px]">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -404,7 +357,6 @@ export default function Estoque() {
             <span className="text-xs text-muted-foreground self-center ml-auto">{filtered.length} materiais</span>
           </div>
 
-          {/* Tabela */}
           <div className="rounded-md border overflow-auto">
             <Table>
               <TableHeader>
@@ -430,7 +382,9 @@ export default function Estoque() {
                   )}>
                     <TableCell>
                       <div className="font-medium">{item.material.descricao}</div>
-                      {item.material.codigo && <div className="text-xs text-muted-foreground font-mono">{item.material.codigo}</div>}
+                      {item.material.codigo && (
+                        <div className="font-mono text-sm font-semibold text-primary">{item.material.codigo}</div>
+                      )}
                     </TableCell>
                     <TableCell className="text-center font-semibold">
                       {item.quantidade_disponivel} {item.material.unidade || ""}
@@ -528,7 +482,7 @@ export default function Estoque() {
                 <SelectContent>
                   {materiais.map(m => (
                     <SelectItem key={m.id} value={m.id}>
-                      {m.codigo ? `${m.codigo} — ` : ""}{m.descricao}
+                      {m.codigo ? `[${m.codigo}] ` : ""}{m.descricao}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -561,15 +515,14 @@ export default function Estoque() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEntradaOpen(false)}>Cancelar</Button>
-            <Button onClick={handleEntrada} disabled={entradaSaving || !entradaMaterialId || !entradaQtd}
-              className="bg-emerald-600 hover:bg-emerald-700">
+            <Button onClick={handleEntrada} disabled={entradaSaving || !entradaMaterialId || !entradaQtd} className="bg-emerald-600 hover:bg-emerald-700">
               {entradaSaving ? "Salvando..." : "Registrar Entrada"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-{/* Dialog Saída */}
+      {/* Dialog Saída */}
       <Dialog open={saidaOpen} onOpenChange={o => { if (!o) { setSaidaOpen(false); setSaidaMaterialId(""); setSaidaQtd(""); setSaidaMotivo(""); setSaidaResponsavel(""); setSaidaDestino(""); } }}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
@@ -585,7 +538,7 @@ export default function Estoque() {
                 <SelectContent>
                   {materiais.map(m => (
                     <SelectItem key={m.id} value={m.id}>
-                      {m.codigo ? `${m.codigo} — ` : ""}{m.descricao}
+                      {m.codigo ? `[${m.codigo}] ` : ""}{m.descricao}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -624,14 +577,13 @@ export default function Estoque() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSaidaOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSaida} disabled={saidaSaving || !saidaMaterialId || !saidaQtd}
-              className="bg-red-600 hover:bg-red-700">
+            <Button onClick={handleSaida} disabled={saidaSaving || !saidaMaterialId || !saidaQtd} className="bg-red-600 hover:bg-red-700">
               {saidaSaving ? "Salvando..." : "Registrar Saída"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
+
       {/* Dialog Config */}
       <Dialog open={configOpen} onOpenChange={setConfigOpen}>
         <DialogContent className="sm:max-w-[380px]">

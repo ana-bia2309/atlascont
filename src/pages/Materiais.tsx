@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, RefreshCw, Search, X, Package, ChevronLeft } from "@/lib/icons";
+import { Plus, Pencil, Trash2, RefreshCw, Search, X, Package, ChevronLeft, Hash } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
 const SISTEMA_OPTIONS = [
@@ -36,7 +36,6 @@ type Material = {
 };
 
 const emptyForm = {
-  codigo: "",
   descricao: "",
   unidade: "",
   valor_unitario: "",
@@ -51,9 +50,11 @@ export default function Materiais() {
   const { can } = usePermissions();
   const [list, setList] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
+  const [companyId, setCompanyId] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Material | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [saving, setSaving] = useState(false);
   const [filterSearch, setFilterSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterSistema, setFilterSistema] = useState("all");
@@ -65,12 +66,13 @@ export default function Materiais() {
     if (!user) { setLoading(false); return; }
     const { data: profile }: any = await supabase.from("profiles").select("company_id").eq("user_id", user.id).single();
     if (!profile?.company_id) { setLoading(false); return; }
+    setCompanyId(profile.company_id);
 
     const { data, error } = await (supabase as any)
       .from("materiais")
       .select("*")
       .eq("company_id", profile.company_id)
-      .order("descricao");
+      .order("codigo", { ascending: true });
 
     if (error) toast({ title: "Erro ao carregar materiais", variant: "destructive" });
     else setList(data || []);
@@ -84,34 +86,55 @@ export default function Materiais() {
       toast({ title: "Descrição é obrigatória", variant: "destructive" });
       return;
     }
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data: profile }: any = await supabase.from("profiles").select("company_id").eq("user_id", user.id).single();
-    if (!profile?.company_id) return;
+    if (!companyId) return;
+    setSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    const payload: any = {
-      company_id: profile.company_id,
-      codigo: form.codigo.trim() || null,
-      descricao: form.descricao.trim(),
-      unidade: form.unidade || null,
-      valor_unitario: form.valor_unitario ? Number(form.valor_unitario) : null,
-      tipo_sistema: form.tipo_sistema || null,
-      fornecedor: form.fornecedor.trim() || null,
-      status: form.status,
-      data_compra: form.data_compra || null,
-      categoria: form.categoria || "Material",
-    };
-
-    if (editing) {
-      const { error } = await (supabase as any).from("materiais").update(payload).eq("id", editing.id);
-      if (error) { toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" }); return; }
-      toast({ title: "Material atualizado" });
-    } else {
-      const { error } = await (supabase as any).from("materiais").insert(payload);
-      if (error) { toast({ title: "Erro ao cadastrar", description: error.message, variant: "destructive" }); return; }
-      toast({ title: "Material cadastrado" });
+      if (editing) {
+        // Edição — não altera o código
+        const payload: any = {
+          descricao: form.descricao.trim(),
+          unidade: form.unidade || null,
+          valor_unitario: form.valor_unitario ? Number(form.valor_unitario) : null,
+          tipo_sistema: form.tipo_sistema || null,
+          fornecedor: form.fornecedor.trim() || null,
+          status: form.status,
+          data_compra: form.data_compra || null,
+          categoria: form.categoria || "Material",
+        };
+        const { error } = await (supabase as any).from("materiais").update(payload).eq("id", editing.id);
+        if (error) { toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" }); return; }
+        toast({ title: "Material atualizado" });
+      } else {
+        // Novo — gera código automático
+        const { data: codigoData, error: codigoError } = await (supabase as any)
+          .rpc("next_material_codigo", { p_company_id: companyId });
+        if (codigoError) {
+          toast({ title: "Erro ao gerar código", description: codigoError.message, variant: "destructive" });
+          return;
+        }
+        const payload: any = {
+          company_id: companyId,
+          codigo: codigoData,
+          descricao: form.descricao.trim(),
+          unidade: form.unidade || null,
+          valor_unitario: form.valor_unitario ? Number(form.valor_unitario) : null,
+          tipo_sistema: form.tipo_sistema || null,
+          fornecedor: form.fornecedor.trim() || null,
+          status: form.status,
+          data_compra: form.data_compra || null,
+          categoria: form.categoria || "Material",
+        };
+        const { error } = await (supabase as any).from("materiais").insert(payload);
+        if (error) { toast({ title: "Erro ao cadastrar", description: error.message, variant: "destructive" }); return; }
+        toast({ title: `Material cadastrado — código ${codigoData}` });
+      }
+      setOpen(false); setEditing(null); setForm(emptyForm); fetchData();
+    } finally {
+      setSaving(false);
     }
-    setOpen(false); setEditing(null); setForm(emptyForm); fetchData();
   };
 
   const handleDelete = async (id: string) => {
@@ -124,7 +147,6 @@ export default function Materiais() {
   const openEdit = (m: Material) => {
     setEditing(m);
     setForm({
-      codigo: m.codigo || "",
       descricao: m.descricao,
       unidade: m.unidade || "",
       valor_unitario: m.valor_unitario?.toString() || "",
@@ -150,7 +172,7 @@ export default function Materiais() {
       }
       return true;
     });
-  }, [list, filterStatus, filterSistema, filterSearch]);
+  }, [list, filterStatus, filterSistema, filterSearch, filterCategoria]);
 
   const hasFilters = filterStatus !== "all" || filterSistema !== "all" || filterSearch.trim() !== "" || filterCategoria !== "all";
 
@@ -204,7 +226,7 @@ export default function Materiais() {
             </SelectContent>
           </Select>
         </div>
-          <div className="min-w-[140px]">
+        <div className="min-w-[140px]">
           <label className="text-xs font-medium text-muted-foreground mb-1 block">Status</label>
           <Select value={filterStatus} onValueChange={setFilterStatus}>
             <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
@@ -216,7 +238,7 @@ export default function Materiais() {
           </Select>
         </div>
         {hasFilters && (
-          <Button variant="ghost" size="sm" onClick={() => { setFilterSearch(""); setFilterStatus("all"); setFilterSistema("all"); }}>
+          <Button variant="ghost" size="sm" onClick={() => { setFilterSearch(""); setFilterStatus("all"); setFilterSistema("all"); setFilterCategoria("all"); }}>
             <X className="mr-1 h-3 w-3" /> Limpar
           </Button>
         )}
@@ -228,7 +250,7 @@ export default function Materiais() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Código</TableHead>
+              <TableHead className="w-24">Código</TableHead>
               <TableHead>Descrição</TableHead>
               <TableHead>Unidade</TableHead>
               <TableHead>Valor Unit.</TableHead>
@@ -245,7 +267,9 @@ export default function Materiais() {
               <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum material encontrado</TableCell></TableRow>
             ) : filtered.map(m => (
               <TableRow key={m.id}>
-                <TableCell className="font-mono text-sm">{m.codigo || "—"}</TableCell>
+                <TableCell>
+                  <span className="font-mono text-sm font-semibold text-primary">{m.codigo || "—"}</span>
+                </TableCell>
                 <TableCell>
                   <div className="font-medium">{m.descricao}</div>
                   <span className={cn(
@@ -281,17 +305,37 @@ export default function Materiais() {
       </div>
 
       {/* Dialog */}
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={v => { if (!v) { setOpen(false); setEditing(null); setForm(emptyForm); } }}>
         <DialogContent className="sm:max-w-[520px]">
           <DialogHeader>
             <DialogTitle>{editing ? "Editar Material" : "Novo Material"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium mb-1 block">Código do Material</label>
-                <Input value={form.codigo} onChange={e => setForm(f => ({ ...f, codigo: e.target.value }))} placeholder="Ex: MAT-001" />
+
+            {/* Código — sempre read-only */}
+            <div>
+              <label className="text-sm font-medium mb-1 block">Código do Material</label>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Hash className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={editing ? (editing.codigo || "—") : "Gerado automaticamente"}
+                    readOnly
+                    className="pl-9 bg-muted text-muted-foreground cursor-not-allowed font-mono"
+                  />
+                </div>
               </div>
+              {!editing && (
+                <p className="text-xs text-muted-foreground mt-1">O código será gerado automaticamente na sequência (ex: 0047)</p>
+              )}
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-1 block">Descrição *</label>
+              <Input value={form.descricao} onChange={e => setForm(f => ({ ...f, descricao: e.target.value }))} placeholder="Ex: Filtro de ar 12000 BTU" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium mb-1 block">Unidade</label>
                 <Select value={form.unidade || "__none__"} onValueChange={v => setForm(f => ({ ...f, unidade: v === "__none__" ? "" : v }))}>
@@ -302,16 +346,13 @@ export default function Materiais() {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-1 block">Descrição *</label>
-              <Input value={form.descricao} onChange={e => setForm(f => ({ ...f, descricao: e.target.value }))} placeholder="Ex: Filtro de ar 12000 BTU" />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium mb-1 block">Valor Unitário (R$)</label>
                 <Input type="number" value={form.valor_unitario} onChange={e => setForm(f => ({ ...f, valor_unitario: e.target.value }))} placeholder="0,00" />
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium mb-1 block">Tipo de Sistema</label>
                 <Select value={form.tipo_sistema || "__none__"} onValueChange={v => setForm(f => ({ ...f, tipo_sistema: v === "__none__" ? "" : v }))}>
@@ -322,43 +363,44 @@ export default function Materiais() {
                   </SelectContent>
                 </Select>
               </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Categoria</label>
+                <Select value={(form as any).categoria || "Material"} onValueChange={v => setForm(f => ({ ...f, categoria: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Material">📦 Material</SelectItem>
+                    <SelectItem value="Ferramenta">🔧 Ferramenta</SelectItem>
+                    <SelectItem value="EPI">🦺 EPI</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            {/* Fornecedor — agora no cadastro */}
+
             <div>
               <label className="text-sm font-medium mb-1 block">Fornecedor</label>
-              <Input
-                value={form.fornecedor}
-                onChange={e => setForm(f => ({ ...f, fornecedor: e.target.value }))}
-                placeholder="Ex: Distribuidora XYZ"
-              />
+              <Input value={form.fornecedor} onChange={e => setForm(f => ({ ...f, fornecedor: e.target.value }))} placeholder="Ex: Distribuidora XYZ" />
             </div>
-            <div>
-              <label className="text-sm font-medium mb-1 block">Data de Compra</label>
-              <Input type="date" value={form.data_compra} onChange={e => setForm(f => ({ ...f, data_compra: e.target.value }))} />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-1 block">Categoria</label>
-              <Select value={(form as any).categoria || "Material"} onValueChange={v => setForm(f => ({ ...f, categoria: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Material">📦 Material</SelectItem>
-                  <SelectItem value="Ferramenta">🔧 Ferramenta</SelectItem>
-                  <SelectItem value="EPI">🦺 EPI</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-1 block">Status</label>
-              <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ativo">Ativo</SelectItem>
-                  <SelectItem value="inativo">Inativo</SelectItem>
-                </SelectContent>
-              </Select>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium mb-1 block">Data de Compra</label>
+                <Input type="date" value={form.data_compra} onChange={e => setForm(f => ({ ...f, data_compra: e.target.value }))} />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Status</label>
+                <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ativo">Ativo</SelectItem>
+                    <SelectItem value="inativo">Inativo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
-          <Button className="w-full" onClick={handleSave}>{editing ? "Salvar Alterações" : "Cadastrar Material"}</Button>
+          <Button className="w-full" onClick={handleSave} disabled={saving}>
+            {saving ? "Salvando..." : editing ? "Salvar Alterações" : "Cadastrar Material"}
+          </Button>
         </DialogContent>
       </Dialog>
     </div>
