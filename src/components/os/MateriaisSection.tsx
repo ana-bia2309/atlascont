@@ -152,6 +152,8 @@ function MaterialForm({
   const [showList, setShowList] = useState(false);
   const [estoqueInfo, setEstoqueInfo] = useState<{ disponivel: number; unidade: string } | null>(null);
   const [materialId, setMaterialId] = useState<string | null>(null);
+  const qtdNum = parseFloat(draft.quantidade) || 0;
+  const qtdInsuficiente = estoqueInfo !== null && estoqueInfo.disponivel > 0 && qtdNum > estoqueInfo.disponivel;
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -261,25 +263,33 @@ function MaterialForm({
           "flex items-center gap-2 rounded-md px-3 py-2 text-xs font-medium border",
           estoqueInfo.disponivel === 0
             ? "bg-red-50 border-red-200 text-red-700"
-            : estoqueInfo.disponivel <= 5
+            : qtdInsuficiente
               ? "bg-amber-50 border-amber-200 text-amber-700"
-              : "bg-emerald-50 border-emerald-200 text-emerald-700"
+              : estoqueInfo.disponivel <= 5
+                ? "bg-amber-50 border-amber-200 text-amber-700"
+                : "bg-emerald-50 border-emerald-200 text-emerald-700"
         )}>
-          {estoqueInfo.disponivel === 0 ? "🔴" : estoqueInfo.disponivel <= 5 ? "🟡" : "🟢"}
+          {estoqueInfo.disponivel === 0 ? "🔴" : qtdInsuficiente ? "⚠️" : estoqueInfo.disponivel <= 5 ? "🟡" : "🟢"}
           <span>
             Estoque disponível: <strong>{estoqueInfo.disponivel} {estoqueInfo.unidade}</strong>
             {estoqueInfo.disponivel === 0 && " — Atenção: estoque zerado!"}
+            {qtdInsuficiente && (
+              <span className="block mt-0.5">
+                Quantidade solicitada ({draft.quantidade} {estoqueInfo.unidade}) superior ao disponível!
+              </span>
+            )}
           </span>
         </div>
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <div>
+       <div>
           <label className="text-xs text-muted-foreground">Qtd</label>
           <Input type="number" min="0.01" step="0.01"
             value={draft.quantidade}
-            onChange={e => setDraft({ ...draft, quantidade: String(Number(e.target.value)) })}
-            className="h-8 text-sm" />
+            onChange={e => setDraft({ ...draft, quantidade: e.target.value })}
+            className={cn("h-8 text-sm", qtdInsuficiente && "border-amber-400 focus-visible:ring-amber-400")}
+          />
         </div>
         <div>
           <label className="text-xs text-muted-foreground">Unidade</label>
