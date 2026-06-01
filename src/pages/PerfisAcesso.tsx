@@ -127,7 +127,7 @@ export default function PerfisAcesso() {
       toast({ title: "Perfil atualizado" });
     } else {
       const { error } = await (supabase as any).from("perfis_acesso").insert({ nome: nome.trim(), descricao: descricao.trim() || null, company_id: companyId });
-      if (error) { toast({ title: error.message.includes("unique") ? "Já existe um perfil com este nome" : "Erro ao criar", variant: "destructive" }); return; }
+      if (error) { toast({ title: error.message.includes("unique") ? "Já existe um perfil com este nome" : "Erro ao criar", description: error.message, variant: "destructive" }); return; }
       toast({ title: "Perfil criado com sucesso" });
     }
     resetForm();
