@@ -32,6 +32,7 @@ type Material = {
   status: string;
   created_at: string;
   data_compra: string | null;
+  categoria: string | null;
 };
 
 const emptyForm = {
@@ -43,6 +44,7 @@ const emptyForm = {
   tipo_sistema: "",
   fornecedor: "",
   status: "ativo",
+  categoria: "Material",
 };
 
 export default function Materiais() {
@@ -55,6 +57,7 @@ export default function Materiais() {
   const [filterSearch, setFilterSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterSistema, setFilterSistema] = useState("all");
+  const [filterCategoria, setFilterCategoria] = useState("all");
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -96,6 +99,7 @@ export default function Materiais() {
       fornecedor: form.fornecedor.trim() || null,
       status: form.status,
       data_compra: form.data_compra || null,
+      categoria: form.categoria || "Material",
     };
 
     if (editing) {
@@ -128,6 +132,7 @@ export default function Materiais() {
       tipo_sistema: m.tipo_sistema || "",
       fornecedor: m.fornecedor || "",
       status: m.status,
+      categoria: (m as any).categoria || "Material",
     });
     setOpen(true);
   };
@@ -138,6 +143,7 @@ export default function Materiais() {
     return list.filter(m => {
       if (filterStatus !== "all" && m.status !== filterStatus) return false;
       if (filterSistema !== "all" && m.tipo_sistema !== filterSistema) return false;
+      if (filterCategoria !== "all" && (m as any).categoria !== filterCategoria) return false;
       if (filterSearch.trim()) {
         const q = filterSearch.toLowerCase();
         if (![m.descricao, m.codigo, m.tipo_sistema, m.fornecedor].some(f => (f || "").toLowerCase().includes(q))) return false;
@@ -146,7 +152,7 @@ export default function Materiais() {
     });
   }, [list, filterStatus, filterSistema, filterSearch]);
 
-  const hasFilters = filterStatus !== "all" || filterSistema !== "all" || filterSearch.trim() !== "";
+  const hasFilters = filterStatus !== "all" || filterSistema !== "all" || filterSearch.trim() !== "" || filterCategoria !== "all";
 
   return (
     <div className="space-y-6">
@@ -187,6 +193,18 @@ export default function Materiais() {
           </Select>
         </div>
         <div className="min-w-[140px]">
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">Categoria</label>
+          <Select value={filterCategoria} onValueChange={setFilterCategoria}>
+            <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas</SelectItem>
+              <SelectItem value="Material">📦 Material</SelectItem>
+              <SelectItem value="Ferramenta">🔧 Ferramenta</SelectItem>
+              <SelectItem value="EPI">🦺 EPI</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+          <div className="min-w-[140px]">
           <label className="text-xs font-medium text-muted-foreground mb-1 block">Status</label>
           <Select value={filterStatus} onValueChange={setFilterStatus}>
             <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
@@ -228,7 +246,17 @@ export default function Materiais() {
             ) : filtered.map(m => (
               <TableRow key={m.id}>
                 <TableCell className="font-mono text-sm">{m.codigo || "—"}</TableCell>
-                <TableCell className="font-medium">{m.descricao}</TableCell>
+                <TableCell>
+                  <div className="font-medium">{m.descricao}</div>
+                  <span className={cn(
+                    "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border mt-0.5",
+                    (m as any).categoria === "Ferramenta" && "bg-blue-50 text-blue-700 border-blue-200",
+                    (m as any).categoria === "EPI" && "bg-amber-50 text-amber-700 border-amber-200",
+                    (!((m as any).categoria) || (m as any).categoria === "Material") && "bg-emerald-50 text-emerald-700 border-emerald-200",
+                  )}>
+                    {(m as any).categoria === "Ferramenta" ? "🔧 Ferramenta" : (m as any).categoria === "EPI" ? "🦺 EPI" : "📦 Material"}
+                  </span>
+                </TableCell>
                 <TableCell>{m.unidade || "—"}</TableCell>
                 <TableCell>{m.valor_unitario != null ? `R$ ${Number(m.valor_unitario).toFixed(2)}` : "—"}</TableCell>
                 <TableCell>{m.fornecedor || "—"}</TableCell>
@@ -307,6 +335,17 @@ export default function Materiais() {
             <div>
               <label className="text-sm font-medium mb-1 block">Data de Compra</label>
               <Input type="date" value={form.data_compra} onChange={e => setForm(f => ({ ...f, data_compra: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Categoria</label>
+              <Select value={(form as any).categoria || "Material"} onValueChange={v => setForm(f => ({ ...f, categoria: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Material">📦 Material</SelectItem>
+                  <SelectItem value="Ferramenta">🔧 Ferramenta</SelectItem>
+                  <SelectItem value="EPI">🦺 EPI</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <label className="text-sm font-medium mb-1 block">Status</label>
