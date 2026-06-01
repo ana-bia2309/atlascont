@@ -25,8 +25,174 @@ REGRA OBRIGATÓRIA: Quando o usuário pedir qualquer relatório em Excel ou plan
 REGRA OBRIGATÓRIA: Quando pedir PDF:
 <pdf titulo="Título do Relatório">[{"Coluna1":"valor1","Coluna2":"valor2"}]</pdf>
 
+REGRA DE CONTEXTO: Use EXCLUSIVAMENTE os dados do módulo solicitado:
+- Perguntas sobre ESTOQUE/MATERIAIS → use apenas dados de estoque e materiais
+- Perguntas sobre OS/ORDENS DE SERVIÇO → use apenas dados de ordens de serviço
+- Perguntas sobre FINANCEIRO/GASTOS/CUSTOS → use apenas dados financeiros
+- Perguntas sobre EQUIPAMENTOS/ATIVOS → use apenas dados de ativos
+- Perguntas sobre CHAMADOS → use apenas dados de chamados
+- Perguntas sobre PREVENTIVAS → use apenas dados de ordens preventivas
+NÃO misture dados de módulos diferentes.
 NÃO use tabelas markdown. USE SEMPRE a tag correta.
 Responda em português brasileiro.`;
+
+// Detecta qual módulo o usuário está perguntando
+function detectarModulo(texto: string): string[] {
+  const t = texto.toLowerCase();
+  const modulos: string[] = [];
+
+  if (/estoque|material|materiais|almoxarifado|insumo|peca|peça|produto/.test(t)) modulos.push("estoque");
+  if (/os|ordem de servi[çc]o|ordens de servi[çc]o|servi[çc]o|manuten[çc]ao|manutenção|corretiva|corretivo/.test(t)) modulos.push("os");
+  if (/financ|gasto|custo|despesa|pagamento|valor|boleto|receita/.test(t)) modulos.push("financeiro");
+  if (/ativo|equipamento|maquina|máquina|aparelho|instalac|instalação/.test(t)) modulos.push("ativos");
+  if (/chamado|ticket|solicitac|solicitação|reclamac|reclamação/.test(t)) modulos.push("chamados");
+  if (/preventiv|manutenc|manutenção preventiva|plano de manutenc/.test(t)) modulos.push("preventivas");
+
+  // Se nada detectado, busca contexto geral
+  if (modulos.length === 0) modulos.push("geral");
+
+  return modulos;
+}
+
+async function buscarContexto(modulos: string[], companyId: string): Promise<string> {
+  let ctx = "";
+
+  for (const modulo of modulos) {
+    try {
+      if (modulo === "estoque") {
+        const [matsRes, estoqueRes] = await Promise.all([
+          (supabase as any).from("materiais")
+            .select("codigo, descricao, unidade, categoria, status")
+            .eq("company_id", companyId)
+            .eq("status", "ativo")
+            .order("codigo")
+            .limit(200),
+          (supabase as any).from("estoque")
+            .select("material_id, quantidade_disponivel, quantidade_minima, quantidade_maxima")
+            .eq("company_id", companyId),
+        ]);
+        if (matsRes.data?.length) {
+          ctx += `\n\n[MÓDULO: ESTOQUE E MATERIAIS]`;
+          ctx += `\nTotal de materiais cadastrados: ${matsRes.data.length}`;
+          // Enriquece com dados de estoque
+          const estoqueMap: Record<string, any> = {};
+          (estoqueRes.data || []).forEach((e: any) => { estoqueMap[e.material_id] = e; });
+          const materiaisComEstoque = matsRes.data.map((m: any) => {
+            const est = estoqueMap[m.id] || {};
+            return {
+              ...m,
+              quantidade_disponivel: est.quantidade_disponivel ?? 0,
+              quantidade_minima: est.quantidade_minima ?? 0,
+              status_estoque: est.quantidade_disponivel === 0 ? "Zerado" :
+                (est.quantidade_minima > 0 && est.quantidade_disponivel <= est.quantidade_minima) ? "Baixo" : "OK",
+            };
+          });
+          ctx += `\nMateriais: ${JSON.stringify(materiaisComEstoque)}`;
+        }
+      }
+
+      if (modulo === "os") {
+        const osRes = await (supabase as any).from("ordens_servico")
+          .select("codigo_os, status, prioridade, tipo_servico, custo_total, created_at, finalizado_em, titulo")
+          .eq("company_id", companyId)
+          .order("created_at", { ascending: false })
+          .limit(300);
+        if (osRes.data?.length) {
+          const osAbertas = osRes.data.filter((os: any) => !["Concluída", "Cancelada"].includes(os.status));
+          const osConcluidas = osRes.data.filter((os: any) => os.status === "Concluída");
+          ctx += `\n\n[MÓDULO: ORDENS DE SERVIÇO]`;
+          ctx += `\nTotal OS: ${osRes.data.length} | Em aberto: ${osAbertas.length} | Concluídas: ${osConcluidas.length}`;
+          ctx += `\nDetalhes: ${JSON.stringify(osRes.data)}`;
+        }
+      }
+
+      if (modulo === "financeiro") {
+        const [gastosRes, boletosRes] = await Promise.all([
+          (supabase as any).from("gastos")
+            .select("descricao, valor, data, categoria, status")
+            .eq("company_id", companyId)
+            .order("data", { ascending: false })
+            .limit(200),
+          (supabase as any).from("boletos")
+            .select("descricao, valor, data_vencimento, status, categoria, banco_emissor")
+            .eq("company_id", companyId)
+            .order("data_vencimento", { ascending: true })
+            .limit(100),
+        ]);
+        ctx += `\n\n[MÓDULO: FINANCEIRO]`;
+        if (gastosRes.data?.length) {
+          const totalGastos = gastosRes.data.reduce((s: number, g: any) => s + Number(g.valor || 0), 0);
+          ctx += `\nTotal de gastos: ${gastosRes.data.length} | Valor total: R$ ${totalGastos.toFixed(2)}`;
+          ctx += `\nGastos: ${JSON.stringify(gastosRes.data)}`;
+        }
+        if (boletosRes.data?.length) {
+          const pendentes = boletosRes.data.filter((b: any) => ["pendente", "vencido"].includes(b.status));
+          ctx += `\nBoletos: ${boletosRes.data.length} total | ${pendentes.length} pendentes/vencidos`;
+          ctx += `\nBoletos: ${JSON.stringify(boletosRes.data)}`;
+        }
+      }
+
+      if (modulo === "ativos") {
+        const ativosRes = await (supabase as any).from("ativos")
+          .select("nome, codigo_identificacao, sistema, status, marca, modelo, bloco_id")
+          .eq("company_id", companyId)
+          .limit(200);
+        if (ativosRes.data?.length) {
+          ctx += `\n\n[MÓDULO: ATIVOS/EQUIPAMENTOS]`;
+          ctx += `\nTotal de ativos: ${ativosRes.data.length}`;
+          ctx += `\nAtivos: ${JSON.stringify(ativosRes.data)}`;
+        }
+      }
+
+      if (modulo === "chamados") {
+        const chamadosRes = await (supabase as any).from("chamados_externos")
+          .select("titulo, status, prioridade, created_at, descricao")
+          .eq("company_id", companyId)
+          .order("created_at", { ascending: false })
+          .limit(100);
+        if (chamadosRes.data?.length) {
+          ctx += `\n\n[MÓDULO: CHAMADOS]`;
+          ctx += `\nTotal de chamados: ${chamadosRes.data.length}`;
+          ctx += `\nChamados: ${JSON.stringify(chamadosRes.data)}`;
+        }
+      }
+
+      if (modulo === "preventivas") {
+        const prevRes = await (supabase as any).from("ordens_preventivas")
+          .select("codigo_op, status, prioridade, titulo, data_inicio, prazo")
+          .eq("company_id", companyId)
+          .order("created_at", { ascending: false })
+          .limit(100);
+        if (prevRes.data?.length) {
+          ctx += `\n\n[MÓDULO: PREVENTIVAS]`;
+          ctx += `\nTotal de ordens preventivas: ${prevRes.data.length}`;
+          ctx += `\nPreventivas: ${JSON.stringify(prevRes.data)}`;
+        }
+      }
+
+      if (modulo === "geral") {
+        // Contexto resumido geral
+        const [osRes, ativosRes] = await Promise.all([
+          (supabase as any).from("ordens_servico")
+            .select("status").eq("company_id", companyId),
+          (supabase as any).from("ativos")
+            .select("status").eq("company_id", companyId),
+        ]);
+        ctx += `\n\n[RESUMO GERAL DO SISTEMA]`;
+        if (osRes.data?.length) {
+          const abertas = osRes.data.filter((o: any) => !["Concluída", "Cancelada"].includes(o.status)).length;
+          ctx += `\nOS em aberto: ${abertas} de ${osRes.data.length} total`;
+        }
+        if (ativosRes.data?.length) ctx += `\nAtivos cadastrados: ${ativosRes.data.length}`;
+      }
+
+    } catch (e) {
+      console.warn(`[IAAtlas] Erro ao buscar contexto do módulo ${modulo}:`, e);
+    }
+  }
+
+  return ctx;
+}
 
 function parseExcel(content: string) {
   const match = content.match(/<excel titulo="([^"]*)">([\s\S]*?)<\/excel>/);
@@ -71,9 +237,11 @@ function downloadPdf(titulo: string, rows: Record<string, unknown>[]) {
 
 const SUGGESTIONS = [
   "Quais OS estão em aberto hoje?",
-  "Gera relatório de materiais em Excel",
-  "Quantos ativos estão indisponíveis?",
+  "Relatório de materiais em estoque",
+  "Boletos pendentes este mês",
   "Resumo das OS concluídas este mês",
+  "Quais ativos estão inativos?",
+  "Materiais com estoque zerado",
 ];
 
 export default function IAAtlas() {
@@ -81,6 +249,7 @@ export default function IAAtlas() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [moduloAtual, setModuloAtual] = useState<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -90,40 +259,23 @@ export default function IAAtlas() {
   const sendMessage = async (text?: string) => {
     const content = (text || input).trim();
     if (!content || loading) return;
+
     const userMsg: Message = { id: Date.now().toString(), role: "user", content };
     setMessages(prev => [...prev, userMsg]);
     setInput("");
     setLoading(true);
 
     try {
-      // Busca contexto do sistema
       let ctx = "";
       if (companyId) {
-        const [osRes, ativosRes] = await Promise.all([
-          (supabase as any).from("ordens_servico")
-            .select("codigo_os, status, prioridade, bloco_id, custo_total, created_at")
-            .eq("company_id", companyId)
-            .order("created_at", { ascending: false })
-            .limit(200),
-          (supabase as any).from("ativos")
-            .select("nome, disponibilidade_status, sistema")
-            .eq("company_id", companyId)
-            .limit(100),
-        ]);
-        if (osRes.data?.length) {
-          const osAbertas = osRes.data.filter((os: any) => !["Concluída", "Cancelada"].includes(os.status));
-          const osConcluidas = osRes.data.filter((os: any) => os.status === "Concluída");
-          ctx += `\nTotal de OS: ${osRes.data.length}`;
-          ctx += `\nOS em aberto (não concluídas/canceladas): ${osAbertas.length}`;
-          ctx += `\nOS concluídas: ${osConcluidas.length}`;
-          ctx += `\nDetalhes das OS: ${JSON.stringify(osRes.data)}`;
-        }
-        if (ativosRes.data?.length) ctx += `\nAtivos: ${JSON.stringify(ativosRes.data)}`;
+        const modulos = detectarModulo(content);
+        setModuloAtual(modulos.join(", "));
+        ctx = await buscarContexto(modulos, companyId);
       }
 
       const isRelatorio = /excel|pdf|relat[oó]rio|planilha/i.test(content);
       const userContent = ctx
-        ? `${content}\n\n[CONTEXTO DO SISTEMA:${ctx}]${isRelatorio ? "\n[INSTRUÇÃO: Use as tags <excel> ou <pdf> para gerar o relatório]" : ""}`
+        ? `${content}\n\n[DADOS DO SISTEMA:${ctx}]${isRelatorio ? "\n[INSTRUÇÃO: Use as tags <excel> ou <pdf> para gerar o relatório com os dados acima]" : ""}`
         : content;
 
       const response = await fetch("https://tayxbbpyxbomiatbiirx.supabase.co/functions/v1/openai-proxy", {
@@ -166,6 +318,7 @@ export default function IAAtlas() {
       }]);
     } finally {
       setLoading(false);
+      setModuloAtual("");
     }
   };
 
@@ -200,6 +353,21 @@ export default function IAAtlas() {
               <p className="text-muted-foreground max-w-md">
                 Tenho acesso aos dados reais do Atlas Control. Posso responder perguntas, gerar relatórios e muito mais.
               </p>
+            </div>
+            {/* Módulos disponíveis */}
+            <div className="flex flex-wrap gap-2 justify-center">
+              {[
+                { label: "📋 OS", desc: "Ordens de Serviço" },
+                { label: "📦 Estoque", desc: "Materiais e Almoxarifado" },
+                { label: "💰 Financeiro", desc: "Gastos e Boletos" },
+                { label: "🔧 Ativos", desc: "Equipamentos" },
+                { label: "📞 Chamados", desc: "Tickets" },
+                { label: "🔄 Preventivas", desc: "Manutenção Preventiva" },
+              ].map(m => (
+                <span key={m.label} className="text-xs px-2 py-1 rounded-full bg-violet-50 text-violet-700 border border-violet-200">
+                  {m.label}
+                </span>
+              ))}
             </div>
             <div className="grid grid-cols-2 gap-3 w-full max-w-lg">
               {SUGGESTIONS.map(s => (
@@ -255,7 +423,9 @@ export default function IAAtlas() {
             </div>
             <div className="bg-card border rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-2">
               <Loader2 className="w-4 h-4 animate-spin text-violet-500" />
-              <span className="text-sm text-muted-foreground">Pensando...</span>
+              <span className="text-sm text-muted-foreground">
+                {moduloAtual ? `Consultando módulo: ${moduloAtual}...` : "Pensando..."}
+              </span>
             </div>
           </div>
         )}
@@ -269,7 +439,7 @@ export default function IAAtlas() {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendMessage()}
-            placeholder="Pergunte qualquer coisa sobre o Atlas Control..."
+            placeholder="Pergunte sobre OS, estoque, financeiro, ativos..."
             className="flex-1 rounded-xl"
             disabled={loading}
           />
@@ -279,7 +449,7 @@ export default function IAAtlas() {
           </Button>
         </div>
         <p className="text-xs text-muted-foreground text-center mt-2">
-          IA com acesso aos dados reais do Atlas Control
+          A IA identifica automaticamente o módulo e busca os dados corretos
         </p>
       </div>
     </div>
