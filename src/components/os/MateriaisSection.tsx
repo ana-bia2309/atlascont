@@ -319,6 +319,7 @@ const MateriaisSection = forwardRef<MateriaisSectionHandle, MateriaisSectionProp
     const [editingKey, setEditingKey] = useState<string | null>(null);
     const [draft, setDraft] = useState<DraftMaterial>(emptyDraft);
     const [currentMaterialId, setCurrentMaterialId] = useState<string | null>(null);
+    const [orcamentoStatus, setOrcamentoStatus] = useState<string | null>(null);
     const { companyId } = useCompany();
 
     useImperativeHandle(ref, () => ({
@@ -333,6 +334,11 @@ const MateriaisSection = forwardRef<MateriaisSectionHandle, MateriaisSectionProp
         .from("materiais_os").select("*").eq("os_id", osId).order("created_at");
       if (error) toast({ title: "Erro ao carregar materiais", description: error.message, variant: "destructive" });
       else setPersisted((data as PersistedMaterial[]) || []);
+      if (osId) {
+        const { data: osData } = await (supabase as any)
+          .from("ordens_servico").select("orcamento_status").eq("id", osId).single();
+        setOrcamentoStatus(osData?.orcamento_status || null);
+      }
       setLoading(false);
     }, [osId]);
 
@@ -529,7 +535,12 @@ const MateriaisSection = forwardRef<MateriaisSectionHandle, MateriaisSectionProp
               <span className="text-xs text-muted-foreground">Total geral</span>
               <span className="text-base font-bold text-primary">R$ {totalGeral.toFixed(2)}</span>
             </div>
-            {!readOnly && osId && (
+            {!readOnly && osId && orcamentoStatus === "aprovado" && (
+              <span className="text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                ✅ Orçamento Aprovado
+              </span>
+            )}
+            {!readOnly && osId && orcamentoStatus !== "aprovado" && (
               <Button size="sm" variant="outline"
                 className="gap-1.5 border-amber-400 text-amber-700 hover:bg-amber-50 h-8 text-xs"
                 onClick={async () => {

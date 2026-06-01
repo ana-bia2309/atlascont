@@ -1506,12 +1506,26 @@ fetchData();
 
                     {/* Status */}
                     <TableCell>
-                      <span className={cn(
-                        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border",
-                        getStatusColor(os.status),
-                      )}>
-                        {os.status || "—"}
-                      </span>
+                      <div className="flex flex-col gap-1">
+                        <span className={cn(
+                          "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border",
+                          getStatusColor(os.status),
+                        )}>
+                          {os.status || "—"}
+                        </span>
+                        {(os as any).orcamento_status && (
+                          <span className={cn(
+                            "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border",
+                            (os as any).orcamento_status === "aprovado" && "bg-emerald-50 text-emerald-700 border-emerald-200",
+                            (os as any).orcamento_status === "reprovado" && "bg-red-50 text-red-700 border-red-200",
+                            (os as any).orcamento_status === "pendente" && "bg-amber-50 text-amber-700 border-amber-200",
+                          )}>
+                            {(os as any).orcamento_status === "aprovado" && "✅ Orç. Aprovado"}
+                            {(os as any).orcamento_status === "reprovado" && "❌ Orç. Reprovado"}
+                            {(os as any).orcamento_status === "pendente" && "🟡 Orç. Pendente"}
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
 
                     {/* SLA */}
