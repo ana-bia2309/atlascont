@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/use-company";
 import { toast } from "@/hooks/use-toast";
@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { Plus, Trash2, RefreshCw, Search, ShoppingCart, Package, Send, X, Pencil } from "@/lib/icons";
+import { Plus, Trash2, RefreshCw, Search, ShoppingCart, Package, Send, X, Pencil, Eye, Download, FileText, Hash } from "@/lib/icons";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -65,24 +65,24 @@ export default function PedidosCompra() {
   const [materiais, setMateriais] = useState<Material[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [profileId, setProfileId] = useState<string | null>(null);
+  const [companyNome, setCompanyNome] = useState<string>("Atlas Control");
   const [tab, setTab] = useState<"meus" | "todos">("todos");
   const [filterStatus, setFilterStatus] = useState("todos");
   const [filterSearch, setFilterSearch] = useState("");
 
-  // Dialog novo pedido
+  // Dialog novo/editar pedido
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Pedido | null>(null);
-  const [numero, setNumero] = useState("");
   const [responsavelId, setResponsavelId] = useState("");
   const [prazo, setPrazo] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [itens, setItens] = useState<PedidoItem[]>([]);
   const [saving, setSaving] = useState(false);
+  const [previewNumero, setPreviewNumero] = useState<string | null>(null);
 
-  // Mini cadastro de material
-  const [novoMatDialog, setNovoMatDialog] = useState(false);
-  const [novoMatForm, setNovoMatForm] = useState({ codigo: "", descricao: "", unidade: "un", valor_unitario: "", tipo_sistema: "", fornecedor: "" });
-  const [novoMatSaving, setNovoMatSaving] = useState(false);
+  // Drawer visualização
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerPedido, setDrawerPedido] = useState<Pedido | null>(null);
 
   // Dialog status
   const [statusDialog, setStatusDialog] = useState(false);
@@ -98,45 +98,24 @@ export default function PedidosCompra() {
   const [buscaMaterial, setBuscaMaterial] = useState("");
   const [showMaterialList, setShowMaterialList] = useState(false);
 
+  // Novo material
+  const [novoMatDialog, setNovoMatDialog] = useState(false);
+  const [novoMatForm, setNovoMatForm] = useState({ descricao: "", unidade: "un", valor_unitario: "", tipo_sistema: "", fornecedor: "" });
+  const [novoMatSaving, setNovoMatSaving] = useState(false);
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return;
-      supabase.from("profiles").select("id").eq("user_id", user.id).single()
-        .then(({ data }) => { if (data) setProfileId((data as any).id); });
+      supabase.from("profiles").select("id, company_id").eq("user_id", user.id).single()
+        .then(({ data }: any) => { if (data) setProfileId(data.id); });
     });
   }, []);
 
-  const handleSaveNovoMaterial = async () => {
-    if (!novoMatForm.descricao.trim()) { toast({ title: "Descrição obrigatória", variant: "destructive" }); return; }
-    setNovoMatSaving(true);
-    try {
-      const { data } = await (supabase as any).from("materiais").insert({
-        company_id: companyId,
-        descricao: novoMatForm.descricao.trim(),
-        codigo: novoMatForm.codigo.trim() || null,
-        unidade: novoMatForm.unidade || null,
-        valor_unitario: novoMatForm.valor_unitario ? Number(novoMatForm.valor_unitario) : null,
-        tipo_sistema: novoMatForm.tipo_sistema || null,
-        fornecedor: novoMatForm.fornecedor.trim() || null,
-        status: "ativo",
-      }).select().single();
-      toast({ title: "Material cadastrado!" });
-      setNovoMatDialog(false);
-      setNovoMatForm({ codigo: "", descricao: "", unidade: "un", valor_unitario: "", tipo_sistema: "", fornecedor: "" });
-      // Seleciona o novo material automaticamente
-      if (data) {
-        setItemMaterialId(data.id);
-        setItemNome(data.descricao);
-        setItemUnidade(data.unidade || "un");
-        setBuscaMaterial(data.codigo ? `${data.codigo} — ${data.descricao}` : data.descricao);
-      }
-      fetchData();
-    } catch (e: any) {
-      toast({ title: "Erro ao cadastrar", description: e.message, variant: "destructive" });
-    } finally {
-      setNovoMatSaving(false);
-    }
-  };
+  useEffect(() => {
+    if (!companyId) return;
+    (supabase as any).from("companies").select("nome").eq("id", companyId).single()
+      .then(({ data }: any) => { if (data?.nome) setCompanyNome(data.nome); });
+  }, [companyId]);
 
   const fetchData = useCallback(async () => {
     if (!companyId) return;
@@ -144,15 +123,13 @@ export default function PedidosCompra() {
     try {
       const [pedidosRes, matsRes, profilesRes] = await Promise.all([
         (supabase as any).from("pedidos_compra").select("*, pedidos_compra_itens(*)").eq("company_id", companyId).order("created_at", { ascending: false }),
-        (supabase as any).from("materiais").select("id, codigo, descricao, unidade").eq("company_id", companyId).eq("status", "ativo").order("descricao"),
+        (supabase as any).from("materiais").select("id, codigo, descricao, unidade").eq("company_id", companyId).eq("status", "ativo").order("codigo", { ascending: true }),
         (supabase as any).from("profiles").select("id, nome").eq("company_id", companyId).order("nome"),
       ]);
-
       const profilesMap: Record<string, string> = {};
       (profilesRes.data || []).forEach((p: any) => { profilesMap[p.id] = p.nome; });
       setProfiles(profilesRes.data || []);
       setMateriais(matsRes.data || []);
-
       setPedidos((pedidosRes.data || []).map((p: any) => ({
         ...p,
         solicitante_nome: profilesMap[p.solicitante_id] || "—",
@@ -165,6 +142,17 @@ export default function PedidosCompra() {
   }, [companyId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Pré-visualiza o próximo número ao abrir dialog novo
+  useEffect(() => {
+    if (dialogOpen && !editing && companyId) {
+      (supabase as any).from("pedidos_compra_seq").select("last_seq").eq("company_id", companyId).single()
+        .then(({ data }: any) => {
+          const next = (data?.last_seq || 0) + 1;
+          setPreviewNumero("PC-" + String(next).padStart(6, "0"));
+        });
+    }
+  }, [dialogOpen, editing, companyId]);
 
   const filtered = useMemo(() => {
     return pedidos.filter(p => {
@@ -191,7 +179,7 @@ export default function PedidosCompra() {
     setItemMaterialId(m.id);
     setItemNome(m.descricao);
     setItemUnidade(m.unidade || "un");
-    setBuscaMaterial(m.codigo ? `${m.codigo} — ${m.descricao}` : m.descricao);
+    setBuscaMaterial(m.codigo ? `[${m.codigo}] ${m.descricao}` : m.descricao);
     setShowMaterialList(false);
   };
 
@@ -213,23 +201,31 @@ export default function PedidosCompra() {
     if (itens.length === 0) { toast({ title: "Adicione pelo menos um item", variant: "destructive" }); return; }
     setSaving(true);
     try {
-      const payload = {
-        company_id: companyId,
-        numero: numero.trim() || null,
-        solicitante_id: profileId,
-        responsavel_id: responsavelId || null,
-        prazo: prazo || null,
-        observacoes: observacoes.trim() || null,
-        status: "pendente",
-        updated_at: new Date().toISOString(),
-      };
-
       let pedidoId = editing?.id;
+      let numeroGerado = editing?.numero;
+
       if (editing) {
-        await (supabase as any).from("pedidos_compra").update(payload).eq("id", editing.id);
+        await (supabase as any).from("pedidos_compra").update({
+          responsavel_id: responsavelId || null,
+          prazo: prazo || null,
+          observacoes: observacoes.trim() || null,
+          updated_at: new Date().toISOString(),
+        }).eq("id", editing.id);
         await (supabase as any).from("pedidos_compra_itens").delete().eq("pedido_id", editing.id);
       } else {
-        const { data } = await (supabase as any).from("pedidos_compra").insert(payload).select().single();
+        // Gera número automático
+        const { data: numData } = await (supabase as any).rpc("next_pedido_numero", { p_company_id: companyId });
+        numeroGerado = numData;
+        const { data } = await (supabase as any).from("pedidos_compra").insert({
+          company_id: companyId,
+          numero: numeroGerado,
+          solicitante_id: profileId,
+          responsavel_id: responsavelId || null,
+          prazo: prazo || null,
+          observacoes: observacoes.trim() || null,
+          status: "pendente",
+          updated_at: new Date().toISOString(),
+        }).select().single();
         pedidoId = data.id;
       }
 
@@ -237,7 +233,7 @@ export default function PedidosCompra() {
         itens.map(item => ({ ...item, pedido_id: pedidoId }))
       );
 
-      toast({ title: editing ? "Pedido atualizado!" : "Pedido enviado!" });
+      toast({ title: editing ? "Pedido atualizado!" : `Pedido ${numeroGerado} criado!` });
       setDialogOpen(false); resetForm(); fetchData();
     } catch (e: any) {
       toast({ title: "Erro ao salvar", description: e.message, variant: "destructive" });
@@ -251,23 +247,55 @@ export default function PedidosCompra() {
     await (supabase as any).from("pedidos_compra").update({ status: novoStatus, updated_at: new Date().toISOString() }).eq("id", statusPedido.id);
     toast({ title: "Status atualizado!" });
     setStatusDialog(false); setStatusPedido(null); setNovoStatus("");
+    // Atualiza drawer se estiver aberto
+    if (drawerPedido?.id === statusPedido.id) {
+      setDrawerPedido(prev => prev ? { ...prev, status: novoStatus } : null);
+    }
     fetchData();
   };
 
+  const handleSaveNovoMaterial = async () => {
+    if (!novoMatForm.descricao.trim()) { toast({ title: "Descrição obrigatória", variant: "destructive" }); return; }
+    setNovoMatSaving(true);
+    try {
+      const { data: numData } = await (supabase as any).rpc("next_material_codigo", { p_company_id: companyId });
+      const { data } = await (supabase as any).from("materiais").insert({
+        company_id: companyId,
+        codigo: numData,
+        descricao: novoMatForm.descricao.trim(),
+        unidade: novoMatForm.unidade || null,
+        valor_unitario: novoMatForm.valor_unitario ? Number(novoMatForm.valor_unitario) : null,
+        tipo_sistema: novoMatForm.tipo_sistema || null,
+        fornecedor: novoMatForm.fornecedor.trim() || null,
+        status: "ativo",
+      }).select().single();
+      toast({ title: `Material ${numData} cadastrado!` });
+      setNovoMatDialog(false);
+      setNovoMatForm({ descricao: "", unidade: "un", valor_unitario: "", tipo_sistema: "", fornecedor: "" });
+      if (data) { setItemMaterialId(data.id); setItemNome(data.descricao); setItemUnidade(data.unidade || "un"); setBuscaMaterial(`[${numData}] ${data.descricao}`); }
+      fetchData();
+    } catch (e: any) {
+      toast({ title: "Erro ao cadastrar", description: e.message, variant: "destructive" });
+    } finally {
+      setNovoMatSaving(false);
+    }
+  };
+
   const resetForm = () => {
-    setNumero(""); setResponsavelId(""); setPrazo(""); setObservacoes(""); setItens([]); setEditing(null);
+    setResponsavelId(""); setPrazo(""); setObservacoes(""); setItens([]); setEditing(null); setPreviewNumero(null);
     setItemMaterialId(""); setItemNome(""); setItemQtd("1"); setItemUnidade("un"); setItemObs(""); setBuscaMaterial("");
   };
 
   const openEdit = (p: Pedido) => {
     setEditing(p);
-    setNumero(p.numero || "");
     setResponsavelId(p.responsavel_id || "");
     setPrazo(p.prazo || "");
     setObservacoes(p.observacoes || "");
     setItens((p.itens || []).map(i => ({ ...i, id: undefined })));
     setDialogOpen(true);
   };
+
+  const openDrawer = (p: Pedido) => { setDrawerPedido(p); setDrawerOpen(true); };
 
   const getStatusBadge = (status: string) => {
     const opt = STATUS_OPTIONS.find(o => o.value === status);
@@ -280,6 +308,140 @@ export default function PedidosCompra() {
     em_compra: pedidos.filter(p => p.status === "em_compra").length,
     recebidos: pedidos.filter(p => p.status === "recebido").length,
   }), [pedidos]);
+
+  // ---- PDF ----
+  const gerarPDF = (p: Pedido) => {
+    const numero = p.numero || `PED-${p.id.slice(0, 6).toUpperCase()}`;
+    const dataEmissao = format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR });
+    const statusOpt = STATUS_OPTIONS.find(o => o.value === p.status);
+
+    const itensHtml = (p.itens || []).map((item, idx) => `
+      <tr style="border-bottom:1px solid #e5e7eb;">
+        <td style="padding:8px 12px;font-size:13px;">${idx + 1}</td>
+        <td style="padding:8px 12px;font-size:13px;font-weight:500;">${item.nome_material}</td>
+        <td style="padding:8px 12px;font-size:13px;text-align:center;">${item.quantidade}</td>
+        <td style="padding:8px 12px;font-size:13px;text-align:center;">${item.unidade}</td>
+        <td style="padding:8px 12px;font-size:13px;color:#6b7280;">${item.observacoes || "—"}</td>
+      </tr>
+    `).join("");
+
+    const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Pedido ${numero}</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; color:#111827; background:#fff; padding:40px; }
+    .header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #6366f1; padding-bottom:20px; margin-bottom:28px; }
+    .brand { display:flex; flex-direction:column; gap:4px; }
+    .brand-name { font-size:22px; font-weight:800; color:#6366f1; letter-spacing:-0.5px; }
+    .brand-sub { font-size:12px; color:#6b7280; }
+    .doc-info { text-align:right; }
+    .doc-numero { font-size:20px; font-weight:800; font-family:monospace; color:#111827; }
+    .doc-data { font-size:11px; color:#6b7280; margin-top:4px; }
+    .section { margin-bottom:24px; }
+    .section-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; color:#6366f1; margin-bottom:10px; }
+    .info-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+    .info-item label { font-size:11px; color:#6b7280; display:block; margin-bottom:3px; }
+    .info-item span { font-size:13px; font-weight:500; }
+    .status-badge { display:inline-block; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:600; background:#fef3c7; color:#92400e; }
+    table { width:100%; border-collapse:collapse; }
+    thead tr { background:#f3f4f6; }
+    thead th { padding:10px 12px; text-align:left; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#374151; }
+    thead th:nth-child(3), thead th:nth-child(4) { text-align:center; }
+    tbody tr:hover { background:#fafafa; }
+    .obs-box { background:#f9fafb; border:1px solid #e5e7eb; border-radius:6px; padding:12px; font-size:13px; color:#374151; }
+    .footer { margin-top:40px; padding-top:16px; border-top:1px solid #e5e7eb; display:flex; justify-content:space-between; align-items:center; }
+    .footer-left { font-size:11px; color:#9ca3af; }
+    .footer-right { font-size:11px; color:#9ca3af; text-align:right; }
+    @media print { body { padding:20px; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="brand">
+      <div class="brand-name">⚡ ${companyNome}</div>
+      <div class="brand-sub">Atlas Control · Pedido de Compra</div>
+    </div>
+    <div class="doc-info">
+      <div class="doc-numero">${numero}</div>
+      <div class="doc-data">Emitido em ${dataEmissao}</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Informações Gerais</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <label>Solicitante</label>
+        <span>${p.solicitante_nome || "—"}</span>
+      </div>
+      <div class="info-item">
+        <label>Responsável pela Compra</label>
+        <span>${p.responsavel_nome || "—"}</span>
+      </div>
+      <div class="info-item">
+        <label>Status</label>
+        <span class="status-badge">${statusOpt?.label || p.status}</span>
+      </div>
+      <div class="info-item">
+        <label>Data de Criação</label>
+        <span>${format(new Date(p.created_at), "dd/MM/yyyy", { locale: ptBR })}</span>
+      </div>
+      <div class="info-item">
+        <label>Prazo Necessário</label>
+        <span>${p.prazo ? format(new Date(p.prazo + "T00:00:00"), "dd/MM/yyyy") : "—"}</span>
+      </div>
+      <div class="info-item">
+        <label>Total de Itens</label>
+        <span>${(p.itens || []).length} item(s)</span>
+      </div>
+    </div>
+  </div>
+
+  ${p.observacoes ? `
+  <div class="section">
+    <div class="section-title">Observações</div>
+    <div class="obs-box">${p.observacoes}</div>
+  </div>` : ""}
+
+  <div class="section">
+    <div class="section-title">Itens do Pedido</div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:40px">#</th>
+          <th>Material</th>
+          <th style="width:80px">Qtd</th>
+          <th style="width:80px">Unidade</th>
+          <th>Observações</th>
+        </tr>
+      </thead>
+      <tbody>${itensHtml}</tbody>
+    </table>
+  </div>
+
+  <div class="footer">
+    <div class="footer-left">
+      <div>Documento gerado em ${dataEmissao}</div>
+      <div>Atlas Control · Sistema de Gestão de Manutenção</div>
+    </div>
+    <div class="footer-right">
+      <div>${numero}</div>
+      <div>${(p.itens || []).length} item(s) no pedido</div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    const win = window.open("", "_blank");
+    if (!win) { toast({ title: "Popup bloqueado. Permita popups para baixar o PDF.", variant: "destructive" }); return; }
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); }, 500);
+  };
 
   return (
     <div className="space-y-6">
@@ -335,7 +497,7 @@ export default function PedidosCompra() {
         </div>
       </div>
 
-      {/* Lista */}
+      {/* Tabela */}
       {loading ? <p className="text-muted-foreground">Carregando...</p> :
         filtered.length === 0 ? (
           <div className="flex flex-col items-center py-16 text-muted-foreground border rounded-lg">
@@ -360,7 +522,7 @@ export default function PedidosCompra() {
               <TableBody>
                 {filtered.map(p => (
                   <TableRow key={p.id}>
-                    <TableCell className="font-mono font-semibold">{p.numero || `PED-${p.id.slice(0, 6).toUpperCase()}`}</TableCell>
+                    <TableCell className="font-mono font-semibold text-primary">{p.numero || `PED-${p.id.slice(0, 6).toUpperCase()}`}</TableCell>
                     <TableCell>{p.solicitante_nome}</TableCell>
                     <TableCell>{p.responsavel_nome}</TableCell>
                     <TableCell>{p.prazo ? format(new Date(p.prazo + "T00:00:00"), "dd/MM/yyyy") : "—"}</TableCell>
@@ -371,6 +533,12 @@ export default function PedidosCompra() {
                     <TableCell className="text-xs text-muted-foreground">{format(new Date(p.created_at), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" title="Visualizar" onClick={() => openDrawer(p)}>
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" title="Baixar PDF" onClick={() => gerarPDF(p)}>
+                          <FileText className="h-3.5 w-3.5" />
+                        </Button>
                         <Button variant="ghost" size="sm" className="h-7 text-xs"
                           onClick={() => { setStatusPedido(p); setNovoStatus(p.status); setStatusDialog(true); }}>
                           Atualizar Status
@@ -390,33 +558,141 @@ export default function PedidosCompra() {
         )
       }
 
-      {/* Dialog Novo/Editar Pedido */}
+      {/* ---- DRAWER Visualização ---- */}
+      {drawerOpen && drawerPedido && (
+        <div className="fixed inset-0 z-50 flex">
+          {/* Overlay */}
+          <div className="flex-1 bg-black/40" onClick={() => setDrawerOpen(false)} />
+          {/* Painel */}
+          <div className="w-full max-w-lg bg-background shadow-2xl flex flex-col overflow-hidden">
+            {/* Header drawer */}
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <div className="flex items-center gap-3">
+                <ShoppingCart className="h-5 w-5 text-primary" />
+                <div>
+                  <p className="font-mono font-bold text-lg text-primary">{drawerPedido.numero || `PED-${drawerPedido.id.slice(0, 6).toUpperCase()}`}</p>
+                  <p className="text-xs text-muted-foreground">Criado em {format(new Date(drawerPedido.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5" onClick={() => gerarPDF(drawerPedido)}>
+                  <FileText className="h-3.5 w-3.5" /> Baixar PDF
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDrawerOpen(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Conteúdo drawer */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* Status */}
+              <div className="flex items-center justify-between">
+                {getStatusBadge(drawerPedido.status)}
+                <Button variant="outline" size="sm" className="h-7 text-xs"
+                  onClick={() => { setStatusPedido(drawerPedido); setNovoStatus(drawerPedido.status); setStatusDialog(true); }}>
+                  Atualizar Status
+                </Button>
+              </div>
+
+              {/* Info grid */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Solicitante</p>
+                  <p className="text-sm font-medium">{drawerPedido.solicitante_nome}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Responsável</p>
+                  <p className="text-sm font-medium">{drawerPedido.responsavel_nome}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Prazo Necessário</p>
+                  <p className="text-sm font-medium">{drawerPedido.prazo ? format(new Date(drawerPedido.prazo + "T00:00:00"), "dd/MM/yyyy") : "—"}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Total de Itens</p>
+                  <p className="text-sm font-medium">{(drawerPedido.itens || []).length} item(s)</p>
+                </div>
+              </div>
+
+              {/* Observações */}
+              {drawerPedido.observacoes && (
+                <div className="rounded-md bg-muted/50 border p-3 space-y-1">
+                  <p className="text-xs font-semibold text-muted-foreground">Observações</p>
+                  <p className="text-sm">{drawerPedido.observacoes}</p>
+                </div>
+              )}
+
+              {/* Itens */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Itens do Pedido</p>
+                <div className="rounded-md border overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Material</th>
+                        <th className="text-center px-3 py-2 text-xs font-semibold text-muted-foreground w-20">Qtd</th>
+                        <th className="text-center px-3 py-2 text-xs font-semibold text-muted-foreground w-16">Un.</th>
+                        <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Obs.</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(drawerPedido.itens || []).map((item, idx) => (
+                        <tr key={idx} className="border-t">
+                          <td className="px-3 py-2.5 font-medium">{item.nome_material}</td>
+                          <td className="px-3 py-2.5 text-center">{item.quantidade}</td>
+                          <td className="px-3 py-2.5 text-center text-muted-foreground">{item.unidade}</td>
+                          <td className="px-3 py-2.5 text-muted-foreground text-xs">{item.observacoes || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dialog Novo/Editar */}
       <Dialog open={dialogOpen} onOpenChange={o => { if (!o) { setDialogOpen(false); resetForm(); } }}>
         <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editing ? "Editar Pedido" : "Novo Pedido de Compra"}</DialogTitle>
+            <DialogTitle>{editing ? `Editar Pedido ${editing.numero}` : "Novo Pedido de Compra"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium mb-1 block">Número do Pedido</label>
-                <Input value={numero} onChange={e => setNumero(e.target.value)} placeholder="Ex: PC-001" />
+
+            {/* Número automático */}
+            <div>
+              <label className="text-sm font-medium mb-1 block">Número do Pedido</label>
+              <div className="relative">
+                <Hash className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={editing ? (editing.numero || "—") : (previewNumero || "Gerando...")}
+                  readOnly
+                  className="pl-9 bg-muted text-muted-foreground cursor-not-allowed font-mono font-semibold"
+                />
               </div>
+              {!editing && <p className="text-xs text-muted-foreground mt-1">Número gerado automaticamente em sequência</p>}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium mb-1 block">Prazo necessário</label>
                 <Input type="date" value={prazo} onChange={e => setPrazo(e.target.value)} />
               </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Responsável pela compra</label>
+                <Select value={responsavelId || "__none__"} onValueChange={v => setResponsavelId(v === "__none__" ? "" : v)}>
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— Nenhum —</SelectItem>
+                    {profiles.map(p => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div>
-              <label className="text-sm font-medium mb-1 block">Responsável pela compra</label>
-              <Select value={responsavelId || "__none__"} onValueChange={v => setResponsavelId(v === "__none__" ? "" : v)}>
-                <SelectTrigger><SelectValue placeholder="Selecione o responsável" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">— Nenhum —</SelectItem>
-                  {profiles.map(p => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+
             <div>
               <label className="text-sm font-medium mb-1 block">Observações</label>
               <Textarea value={observacoes} onChange={e => setObservacoes(e.target.value)} placeholder="Informações adicionais..." rows={2} />
@@ -429,7 +705,6 @@ export default function PedidosCompra() {
                 <span className="text-xs text-muted-foreground">{itens.length} item(s)</span>
               </div>
               <div className="p-4 space-y-3">
-                {/* Form adicionar item */}
                 <div className="rounded-md border bg-muted/20 p-3 space-y-2">
                   <div>
                     <label className="text-xs text-muted-foreground">Material</label>
@@ -443,20 +718,14 @@ export default function PedidosCompra() {
                         {materiaisFiltrados.map(m => (
                           <button key={m.id} className="w-full text-left px-3 py-2 text-sm hover:bg-accent flex items-center gap-2"
                             onMouseDown={e => { e.preventDefault(); selecionarMaterial(m); }}>
-                            {m.codigo && <span className="font-mono text-xs text-muted-foreground">{m.codigo}</span>}
+                            {m.codigo && <span className="font-mono text-xs text-primary font-semibold">{m.codigo}</span>}
                             <span className="flex-1">{m.descricao}</span>
                             {m.unidade && <span className="text-xs text-muted-foreground">{m.unidade}</span>}
                           </button>
                         ))}
-                        <button
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-primary/10 flex items-center gap-2 border-t text-primary font-medium"
-                          onMouseDown={e => {
-                            e.preventDefault();
-                            setShowMaterialList(false);
-                            setNovoMatDialog(true);
-                          }}>
-                          <Plus className="h-3.5 w-3.5" />
-                          + Cadastrar novo material
+                        <button className="w-full text-left px-3 py-2 text-sm hover:bg-primary/10 flex items-center gap-2 border-t text-primary font-medium"
+                          onMouseDown={e => { e.preventDefault(); setShowMaterialList(false); setNovoMatDialog(true); }}>
+                          <Plus className="h-3.5 w-3.5" /> + Cadastrar novo material
                         </button>
                       </div>
                     )}
@@ -477,8 +746,6 @@ export default function PedidosCompra() {
                     </div>
                   </div>
                 </div>
-
-                {/* Lista de itens */}
                 {itens.length > 0 && (
                   <div className="space-y-1">
                     {itens.map((item, idx) => (
@@ -506,45 +773,33 @@ export default function PedidosCompra() {
         </DialogContent>
       </Dialog>
 
-{/* Dialog Novo Material */}
+      {/* Dialog Novo Material */}
       <Dialog open={novoMatDialog} onOpenChange={o => { if (!o) setNovoMatDialog(false); }}>
         <DialogContent className="sm:max-w-[480px]">
           <DialogHeader><DialogTitle>Cadastrar Novo Material</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
+            <div>
+              <label className="text-sm font-medium mb-1 block">Código</label>
+              <Input value="Gerado automaticamente" readOnly className="bg-muted text-muted-foreground cursor-not-allowed font-mono" />
+            </div>
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium mb-1 block">Código</label>
-                <Input value={novoMatForm.codigo} onChange={e => setNovoMatForm(f => ({ ...f, codigo: e.target.value }))} placeholder="Ex: MAT-001" />
-              </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">Unidade</label>
                 <Select value={novoMatForm.unidade} onValueChange={v => setNovoMatForm(f => ({ ...f, unidade: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {["un", "cx", "kg", "g", "l", "ml", "m", "m²", "m³", "pc", "par", "rolo"].map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                    {["un","cx","kg","g","l","ml","m","m²","m³","pc","par","rolo"].map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
                   </SelectContent>
                 </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Valor Unitário (R$)</label>
+                <Input type="number" value={novoMatForm.valor_unitario} onChange={e => setNovoMatForm(f => ({ ...f, valor_unitario: e.target.value }))} placeholder="0,00" />
               </div>
             </div>
             <div>
               <label className="text-sm font-medium mb-1 block">Descrição *</label>
               <Input value={novoMatForm.descricao} onChange={e => setNovoMatForm(f => ({ ...f, descricao: e.target.value }))} placeholder="Ex: Filtro de ar 12000 BTU" />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium mb-1 block">Valor Unitário (R$)</label>
-                <Input type="number" value={novoMatForm.valor_unitario} onChange={e => setNovoMatForm(f => ({ ...f, valor_unitario: e.target.value }))} placeholder="0,00" />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-1 block">Tipo de Sistema</label>
-                <Select value={novoMatForm.tipo_sistema || "__none__"} onValueChange={v => setNovoMatForm(f => ({ ...f, tipo_sistema: v === "__none__" ? "" : v }))}>
-                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">— Nenhum —</SelectItem>
-                    {["Ar-condicionado","Bombeamento hidráulico","Bebedouro","Elétrico","Hidrossanitário","Incêndio","Elevador","Gerador","CFTV","Controle de acesso","Outro"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
             <div>
               <label className="text-sm font-medium mb-1 block">Fornecedor</label>
@@ -563,11 +818,9 @@ export default function PedidosCompra() {
       {/* Dialog Status */}
       <Dialog open={statusDialog} onOpenChange={o => { if (!o) { setStatusDialog(false); setStatusPedido(null); } }}>
         <DialogContent className="sm:max-w-[380px]">
-          <DialogHeader>
-            <DialogTitle>Atualizar Status do Pedido</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Atualizar Status do Pedido</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
-            <p className="text-sm text-muted-foreground">Pedido: <strong>{statusPedido?.numero || `PED-${statusPedido?.id.slice(0, 6).toUpperCase()}`}</strong></p>
+            <p className="text-sm text-muted-foreground">Pedido: <strong>{statusPedido?.numero}</strong></p>
             <Select value={novoStatus} onValueChange={setNovoStatus}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
