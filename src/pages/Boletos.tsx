@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Plus, Trash2, RefreshCw, Search, DollarSign, CheckCircle2, X, Pencil, Download, Copy, RotateCcw, Image } from "@/lib/icons";
-import { format, differenceInDays, parseISO } from "date-fns";
+import { format, differenceInDays, parseISO, addMonths, addWeeks } from "date-fns";
 import { cn } from "@/lib/utils";
 
 type Boleto = {
@@ -87,6 +87,13 @@ export default function Boletos() {
   const [valorPago, setValorPago] = useState("");
   const [comprovanteFile, setComprovanteFile] = useState<File | null>(null);
   const [pagamentoSaving, setPagamentoSaving] = useState(false);
+
+  // Próximo boleto (recorrência)
+  const [proximoDialog, setProximoDialog] = useState(false);
+  const [proximoBoleto, setProximoBoleto] = useState<Partial<Boleto> | null>(null);
+  const [proximoValor, setProximoValor] = useState("");
+  const [proximoVencimento, setProximoVencimento] = useState("");
+  const [proximoSaving, setProximoSaving] = useState(false);
 
   // Visualizar foto
   const [fotoDialog, setFotoDialog] = useState(false);
@@ -217,6 +224,18 @@ export default function Boletos() {
     toast({ title: "Boleto excluído" }); fetchData();
   };
 
+  const calcularProximoVencimento = (dataAtual: string, recorrencia: string): string => {
+    const d = parseISO(dataAtual);
+    switch (recorrencia) {
+      case "mensal":     return format(addMonths(d, 1), "yyyy-MM-dd");
+      case "bimestral":  return format(addMonths(d, 2), "yyyy-MM-dd");
+      case "trimestral": return format(addMonths(d, 3), "yyyy-MM-dd");
+      case "semestral":  return format(addMonths(d, 6), "yyyy-MM-dd");
+      case "anual":      return format(addMonths(d, 12), "yyyy-MM-dd");
+      default:           return format(addMonths(d, 1), "yyyy-MM-dd");
+    }
+  };
+
   const handleMarcarPago = async () => {
     if (!pagamentoBoleto) return;
     if (!dataPagamento) { toast({ title: "Informe a data de pagamento", variant: "destructive" }); return; }
@@ -239,13 +258,62 @@ export default function Boletos() {
         comprovante_url,
         updated_at: new Date().toISOString(),
       }).eq("id", pagamentoBoleto.id);
+
       toast({ title: "Pagamento registrado!" });
-      setPagamentoDialog(false); setPagamentoBoleto(null); setValorPago(""); setComprovanteFile(null);
+      setPagamentoDialog(false);
+      setComprovanteFile(null);
+
+      // Se recorrente, perguntar sobre próximo boleto
+      if (pagamentoBoleto.recorrencia && pagamentoBoleto.recorrencia !== "nenhuma") {
+        const proximaData = calcularProximoVencimento(pagamentoBoleto.data_vencimento, pagamentoBoleto.recorrencia);
+        setProximoBoleto({ ...pagamentoBoleto });
+        setProximoVencimento(proximaData);
+        setProximoValor("");
+        setProximoDialog(true);
+      } else {
+        setPagamentoBoleto(null);
+        setValorPago("");
+      }
+
       fetchData();
     } catch (e: any) {
       toast({ title: "Erro ao registrar pagamento", description: e.message, variant: "destructive" });
     } finally {
       setPagamentoSaving(false);
+    }
+  };
+
+  const handleCriarProximo = async () => {
+    if (!proximoBoleto || !proximoVencimento) return;
+    if (!proximoValor) { toast({ title: "Informe o valor do próximo boleto", variant: "destructive" }); return; }
+    setProximoSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      await (supabase as any).from("boletos").insert({
+        company_id: companyId,
+        descricao: proximoBoleto.descricao,
+        favorecido: proximoBoleto.favorecido || null,
+        cpf_cnpj: proximoBoleto.cpf_cnpj || null,
+        valor: Number(proximoValor),
+        data_vencimento: proximoVencimento,
+        status: "pendente",
+        observacoes: proximoBoleto.observacoes || null,
+        codigo_barras: null, // código muda a cada boleto
+        banco_emissor: proximoBoleto.banco_emissor || null,
+        categoria: proximoBoleto.categoria || null,
+        recorrencia: proximoBoleto.recorrencia || "nenhuma",
+        foto_boleto_url: null,
+        created_by: user?.id,
+        updated_at: new Date().toISOString(),
+      });
+      toast({ title: "Próximo boleto criado!", description: `Vencimento: ${format(parseISO(proximoVencimento), "dd/MM/yyyy")}` });
+      setProximoDialog(false); setProximoBoleto(null); setProximoValor(""); setProximoVencimento("");
+      setPagamentoBoleto(null); setValorPago("");
+      fetchData();
+    } catch (e: any) {
+      toast({ title: "Erro ao criar próximo boleto", description: e.message, variant: "destructive" });
+    } finally {
+      setProximoSaving(false);
     }
   };
 
@@ -626,6 +694,52 @@ export default function Boletos() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Dialog Próximo Boleto (Recorrência) */}
+      <Dialog open={proximoDialog} onOpenChange={o => {
+        if (!o) { setProximoDialog(false); setProximoBoleto(null); setPagamentoBoleto(null); setValorPago(""); }
+      }}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader><DialogTitle>🔄 Criar Próximo Boleto</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="rounded-md bg-blue-50 border border-blue-200 p-3 text-sm text-blue-800">
+              <p><strong>{proximoBoleto?.descricao}</strong> é um boleto <strong>{proximoBoleto?.recorrencia}</strong>.</p>
+              <p className="mt-1">Deseja criar o próximo automaticamente?</p>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium mb-1 block">Próximo Vencimento</label>
+                <Input type="date" value={proximoVencimento} onChange={e => setProximoVencimento(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Valor *</label>
+                <Input
+                  type="number" min="0.01" step="0.01"
+                  value={proximoValor}
+                  onChange={e => setProximoValor(e.target.value)}
+                  placeholder="Novo valor..."
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="text-xs text-muted-foreground space-y-0.5">
+              <p>✅ Herda: favorecido, banco, categoria, recorrência</p>
+              <p>🆕 Novo: valor (acima) e código de barras (em branco)</p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => {
+              setProximoDialog(false); setProximoBoleto(null); setPagamentoBoleto(null); setValorPago("");
+              toast({ title: "Próximo boleto não criado" });
+            }}>
+              Não criar
+            </Button>
+            <Button onClick={handleCriarProximo} disabled={proximoSaving} className="bg-blue-600 hover:bg-blue-700">
+              {proximoSaving ? "Criando..." : "Criar Próximo"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
