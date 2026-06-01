@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/use-company";
 import { toast } from "@/hooks/use-toast";
@@ -10,8 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { Plus, Trash2, RefreshCw, Search, DollarSign, CheckCircle2, X, Pencil, Download, Copy, RotateCcw, Image } from "@/lib/icons";
-import { format, differenceInDays, parseISO, addMonths, addWeeks } from "date-fns";
+import { Plus, Trash2, RefreshCw, Search, DollarSign, CheckCircle2, X, Pencil, Download, Copy, Image, Bell, Settings2 } from "@/lib/icons";
+import { format, differenceInDays, parseISO, addMonths } from "date-fns";
 import { cn } from "@/lib/utils";
 
 type Boleto = {
@@ -68,11 +68,17 @@ const emptyForm = {
 
 export default function Boletos() {
   const { companyId } = useCompany();
+
+  // --- Dados ---
   const [boletos, setBoletos] = useState<Boleto[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // --- Filtros ---
   const [filterStatus, setFilterStatus] = useState("todos");
   const [filterSearch, setFilterSearch] = useState("");
   const [filterCategoria, setFilterCategoria] = useState("todas");
+
+  // --- Dialog Novo/Editar ---
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Boleto | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -80,7 +86,7 @@ export default function Boletos() {
   const [fotoBoletoFile, setFotoBoletoFile] = useState<File | null>(null);
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
 
-  // Pagamento dialog
+  // --- Dialog Pagamento ---
   const [pagamentoDialog, setPagamentoDialog] = useState(false);
   const [pagamentoBoleto, setPagamentoBoleto] = useState<Boleto | null>(null);
   const [dataPagamento, setDataPagamento] = useState(format(new Date(), "yyyy-MM-dd"));
@@ -88,17 +94,26 @@ export default function Boletos() {
   const [comprovanteFile, setComprovanteFile] = useState<File | null>(null);
   const [pagamentoSaving, setPagamentoSaving] = useState(false);
 
-  // Próximo boleto (recorrência)
+  // --- Dialog Próximo Boleto ---
   const [proximoDialog, setProximoDialog] = useState(false);
   const [proximoBoleto, setProximoBoleto] = useState<Partial<Boleto> | null>(null);
   const [proximoValor, setProximoValor] = useState("");
   const [proximoVencimento, setProximoVencimento] = useState("");
   const [proximoSaving, setProximoSaving] = useState(false);
 
-  // Visualizar foto
+  // --- Dialog Foto ---
   const [fotoDialog, setFotoDialog] = useState(false);
   const [fotoUrl, setFotoUrl] = useState<string | null>(null);
 
+  // --- Alertas ---
+  const [diasAlerta, setDiasAlerta] = useState<number>(() => {
+    const saved = localStorage.getItem("boleto_dias_alerta");
+    return saved ? Number(saved) : 7;
+  });
+  const [alertaConfigOpen, setAlertaConfigOpen] = useState(false);
+  const [diasAlertaTemp, setDiasAlertaTemp] = useState(7);
+
+  // --- Fetch ---
   const fetchData = useCallback(async () => {
     if (!companyId) return;
     setLoading(true);
@@ -118,6 +133,31 @@ export default function Boletos() {
   }, [companyId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // --- Alertas config ---
+  const salvarDiasAlerta = () => {
+    setDiasAlerta(diasAlertaTemp);
+    localStorage.setItem("boleto_dias_alerta", String(diasAlertaTemp));
+    setAlertaConfigOpen(false);
+    toast({ title: `Alerta configurado para ${diasAlertaTemp} dias` });
+  };
+
+  // --- Computed ---
+  const boletosVencidos = useMemo(() =>
+    boletos.filter(b => b.status === "vencido"),
+  [boletos]);
+
+  const boletosAlerta = useMemo(() => {
+    const hoje = new Date().toISOString().slice(0, 10);
+    const limite = new Date();
+    limite.setDate(limite.getDate() + diasAlerta);
+    const limiteStr = limite.toISOString().slice(0, 10);
+    return boletos.filter(b =>
+      b.status === "pendente" &&
+      b.data_vencimento >= hoje &&
+      b.data_vencimento <= limiteStr
+    ).sort((a, b) => a.data_vencimento.localeCompare(b.data_vencimento));
+  }, [boletos, diasAlerta]);
 
   const stats = useMemo(() => {
     const hoje = new Date().toISOString().slice(0, 10);
@@ -153,6 +193,7 @@ export default function Boletos() {
     });
   }, [boletos, filterStatus, filterSearch, filterCategoria]);
 
+  // --- Handlers ---
   const handleFotoChange = (file: File | null) => {
     setFotoBoletoFile(file);
     if (file) {
@@ -171,7 +212,6 @@ export default function Boletos() {
     setSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-
       let foto_boleto_url = editing?.foto_boleto_url || null;
       if (fotoBoletoFile) {
         const ext = fotoBoletoFile.name.split(".").pop();
@@ -182,7 +222,6 @@ export default function Boletos() {
           foto_boleto_url = urlData.publicUrl;
         }
       }
-
       const payload = {
         company_id: companyId,
         descricao: form.descricao.trim(),
@@ -200,7 +239,6 @@ export default function Boletos() {
         created_by: user?.id,
         updated_at: new Date().toISOString(),
       };
-
       if (editing) {
         await (supabase as any).from("boletos").update(payload).eq("id", editing.id);
         toast({ title: "Boleto atualizado!" });
@@ -258,12 +296,9 @@ export default function Boletos() {
         comprovante_url,
         updated_at: new Date().toISOString(),
       }).eq("id", pagamentoBoleto.id);
-
       toast({ title: "Pagamento registrado!" });
       setPagamentoDialog(false);
       setComprovanteFile(null);
-
-      // Se recorrente, perguntar sobre próximo boleto
       if (pagamentoBoleto.recorrencia && pagamentoBoleto.recorrencia !== "nenhuma") {
         const proximaData = calcularProximoVencimento(pagamentoBoleto.data_vencimento, pagamentoBoleto.recorrencia);
         setProximoBoleto({ ...pagamentoBoleto });
@@ -274,7 +309,6 @@ export default function Boletos() {
         setPagamentoBoleto(null);
         setValorPago("");
       }
-
       fetchData();
     } catch (e: any) {
       toast({ title: "Erro ao registrar pagamento", description: e.message, variant: "destructive" });
@@ -298,7 +332,7 @@ export default function Boletos() {
         data_vencimento: proximoVencimento,
         status: "pendente",
         observacoes: proximoBoleto.observacoes || null,
-        codigo_barras: null, // código muda a cada boleto
+        codigo_barras: null,
         banco_emissor: proximoBoleto.banco_emissor || null,
         categoria: proximoBoleto.categoria || null,
         recorrencia: proximoBoleto.recorrencia || "nenhuma",
@@ -355,6 +389,7 @@ export default function Boletos() {
 
   return (
     <div className="space-y-6">
+
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
@@ -365,12 +400,63 @@ export default function Boletos() {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="icon" title={`Alertas: ${diasAlerta} dias`}
+            onClick={() => { setDiasAlertaTemp(diasAlerta); setAlertaConfigOpen(true); }}>
+            <Bell className="h-4 w-4" />
+          </Button>
           <Button variant="outline" size="icon" onClick={fetchData}><RefreshCw className="h-4 w-4" /></Button>
           <Button onClick={() => { setEditing(null); setForm(emptyForm); setFotoPreview(null); setFotoBoletoFile(null); setDialogOpen(true); }}>
             <Plus className="h-4 w-4 mr-2" /> Novo Boleto
           </Button>
         </div>
       </div>
+
+      {/* Banners de Alerta */}
+      {(boletosVencidos.length > 0 || boletosAlerta.length > 0) && (
+        <div className="space-y-2">
+          {boletosVencidos.length > 0 && (
+            <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+              <Bell className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-red-700">{boletosVencidos.length} boleto(s) vencido(s)!</p>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {boletosVencidos.map(b => (
+                    <span key={b.id} className="text-xs text-red-600 bg-red-100 rounded px-2 py-0.5">
+                      {b.descricao} — R$ {Number(b.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      {" "}({Math.abs(differenceInDays(parseISO(b.data_vencimento), new Date()))}d atraso)
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          {boletosAlerta.length > 0 && (
+            <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+              <Bell className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-amber-700">
+                  {boletosAlerta.length} boleto(s) vencendo nos próximos {diasAlerta} dias
+                </p>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {boletosAlerta.map(b => {
+                    const dias = differenceInDays(parseISO(b.data_vencimento), new Date());
+                    return (
+                      <span key={b.id} className="text-xs text-amber-700 bg-amber-100 rounded px-2 py-0.5">
+                        {b.descricao} — {dias === 0 ? "hoje" : `em ${dias}d`}
+                        {" "}(R$ {Number(b.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })})
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+              <button onClick={() => { setDiasAlertaTemp(diasAlerta); setAlertaConfigOpen(true); }}
+                className="text-amber-500 hover:text-amber-700 shrink-0" title="Configurar alerta">
+                <Settings2 className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -525,8 +611,6 @@ export default function Boletos() {
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editing ? "Editar Boleto" : "Novo Boleto"}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
-
-            {/* Dados principais */}
             <div>
               <label className="text-sm font-medium mb-1 block">Descrição *</label>
               <Input value={form.descricao} onChange={e => setForm(f => ({ ...f, descricao: e.target.value }))} placeholder="Ex: Conta de energia março" />
@@ -551,8 +635,6 @@ export default function Boletos() {
                 <Input type="date" value={form.data_vencimento} onChange={e => setForm(f => ({ ...f, data_vencimento: e.target.value }))} />
               </div>
             </div>
-
-            {/* Banco e Categoria */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium mb-1 block">Banco Emissor</label>
@@ -573,8 +655,6 @@ export default function Boletos() {
                 </Select>
               </div>
             </div>
-
-            {/* Recorrência */}
             <div>
               <label className="text-sm font-medium mb-1 block">Recorrência</label>
               <Select value={form.recorrencia} onValueChange={v => setForm(f => ({ ...f, recorrencia: v }))}>
@@ -584,17 +664,11 @@ export default function Boletos() {
                 </SelectContent>
               </Select>
             </div>
-
-            {/* Código de barras */}
             <div>
               <label className="text-sm font-medium mb-1 block">Código de Barras / Linha Digitável</label>
               <div className="flex gap-2">
-                <Input
-                  value={form.codigo_barras}
-                  onChange={e => setForm(f => ({ ...f, codigo_barras: e.target.value }))}
-                  placeholder="Cole o código de barras aqui..."
-                  className="font-mono text-sm"
-                />
+                <Input value={form.codigo_barras} onChange={e => setForm(f => ({ ...f, codigo_barras: e.target.value }))}
+                  placeholder="Cole o código de barras aqui..." className="font-mono text-sm" />
                 {form.codigo_barras && (
                   <Button type="button" variant="outline" size="icon" onClick={() => copiarCodigo(form.codigo_barras)} title="Copiar">
                     <Copy className="h-4 w-4" />
@@ -602,8 +676,6 @@ export default function Boletos() {
                 )}
               </div>
             </div>
-
-            {/* Foto do boleto */}
             <div>
               <label className="text-sm font-medium mb-1 block">Foto do Boleto</label>
               {fotoPreview ? (
@@ -615,12 +687,9 @@ export default function Boletos() {
                   </Button>
                 </div>
               ) : (
-                <Input type="file" accept=".jpg,.jpeg,.png,.pdf,.webp"
-                  onChange={e => handleFotoChange(e.target.files?.[0] || null)} />
+                <Input type="file" accept=".jpg,.jpeg,.png,.pdf,.webp" onChange={e => handleFotoChange(e.target.files?.[0] || null)} />
               )}
             </div>
-
-            {/* Observações */}
             <div>
               <label className="text-sm font-medium mb-1 block">Observações</label>
               <Textarea value={form.observacoes} onChange={e => setForm(f => ({ ...f, observacoes: e.target.value }))} placeholder="Informações adicionais..." rows={2} />
@@ -645,7 +714,7 @@ export default function Boletos() {
                 <p className="text-xs text-muted-foreground mb-1">Código de barras:</p>
                 <div className="flex items-center gap-2">
                   <p className="font-mono text-xs break-all flex-1">{pagamentoBoleto.codigo_barras}</p>
-                  <Button type="button" variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => copiarCodigo(pagamentoBoleto.codigo_barras!)}>
+                  <Button type="button" variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => copiarCodigo(pagamentoBoleto!.codigo_barras!)}>
                     <Copy className="h-3.5 w-3.5" />
                   </Button>
                 </div>
@@ -675,7 +744,7 @@ export default function Boletos() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog Foto Boleto */}
+      {/* Dialog Foto */}
       <Dialog open={fotoDialog} onOpenChange={setFotoDialog}>
         <DialogContent className="sm:max-w-[700px]">
           <DialogHeader><DialogTitle>📄 Foto do Boleto</DialogTitle></DialogHeader>
@@ -694,7 +763,38 @@ export default function Boletos() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {/* Dialog Próximo Boleto (Recorrência) */}
+
+      {/* Dialog Configurar Alerta */}
+      <Dialog open={alertaConfigOpen} onOpenChange={setAlertaConfigOpen}>
+        <DialogContent className="sm:max-w-[360px]">
+          <DialogHeader><DialogTitle>🔔 Configurar Alertas</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">Alertar quando um boleto pendente vencer em quantos dias?</p>
+            <div className="flex items-center gap-3">
+              <Input type="number" min="1" max="60" value={diasAlertaTemp}
+                onChange={e => setDiasAlertaTemp(Number(e.target.value))}
+                className="w-24 text-center text-lg font-bold" />
+              <span className="text-sm text-muted-foreground">dias de antecedência</span>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {[1, 3, 5, 7, 10, 15, 30].map(d => (
+                <button key={d} onClick={() => setDiasAlertaTemp(d)}
+                  className={`text-xs px-3 py-1 rounded-full border transition-colors ${diasAlertaTemp === d
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "border-border hover:bg-accent"}`}>
+                  {d}d
+                </button>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAlertaConfigOpen(false)}>Cancelar</Button>
+            <Button onClick={salvarDiasAlerta}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Próximo Boleto */}
       <Dialog open={proximoDialog} onOpenChange={o => {
         if (!o) { setProximoDialog(false); setProximoBoleto(null); setPagamentoBoleto(null); setValorPago(""); }
       }}>
@@ -712,13 +812,8 @@ export default function Boletos() {
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">Valor *</label>
-                <Input
-                  type="number" min="0.01" step="0.01"
-                  value={proximoValor}
-                  onChange={e => setProximoValor(e.target.value)}
-                  placeholder="Novo valor..."
-                  autoFocus
-                />
+                <Input type="number" min="0.01" step="0.01" value={proximoValor}
+                  onChange={e => setProximoValor(e.target.value)} placeholder="Novo valor..." autoFocus />
               </div>
             </div>
             <div className="text-xs text-muted-foreground space-y-0.5">
@@ -730,9 +825,7 @@ export default function Boletos() {
             <Button variant="outline" onClick={() => {
               setProximoDialog(false); setProximoBoleto(null); setPagamentoBoleto(null); setValorPago("");
               toast({ title: "Próximo boleto não criado" });
-            }}>
-              Não criar
-            </Button>
+            }}>Não criar</Button>
             <Button onClick={handleCriarProximo} disabled={proximoSaving} className="bg-blue-600 hover:bg-blue-700">
               {proximoSaving ? "Criando..." : "Criar Próximo"}
             </Button>
