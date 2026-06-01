@@ -17,6 +17,8 @@ import { cn } from "@/lib/utils";
 type Aprovacao = {
   id: string;
   os_id: string;
+  user_id: string;
+    fiscal_nome?: string;
   titulo: string | null;
   mensagem: string | null;
   created_at: string;
@@ -88,8 +90,7 @@ export default function Aprovacoes() {
     // Busca todas as notificações (lidas e não lidas) para mostrar histórico
     const { data: notifs, error } = await (supabase as any)
       .from("os_notifications")
-      .select("id, os_id, titulo, mensagem, created_at, read")
-      .eq("user_id", profileId)
+      .select("id, os_id, titulo, mensagem, created_at, read, user_id, profiles(nome)")
       .eq("tipo", "orcamento")
       .order("created_at", { ascending: false });
 
@@ -99,13 +100,14 @@ export default function Aprovacoes() {
       return;
     }
 
-    const enriched = await Promise.all((notifs || []).map(async (n: any) => {
+   const enriched = await Promise.all((notifs || []).map(async (n: any) => {
       const [osRes, matRes] = await Promise.all([
         (supabase as any).from("ordens_servico")
           .select("codigo_os, status, bloco_id, equipamentos, responsible_user_id, observacoes_fiscais, orcamento_status")
           .eq("id", n.os_id).single(),
         (supabase as any).from("materiais_os").select("*").eq("os_id", n.os_id),
       ]);
+      const fiscal_nome = n.profiles?.nome || null;
 
       // Busca nome do bloco
       let bloco_nome = null;
@@ -116,6 +118,7 @@ export default function Aprovacoes() {
 
       return {
         ...n,
+        fiscal_nome,
         orcamento_status: osRes.data?.orcamento_status || (n.read ? "aprovado" : "pendente"),
         os: osRes.data ? { ...osRes.data, bloco_nome } : null,
         materiais: matRes.data || [],
@@ -369,19 +372,25 @@ export default function Aprovacoes() {
                   </div>
                 )}
 
-                {/* Botões só para pendentes */}
+                {/* Botões só para pendentes e só para o fiscal designado */}
                 {(a.orcamento_status === "pendente" || !a.orcamento_status) && (
-                  <div className="flex justify-end gap-2 pt-1">
-                    <Button variant="outline" size="sm"
-                      className="border-red-300 text-red-700 hover:bg-red-50"
-                      onClick={() => { setSelected(a); setAction("reprovar"); setJustificativa(""); }}>
-                      <XCircle className="h-4 w-4 mr-1" /> Reprovar
-                    </Button>
-                    <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700"
-                      onClick={() => { setSelected(a); setAction("aprovar"); setJustificativa(""); }}>
-                      <CheckCircle2 className="h-4 w-4 mr-1" /> Aprovar
-                    </Button>
-                  </div>
+                  profileId === a.user_id ? (
+                    <div className="flex justify-end gap-2 pt-1">
+                      <Button variant="outline" size="sm"
+                        className="border-red-300 text-red-700 hover:bg-red-50"
+                        onClick={() => { setSelected(a); setAction("reprovar"); setJustificativa(""); }}>
+                        <XCircle className="h-4 w-4 mr-1" /> Reprovar
+                      </Button>
+                      <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700"
+                        onClick={() => { setSelected(a); setAction("aprovar"); setJustificativa(""); }}>
+                        <CheckCircle2 className="h-4 w-4 mr-1" /> Aprovar
+                      </Button>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground text-right pt-1">
+                      🔒 Apenas o fiscal designado pode aprovar este orçamento.
+                    </p>
+                  )
                 )}
               </CardContent>
             </Card>
