@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback, useState, useRef } from "react";
 import { Tldraw, useEditor, getSnapshot, loadSnapshot } from "@tldraw/tldraw";
 import "@tldraw/tldraw/tldraw.css";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,32 +19,37 @@ type Board = {
   updated_at: string;
 };
 
+// AutoSave — salva a cada 3s sem re-renderizar o editor
 function AutoSave({ boardId, onSave }: { boardId: string; onSave: (snapshot: any) => void }) {
   const editor = useEditor();
+  const onSaveRef = useRef(onSave);
+  onSaveRef.current = onSave;
 
   useEffect(() => {
     const interval = setInterval(() => {
       const snapshot = getSnapshot(editor.store);
-      onSave(snapshot);
+      onSaveRef.current(snapshot);
     }, 3000);
     return () => clearInterval(interval);
-  }, [editor, onSave]);
+  }, [editor]); // só depende de editor, não de onSave
 
   return null;
 }
 
+// SnapshotLoader — carrega o snapshot APENAS UMA VEZ ao montar
 function SnapshotLoader({ snapshot }: { snapshot: any }) {
   const editor = useEditor();
+  const loaded = useRef(false);
 
   useEffect(() => {
-    if (snapshot) {
-      try {
-        loadSnapshot(editor.store, snapshot);
-      } catch (e) {
-        console.warn("Erro ao carregar snapshot:", e);
-      }
+    if (!snapshot || loaded.current) return;
+    loaded.current = true;
+    try {
+      loadSnapshot(editor.store, snapshot);
+    } catch (e) {
+      console.warn("Erro ao carregar snapshot:", e);
     }
-  }, [editor, snapshot]);
+  }, [editor]); // sem snapshot nas deps — só carrega uma vez
 
   return null;
 }
@@ -59,6 +64,9 @@ export default function Canvas() {
   const [boardNome, setBoardNome] = useState("");
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+
+  // Ref para o snapshot inicial — evita re-renderizações
+  const snapshotRef = useRef<any>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -91,13 +99,20 @@ export default function Canvas() {
     setBoardDialog(false);
     setBoardNome("");
     fetchBoards();
-    if (data) setBoardAtivo(data);
+    if (data) {
+      snapshotRef.current = null;
+      setBoardAtivo(data);
+    }
     toast({ title: "Canvas criado!" });
   };
 
   const deleteBoard = async (id: string) => {
+    if (!confirm("Deseja excluir este canvas?")) return;
     await (supabase as any).from("canvas_boards").delete().eq("id", id);
-    if (boardAtivo?.id === id) setBoardAtivo(null);
+    if (boardAtivo?.id === id) {
+      snapshotRef.current = null;
+      setBoardAtivo(null);
+    }
     fetchBoards();
     toast({ title: "Canvas excluído" });
   };
@@ -117,6 +132,19 @@ export default function Canvas() {
       setSaving(false);
     }
   }, [boardAtivo]);
+
+  const abrirBoard = (b: Board) => {
+    // Prepara o snapshot antes de abrir o editor
+    if (b.snapshot) {
+      snapshotRef.current = typeof b.snapshot === "string"
+        ? JSON.parse(b.snapshot)
+        : b.snapshot;
+    } else {
+      snapshotRef.current = null;
+    }
+    setBoardAtivo(b);
+    setLastSaved(null);
+  };
 
   if (!boardAtivo) return (
     <div className="space-y-6">
@@ -155,7 +183,7 @@ export default function Canvas() {
           {boards.map(b => (
             <div key={b.id}
               className="group rounded-xl border bg-card hover:shadow-md transition-all cursor-pointer overflow-hidden"
-              onClick={() => setBoardAtivo(b)}>
+              onClick={() => abrirBoard(b)}>
               <div className="h-32 bg-gradient-to-br from-primary/5 to-primary/20 flex items-center justify-center border-b">
                 <PenLine className="h-10 w-10 text-primary/30" />
               </div>
@@ -185,6 +213,7 @@ export default function Canvas() {
             onChange={e => setBoardNome(e.target.value)}
             placeholder="Nome do canvas..."
             onKeyDown={e => e.key === "Enter" && createBoard()}
+            autoFocus
           />
           <DialogFooter>
             <Button variant="outline" onClick={() => setBoardDialog(false)}>Cancelar</Button>
@@ -194,10 +223,6 @@ export default function Canvas() {
       </Dialog>
     </div>
   );
-
-  const parsedSnapshot = boardAtivo.snapshot
-    ? (typeof boardAtivo.snapshot === "string" ? JSON.parse(boardAtivo.snapshot) : boardAtivo.snapshot)
-    : null;
 
   return (
     <div className="flex flex-col" style={{ height: "calc(100vh - 80px)" }}>
@@ -218,7 +243,7 @@ export default function Canvas() {
 
       <div className="flex-1 overflow-hidden">
         <Tldraw>
-          {parsedSnapshot && <SnapshotLoader snapshot={parsedSnapshot} />}
+          {snapshotRef.current && <SnapshotLoader snapshot={snapshotRef.current} />}
           <AutoSave boardId={boardAtivo.id} onSave={saveSnapshot} />
         </Tldraw>
       </div>
