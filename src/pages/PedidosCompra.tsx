@@ -735,10 +735,7 @@ export default function PedidosCompra() {
                       <label className="text-xs text-muted-foreground">Qtd</label>
                       <Input type="number" min="0.01" step="0.01" value={itemQtd} onChange={e => setItemQtd(e.target.value)} className="h-8 text-sm" />
                     </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground">Unidade</label>
-                      <Input value={itemUnidade} onChange={e => setItemUnidade(e.target.value)} className="h-8 text-sm" />
-                    </div>
+                    <div><label className="text-xs text-muted-foreground">Unidade</label><Input value={itemUnidade || "—"} readOnly className="h-8 text-sm bg-muted text-muted-foreground cursor-not-allowed" /></div>
                     <div className="flex items-end">
                       <Button size="sm" className="h-8 w-full" onClick={addItem} disabled={!itemNome.trim()}>
                         <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar
