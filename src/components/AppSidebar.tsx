@@ -1,7 +1,7 @@
 import {
   Gauge, ClipboardList, CalendarRange, Wrench, BarChart3, Clock, Activity,
   DollarSign, Timer, ListChecks, Building2, Box, ShieldCheck, KeyRound, LogOut, User, Settings, Settings2, Briefcase, ChevronRight, MessagesSquare, Package,
-  CheckCircle2, Bot, BookOpen,
+  CheckCircle2, Bot, BookOpen, ShoppingCart,
 } from "@/lib/icons";
 import { usePendingCounts } from "@/hooks/use-pending-counts";
 import { NotificationsPanel } from "@/components/NotificationsPanel";
@@ -112,6 +112,8 @@ const almoxarifadoGroup: MenuGroup = {
   items: [
     { title: "Cadastro de Materiais", url: "/materiais", icon: Package, iconColor: "#8B5CF6" },
     { title: "Estoque", url: "/estoque", icon: Package, iconColor: "#10B981" },
+    { title: "Pedidos de Compra", url: "/pedidos-compra", icon: ShoppingCart },
+    { title: "Pedidos Recebidos", url: "/pedidos-recebidos", icon: ShoppingCart },
   ],
 };
 
