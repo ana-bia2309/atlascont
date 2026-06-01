@@ -84,16 +84,16 @@ export default function Estoque() {
         (supabase as any).from("materiais").select("id, codigo, descricao, unidade, valor_unitario, tipo_sistema").eq("company_id", companyId).eq("status", "ativo").order("descricao"),
         (supabase as any).from("estoque").select("*").eq("company_id", companyId),
         (supabase as any).from("estoque_movimentacoes").select("*, materiais(descricao)").eq("company_id", companyId).order("created_at", { ascending: false }).limit(100),
-        (supabase as any).from("materiais_os").select("nome_material, quantidade, ordens_servico!inner(company_id, orcamento_status)").eq("ordens_servico.company_id", companyId).eq("ordens_servico.orcamento_status", "aprovado"),
+        (supabase as any).from("materiais_os").select("nome_material, quantidade, material_id, ordens_servico!inner(company_id, orcamento_status)").eq("ordens_servico.company_id", companyId).eq("ordens_servico.orcamento_status", "aprovado"),
       ]);
 
       setMateriais(matsRes.data || []);
 
-      // Calcula quantidade empenhada por material
+      // Calcula quantidade empenhada por material_id
       const empenhado: Record<string, number> = {};
       (osMatRes.data || []).forEach((m: any) => {
-        const nome = m.nome_material;
-        empenhado[nome] = (empenhado[nome] || 0) + Number(m.quantidade);
+        const id = m.material_id;
+        if (id) empenhado[id] = (empenhado[id] || 0) + Number(m.quantidade);
       });
 
       // Monta items de estoque
@@ -102,8 +102,9 @@ export default function Estoque() {
 
       const enriched: EstoqueItem[] = (matsRes.data || []).map((m: Material) => {
         const est = estoqueMap[m.id];
-        const disp = Number(est?.quantidade_disponivel || 0);
-        const emp = Number(empenhado[m.descricao] || 0);
+        const total = Number(est?.quantidade_disponivel || 0);
+        const emp = Number(empenhado[m.id] || 0);
+        const disp = Math.max(total - emp, 0);
         return {
           id: est?.id,
           material_id: m.id,
@@ -112,7 +113,7 @@ export default function Estoque() {
           quantidade_minima: Number(est?.quantidade_minima || 0),
           quantidade_maxima: Number(est?.quantidade_maxima || 0),
           quantidade_empenhada: emp,
-          quantidade_total: disp + emp,
+          quantidade_total: total,
         };
       });
 

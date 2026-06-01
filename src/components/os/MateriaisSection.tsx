@@ -132,7 +132,7 @@ function FiscaisSelector({ osId }: { osId: string }) {
 
 // ── MaterialForm ─────────────────────────────────────────────────────────────
 function MaterialForm({
-  draft, setDraft, onSave, onCancel, calcTotal, saveLabel, companyId,
+  draft, setDraft, onSave, onCancel, calcTotal, saveLabel, companyId, onMaterialSelect,
 }: {
   draft: DraftMaterial;
   setDraft: (d: DraftMaterial) => void;
@@ -141,6 +141,7 @@ function MaterialForm({
   calcTotal: (qty: string, cost: string) => string;
   saveLabel: string;
   companyId: string | null;
+  onMaterialSelect?: (id: string | null) => void;
 }) {
   const [materiais, setMateriais] = useState<{
     id: string; codigo: string | null; descricao: string;
@@ -192,6 +193,7 @@ function MaterialForm({
     setBusca(m.codigo ? `${m.codigo} — ${m.descricao}` : m.descricao);
     setShowList(false);
     setMaterialId(m.id);
+    onMaterialSelect?.(m.id);
 
     // Busca estoque disponível
     const { data } = await (supabase as any)
@@ -205,6 +207,7 @@ function MaterialForm({
   const limpar = () => {
     setDraft({ ...draft, nome_material: "", custo_unitario: "0", unidade: "un", fornecedor: "", data_compra: "" });
     setBusca(""); setEstoqueInfo(null); setMaterialId(null);
+    onMaterialSelect?.(null);
   };
 
   return (
@@ -315,6 +318,7 @@ const MateriaisSection = forwardRef<MateriaisSectionHandle, MateriaisSectionProp
     const [adding, setAdding] = useState(false);
     const [editingKey, setEditingKey] = useState<string | null>(null);
     const [draft, setDraft] = useState<DraftMaterial>(emptyDraft);
+    const [currentMaterialId, setCurrentMaterialId] = useState<string | null>(null);
     const { companyId } = useCompany();
 
     useImperativeHandle(ref, () => ({
@@ -344,6 +348,7 @@ const MateriaisSection = forwardRef<MateriaisSectionHandle, MateriaisSectionProp
       custo_unitario: parseFloat(draft.custo_unitario) || 0,
       fornecedor: draft.fornecedor.trim() || null,
       data_compra: draft.data_compra || null,
+      material_id: currentMaterialId || null,
     });
 
     const addLocal = () => {
@@ -463,7 +468,8 @@ const MateriaisSection = forwardRef<MateriaisSectionHandle, MateriaisSectionProp
                 editingKey === m.key ? (
                   <MaterialForm key={m.key} draft={draft} setDraft={setDraft}
                     onSave={handleSaveForm} onCancel={cancelEdit}
-                    calcTotal={calcTotal} saveLabel="Salvar" companyId={companyId} />
+                    calcTotal={calcTotal} saveLabel="Salvar" companyId={companyId}
+                    onMaterialSelect={setCurrentMaterialId} />
                 ) : (
                   <div key={m.key} className="group flex items-center gap-3 rounded-lg border bg-background px-4 py-3 hover:bg-muted/40 transition-all">
                     <span className="text-xs font-mono text-muted-foreground w-5 shrink-0">{idx + 1}</span>
@@ -504,7 +510,8 @@ const MateriaisSection = forwardRef<MateriaisSectionHandle, MateriaisSectionProp
           {adding && (
             <MaterialForm draft={draft} setDraft={setDraft}
               onSave={handleSaveForm} onCancel={cancelEdit}
-              calcTotal={calcTotal} saveLabel="Adicionar" companyId={companyId} />
+              calcTotal={calcTotal} saveLabel="Adicionar" companyId={companyId}
+              onMaterialSelect={setCurrentMaterialId} />
           )}
         </div>
 
