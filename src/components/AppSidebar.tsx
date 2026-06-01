@@ -105,6 +105,7 @@ const custosGroup: MenuGroup = {
     { title: "Gastos", url: "/gastos", icon: DollarSign, requiredPermission: "gastos.visualizar" },
     { title: "Relatório Mensal", url: "/relatorio-mensal", icon: CalendarRange, requiredPermission: "relatorio_mensal.visualizar" },
     { title: "Tipos de Gasto", url: "/tipos-gasto", icon: DollarSign, requiredPermission: "tipos_gasto.visualizar" },
+    { title: "Boletos", url: "/boletos", icon: DollarSign },
   ],
 };
 const almoxarifadoGroup: MenuGroup = {
