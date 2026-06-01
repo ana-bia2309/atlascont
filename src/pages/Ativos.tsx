@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -59,17 +59,9 @@ const STATUS_OPTIONS = [
 ];
 
 const SISTEMA_OPTIONS = [
-  "Ar-condicionado",
-  "Bombeamento hidráulico",
-  "Bebedouro",
-  "Elétrico",
-  "Hidrossanitário",
-  "Incêndio",
-  "Elevador",
-  "Gerador",
-  "CFTV",
-  "Controle de acesso",
-  "Outro",
+  "Ar-condicionado", "Bombeamento hidráulico", "Bebedouro", "Elétrico",
+  "Hidrossanitário", "Incêndio", "Elevador", "Gerador", "CFTV",
+  "Controle de acesso", "Outro",
 ];
 
 const TIPO_EQUIPAMENTO_OPTIONS = [
@@ -115,78 +107,45 @@ export default function Ativos() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterBloco, setFilterBloco] = useState("all");
 
- const fetchData = useCallback(async () => {
-  setLoading(true);
+  // Confirmação de exclusão
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [confirmDeleteNome, setConfirmDeleteNome] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setLoading(false); return; }
+    const { data: profile }: any = await supabase.from("profiles").select("company_id").eq("user_id", user.id).single();
+    if (!profile?.company_id) { setLoading(false); return; }
+    const companyId = profile.company_id;
 
-  if (!user) {
+    const [ativosRes, blocosRes] = await Promise.all([
+      (supabase as any).from("ativos").select("*").eq("company_id", companyId).order("criado_em", { ascending: false }),
+      (supabase as any).from("blocos").select("id, nome").eq("company_id", companyId).order("nome"),
+    ]);
+
+    if (ativosRes.error) {
+      toast({ title: "Erro ao carregar ativos", description: ativosRes.error.message, variant: "destructive" });
+    } else {
+      setList((ativosRes.data as any[]) || []);
+    }
+
+    const bList = blocosRes.data || [];
+    setBlocos(bList);
+    const map: Record<string, string> = {};
+    bList.forEach((b: any) => { map[b.id] = b.nome || ""; });
+    setBlocosMap(map);
     setLoading(false);
-    return;
-  }
-
-  const { data: profile }: any = await supabase
-    .from("profiles")
-    .select("company_id")
-    .eq("user_id", user.id)
-    .single();
-
-  if (!profile?.company_id) {
-    setLoading(false);
-    return;
-  }
-
-  const companyId = profile.company_id;
-
-  const [ativosRes, blocosRes] = await Promise.all([
-    (supabase as any)
-      .from("ativos")
-      .select("*")
-      .eq("company_id", companyId)
-      .order("criado_em", { ascending: false }),
-
-    (supabase as any)
-      .from("blocos")
-      .select("id, nome")
-      .eq("company_id", companyId)
-      .order("nome"),
-  ]);
-
-  if (ativosRes.error) {
-    toast({
-      title: "Erro ao carregar ativos",
-      description: ativosRes.error.message,
-      variant: "destructive",
-    });
-  } else {
-    setList((ativosRes.data as any[]) || []);
-  }
-
-  const bList = blocosRes.data || [];
-  setBlocos(bList);
-
-  const map: Record<string, string> = {};
-
-  bList.forEach((b: any) => {
-    map[b.id] = b.nome || "";
-  });
-
-  setBlocosMap(map);
-
-  setLoading(false);
-}, []);
+  }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleSave = async () => {
     if (!editing && !can("ativos.criar")) { toast({ title: "Sem permissão para criar", variant: "destructive" }); return; }
     if (editing && !can("ativos.editar")) { toast({ title: "Sem permissão para editar", variant: "destructive" }); return; }
-    if (!form.nome.trim()) {
-      toast({ title: "Nome é obrigatório", variant: "destructive" });
-      return;
-    }
+    if (!form.nome.trim()) { toast({ title: "Nome é obrigatório", variant: "destructive" }); return; }
+
     const payload: any = {
       nome: form.nome.trim(),
       codigo_identificacao: form.codigo_identificacao.trim() || null,
@@ -231,45 +190,48 @@ export default function Ativos() {
     setOpen(false); setEditing(null); setForm(emptyForm); fetchData();
   };
 
-  const handleDelete = async (id: string) => {
+  // Exclusão lógica — abre modal de confirmação
+  const handleDelete = (id: string, nome: string) => {
     if (!can("ativos.excluir")) { toast({ title: "Sem permissão para excluir", variant: "destructive" }); return; }
-    if (!confirm("Deseja excluir este ativo?")) return;
-    const { error } = await (supabase.from("ativos" as any) as any).delete().eq("id", id);
-    if (error) { toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" }); return; }
-    toast({ title: "Ativo excluído" }); fetchData();
+    setConfirmDeleteId(id);
+    setConfirmDeleteNome(nome);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!confirmDeleteId) return;
+    setDeleting(true);
+    try {
+      const { error } = await (supabase.from("ativos" as any) as any)
+        .update({ status: "excluído" })
+        .eq("id", confirmDeleteId);
+      if (error) {
+        toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
+        return;
+      }
+      toast({ title: "Ativo excluído com sucesso" });
+      setConfirmDeleteId(null);
+      fetchData();
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const openEdit = (a: Ativo) => {
     setEditing(a);
     setForm({
-      nome: a.nome,
-      codigo_identificacao: a.codigo_identificacao || "",
-      categoria: a.categoria || "",
-      bloco_id: a.bloco_id || "",
-      andar: a.andar || "",
-      sala: a.sala || "",
-      sistema: a.sistema || "",
-      marca: a.marca || "",
-      modelo: a.modelo || "",
-      status: a.status,
-      data_instalacao: a.data_instalacao || "",
-      observacoes: a.observacoes || "",
-      tipo: a.tipo || "",
-      numero_serie: a.numero_serie || "",
-      patrimonio: a.patrimonio || "",
-      grupo_equipamentos: a.grupo_equipamentos || "",
-      corrente: a.corrente?.toString() || "",
-      capacidade_btu: a.capacidade_btu?.toString() || "",
-      tensao: a.tensao?.toString() || "",
-      potencia: a.potencia?.toString() || "",
-      responsavel_tecnico: a.responsavel_tecnico || "",
-      grupo_areas: a.grupo_areas || "",
-      area_pavimento: a.area_pavimento || "",
-      identificacao_ambiente: a.identificacao_ambiente || "",
-      tipo_atividade: a.tipo_atividade || "",
-      area_climatizada: a.area_climatizada?.toString() || "",
-      ocupantes_fixos: a.ocupantes_fixos?.toString() || "",
-      ocupantes_flutuantes: a.ocupantes_flutuantes?.toString() || "",
+      nome: a.nome, codigo_identificacao: a.codigo_identificacao || "",
+      categoria: a.categoria || "", bloco_id: a.bloco_id || "",
+      andar: a.andar || "", sala: a.sala || "", sistema: a.sistema || "",
+      marca: a.marca || "", modelo: a.modelo || "", status: a.status,
+      data_instalacao: a.data_instalacao || "", observacoes: a.observacoes || "",
+      tipo: a.tipo || "", numero_serie: a.numero_serie || "",
+      patrimonio: a.patrimonio || "", grupo_equipamentos: a.grupo_equipamentos || "",
+      corrente: a.corrente?.toString() || "", capacidade_btu: a.capacidade_btu?.toString() || "",
+      tensao: a.tensao?.toString() || "", potencia: a.potencia?.toString() || "",
+      responsavel_tecnico: a.responsavel_tecnico || "", grupo_areas: a.grupo_areas || "",
+      area_pavimento: a.area_pavimento || "", identificacao_ambiente: a.identificacao_ambiente || "",
+      tipo_atividade: a.tipo_atividade || "", area_climatizada: a.area_climatizada?.toString() || "",
+      ocupantes_fixos: a.ocupantes_fixos?.toString() || "", ocupantes_flutuantes: a.ocupantes_flutuantes?.toString() || "",
       carga_termica: a.carga_termica?.toString() || "",
     });
     setOpen(true);
@@ -279,6 +241,7 @@ export default function Ativos() {
 
   const filtered = useMemo(() => {
     return list.filter(a => {
+      if (a.status === "excluído") return false;
       if (filterStatus !== "all" && a.status !== filterStatus) return false;
       if (filterBloco !== "all" && a.bloco_id !== filterBloco) return false;
       if (filterSearch.trim()) {
@@ -293,119 +256,85 @@ export default function Ativos() {
 
   const hasFilters = filterStatus !== "all" || filterBloco !== "all" || filterSearch.trim() !== "";
   const countByStatus = (s: string) => list.filter(a => a.status === s).length;
-  const fmtDate = (d: string | null) => {
-    if (!d) return "—";
-    try { return format(new Date(d + "T12:00:00"), "dd/MM/yyyy"); } catch { return "—"; }
+
+  const COLUMN_MAP: Record<string, string> = {
+    "nome": "nome", "codigo": "codigo_identificacao", "tipo": "tipo", "sistema": "sistema",
+    "grupo": "grupo_equipamentos", "marca": "marca", "modelo": "modelo",
+    "numero_serie": "numero_serie", "patrimonio": "patrimonio", "bloco": "bloco_nome_import",
+    "grupo_areas": "grupo_areas", "area_pavimento": "area_pavimento", "ambiente": "identificacao_ambiente",
+    "tipo_atividade": "tipo_atividade", "corrente": "corrente", "capacidade": "capacidade_btu",
+    "tensao": "tensao", "potencia": "potencia", "area_climatizada": "area_climatizada",
+    "ocupantes_fixos": "ocupantes_fixos", "ocupantes_flutuantes": "ocupantes_flutuantes",
+    "carga_termica": "carga_termica", "status": "status", "categoria": "categoria",
+    "data_instalacao": "data_instalacao", "observacoes": "observacoes",
   };
 
-const COLUMN_MAP: Record<string, string> = {
-  "nome": "nome",
-  "codigo": "codigo_identificacao",
-  "tipo": "tipo",
-  "sistema": "sistema",
-  "grupo": "grupo_equipamentos",
-  "marca": "marca",
-  "modelo": "modelo",
-  "numero_serie": "numero_serie",
-  "patrimonio": "patrimonio",
-  "bloco": "bloco_nome_import",
-  "grupo_areas": "grupo_areas",
-  "area_pavimento": "area_pavimento",
-  "ambiente": "identificacao_ambiente",
-  "tipo_atividade": "tipo_atividade",
-  "corrente": "corrente",
-  "capacidade": "capacidade_btu",
-  "tensao": "tensao",
-  "potencia": "potencia",
-  "area_climatizada": "area_climatizada",
-  "ocupantes_fixos": "ocupantes_fixos",
-  "ocupantes_flutuantes": "ocupantes_flutuantes",
-  "carga_termica": "carga_termica",
-  "status": "status",
-  "categoria": "categoria",
-  "data_instalacao": "data_instalacao",
-  "observacoes": "observacoes",
-};
-
-const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
-  setImportFile(file);
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    const data = new Uint8Array(ev.target?.result as ArrayBuffer);
-    const workbook = XLSX.read(data, { type: "array" });
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
-    setImportPreview(rows.slice(0, 5) as any[]);
-  };
-  reader.readAsArrayBuffer(file);
-};
-
-const handleImport = async () => {
-  if (!importFile) return;
-  setImporting(true);
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data: profile }: any = await supabase.from("profiles").select("company_id").eq("user_id", user.id).single();
-    if (!profile?.company_id) return;
-    const companyId = profile.company_id;
-
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportFile(file);
     const reader = new FileReader();
-    reader.onload = async (ev) => {
+    reader.onload = (ev) => {
       const data = new Uint8Array(ev.target?.result as ArrayBuffer);
       const workbook = XLSX.read(data, { type: "array" });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" }) as any[];
+      const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+      setImportPreview(rows.slice(0, 5) as any[]);
+    };
+    reader.readAsArrayBuffer(file);
+  };
 
-      let success = 0, errors = 0;
+  const handleImport = async () => {
+    if (!importFile) return;
+    setImporting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: profile }: any = await supabase.from("profiles").select("company_id").eq("user_id", user.id).single();
+      if (!profile?.company_id) return;
+      const companyId = profile.company_id;
 
-      for (const row of rows) {
-        const payload: any = { company_id: companyId, status: "ativo" };
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+        const data = new Uint8Array(ev.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" }) as any[];
+        let success = 0, errors = 0;
 
-        for (const [col, val] of Object.entries(row)) {
-          const normalizedCol = col.toLowerCase().trim().replace(/\s+/g, "_");
-          const field = COLUMN_MAP[normalizedCol] || COLUMN_MAP[col.toLowerCase().trim()];
-          if (field && field !== "bloco_nome_import" && val !== "") {
-            payload[field] = val;
+        for (const row of rows) {
+          const payload: any = { company_id: companyId, status: "ativo" };
+          for (const [col, val] of Object.entries(row)) {
+            const normalizedCol = col.toLowerCase().trim().replace(/\s+/g, "_");
+            const field = COLUMN_MAP[normalizedCol] || COLUMN_MAP[col.toLowerCase().trim()];
+            if (field && field !== "bloco_nome_import" && val !== "") payload[field] = val;
+            if (field === "bloco_nome_import" && val) {
+              const found = blocos.find(b => b.nome?.toLowerCase() === String(val).toLowerCase());
+              if (found) payload["bloco_id"] = found.id;
+            }
           }
-          if ((field === "bloco_nome_import") && val) {
-            const found = blocos.find(b => b.nome?.toLowerCase() === String(val).toLowerCase());
-            if (found) payload["bloco_id"] = found.id;
+          if (!payload.nome) { errors++; continue; }
+
+          const { data: existing } = await (supabase as any).from("ativos").select("id")
+            .eq("codigo_identificacao", payload.codigo_identificacao).eq("company_id", companyId).maybeSingle();
+          if (existing?.id) {
+            const { error } = await (supabase as any).from("ativos").update(payload).eq("id", existing.id);
+            if (error) errors++; else success++;
+          } else {
+            const { error } = await (supabase as any).from("ativos").insert(payload);
+            if (error) errors++; else success++;
           }
         }
 
-        if (!payload.nome) { errors++; continue; }
-
- // Verifica se já existe ativo com mesmo código
-const { data: existing } = await (supabase as any)
-  .from("ativos")
-  .select("id")
-  .eq("codigo_identificacao", payload.codigo_identificacao)
-  .eq("company_id", companyId)
-  .maybeSingle();
-
-if (existing?.id) {
-  const { error } = await (supabase as any).from("ativos").update(payload).eq("id", existing.id);
-  if (error) { console.error("UPDATE ERROR:", JSON.stringify(error)); errors++; } else success++;
-} else {
-  const { error } = await (supabase as any).from("ativos").insert(payload);
-  if (error) { console.error("INSERT ERROR:", JSON.stringify(error)); errors++; } else success++;
-}
-      }
-
-      toast({ title: `Importação concluída`, description: `${success} importado(s), ${errors} erro(s).` });
-      setImportOpen(false);
-      setImportFile(null);
-      setImportPreview([]);
-      fetchData();
-    };
-    reader.readAsArrayBuffer(importFile);
-  } finally {
-    setImporting(false);
-  }
-};
+        toast({ title: "Importação concluída", description: `${success} importado(s), ${errors} erro(s).` });
+        setImportOpen(false); setImportFile(null); setImportPreview([]);
+        fetchData();
+      };
+      reader.readAsArrayBuffer(importFile);
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const SectionTitle = ({ children }: { children: React.ReactNode }) => (
     <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">{children}</h3>
@@ -440,9 +369,9 @@ if (existing?.id) {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Ativos</h1>
         <div className="flex gap-2">
-        <Button variant="outline" onClick={() => setImportOpen(true)} className="gap-1.5">
-        <Upload className="h-4 w-4" /> Importar Excel
-         </Button>
+          <Button variant="outline" onClick={() => setImportOpen(true)} className="gap-1.5">
+            <Upload className="h-4 w-4" /> Importar Excel
+          </Button>
           <Button variant="outline" onClick={() => navigate("/ativos/etiquetas")} className="gap-1.5">
             <Tags className="h-4 w-4" /> Etiquetas
           </Button>
@@ -458,7 +387,6 @@ if (existing?.id) {
                 <DialogTitle>{editing ? "Editar Ativo" : "Novo Ativo"}</DialogTitle>
               </DialogHeader>
               <div className="space-y-5 pt-2">
-                {/* ─── Identificação do Equipamento ─── */}
                 <div>
                   <SectionTitle>Identificação do Equipamento</SectionTitle>
                   <div className="grid grid-cols-2 gap-4">
@@ -497,10 +425,7 @@ if (existing?.id) {
                     <Input value={form.codigo_identificacao} onChange={e => setForm(f => ({ ...f, codigo_identificacao: e.target.value }))} placeholder="Ex: EQ-001" />
                   </div>
                 </div>
-
                 <div className="border-t" />
-
-                {/* ─── Dados Técnicos ─── */}
                 <div>
                   <SectionTitle>Dados Técnicos</SectionTitle>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -510,10 +435,7 @@ if (existing?.id) {
                     <NumericInput label="Potência" value={form.potencia} onChange={v => setForm(f => ({ ...f, potencia: v }))} placeholder="0" unit="W" />
                   </div>
                 </div>
-
                 <div className="border-t" />
-
-                {/* ─── Localização Padronizada ─── */}
                 <div>
                   <SectionTitle>Localização</SectionTitle>
                   <div className="grid grid-cols-2 gap-4">
@@ -540,10 +462,7 @@ if (existing?.id) {
                     <FormSelect label="Tipo de Atividade" value={form.tipo_atividade} onChange={v => setForm(f => ({ ...f, tipo_atividade: v }))} options={TIPO_ATIVIDADE_OPTIONS} />
                   </div>
                 </div>
-
                 <div className="border-t" />
-
-                {/* ─── Dados Operacionais ─── */}
                 <div>
                   <SectionTitle>Dados Operacionais</SectionTitle>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -553,10 +472,7 @@ if (existing?.id) {
                     <NumericInput label="Carga Térmica" value={form.carga_termica} onChange={v => setForm(f => ({ ...f, carga_termica: v }))} placeholder="0" unit="BTU/h" />
                   </div>
                 </div>
-
                 <div className="border-t" />
-
-                {/* ─── Responsabilidade e Datas ─── */}
                 <div>
                   <SectionTitle>Responsabilidade e Datas</SectionTitle>
                   <div className="grid grid-cols-2 gap-4">
@@ -570,10 +486,7 @@ if (existing?.id) {
                     </div>
                   </div>
                 </div>
-
                 <div className="border-t" />
-
-                {/* ─── Status e Observações ─── */}
                 <div>
                   <SectionTitle>Informações Adicionais</SectionTitle>
                   <div className="grid grid-cols-2 gap-4">
@@ -596,7 +509,6 @@ if (existing?.id) {
                     <Textarea value={form.observacoes} onChange={e => setForm(f => ({ ...f, observacoes: e.target.value }))} rows={3} placeholder="Informações adicionais..." />
                   </div>
                 </div>
-
                 <Button className="w-full" onClick={handleSave}>{editing ? "Salvar Alterações" : "Cadastrar Ativo"}</Button>
               </div>
             </DialogContent>
@@ -604,14 +516,14 @@ if (existing?.id) {
         </div>
       </div>
 
-      {/* Cards resumo */}
+      {/* Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total</CardTitle>
             <Box className="h-4 w-4 text-blue-600" />
           </CardHeader>
-          <CardContent><span className="text-2xl font-bold">{list.length}</span></CardContent>
+          <CardContent><span className="text-2xl font-bold">{list.filter(a => a.status !== "excluído").length}</span></CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -691,123 +603,104 @@ if (existing?.id) {
               <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
             ) : filtered.length === 0 ? (
               <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum ativo encontrado</TableCell></TableRow>
-            ) : (
-              filtered.map(a => (
-                <TableRow key={a.id}>
-                  <TableCell className="font-mono text-sm font-semibold">{a.codigo_identificacao || "—"}</TableCell>
-                  <TableCell className="font-medium">{a.nome}</TableCell>
-                  <TableCell className="text-sm">
-                    {[a.bloco_id ? blocosMap[a.bloco_id] : null, a.area_pavimento || a.andar, a.identificacao_ambiente || (a.sala ? `Sala ${a.sala}` : null)].filter(Boolean).join(", ") || "—"}
-                  </TableCell>
-                  <TableCell className="text-sm">{a.sistema || "—"}</TableCell>
-                  <TableCell>
-                    <span className={cn(
-                      "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border",
-                      a.status === "ativo" && "bg-emerald-50 text-emerald-700 border-emerald-200",
-                      a.status === "manutenção" && "bg-yellow-50 text-yellow-700 border-yellow-200",
-                      a.status === "inativo" && "bg-zinc-100 text-zinc-600 border-zinc-200",
-                    )}>
-                      {STATUS_OPTIONS.find(s => s.value === a.status)?.label || a.status}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => navigate(`/ativos/${a.id}`)} title="Ver"><Eye className="h-4 w-4" /></Button>
-                      {can("ativos.editar") && <Button variant="ghost" size="icon" onClick={() => openEdit(a)} title="Editar"><Pencil className="h-4 w-4" /></Button>}
-                      {can("ativos.excluir") && <Button variant="ghost" size="icon" onClick={() => handleDelete(a.id)} title="Excluir"><Trash2 className="h-4 w-4 text-destructive" /></Button>}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
+            ) : filtered.map(a => (
+              <TableRow key={a.id}>
+                <TableCell className="font-mono text-sm font-semibold">{a.codigo_identificacao || "—"}</TableCell>
+                <TableCell className="font-medium">{a.nome}</TableCell>
+                <TableCell className="text-sm">
+                  {[a.bloco_id ? blocosMap[a.bloco_id] : null, a.area_pavimento || a.andar, a.identificacao_ambiente || (a.sala ? `Sala ${a.sala}` : null)].filter(Boolean).join(", ") || "—"}
+                </TableCell>
+                <TableCell className="text-sm">{a.sistema || "—"}</TableCell>
+                <TableCell>
+                  <span className={cn(
+                    "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border",
+                    a.status === "ativo" && "bg-emerald-50 text-emerald-700 border-emerald-200",
+                    a.status === "manutenção" && "bg-yellow-50 text-yellow-700 border-yellow-200",
+                    a.status === "inativo" && "bg-zinc-100 text-zinc-600 border-zinc-200",
+                  )}>
+                    {STATUS_OPTIONS.find(s => s.value === a.status)?.label || a.status}
+                  </span>
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="flex justify-end gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => navigate(`/ativos/${a.id}`)} title="Ver"><Eye className="h-4 w-4" /></Button>
+                    {can("ativos.editar") && <Button variant="ghost" size="icon" onClick={() => openEdit(a)} title="Editar"><Pencil className="h-4 w-4" /></Button>}
+                    {can("ativos.excluir") && <Button variant="ghost" size="icon" onClick={() => handleDelete(a.id, a.nome)} title="Excluir"><Trash2 className="h-4 w-4 text-destructive" /></Button>}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
           </TableBody>
         </Table>
       </div>
+
+      {/* Dialog Importar Excel */}
       <Dialog open={importOpen} onOpenChange={setImportOpen}>
-  <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
-    <DialogHeader>
-      <DialogTitle>Importar Ativos via Excel</DialogTitle>
-    </DialogHeader>
-    <div className="space-y-4 py-2">
-      <div className="rounded-md border bg-muted/30 p-3 space-y-2">
-        <p className="text-sm font-medium">Passo 1 — Baixe o modelo</p>
-        <p className="text-xs text-muted-foreground">Baixe a planilha modelo, preencha com os dados dos equipamentos e salve.</p>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5"
-          onClick={() => {
-           const headers = [
-  "nome", "codigo", "tipo", "sistema", "grupo", "marca", "modelo",
-  "numero_serie", "patrimonio", "bloco", "grupo_areas", "area_pavimento",
-  "ambiente", "tipo_atividade", "corrente", "capacidade", "tensao", "potencia",
-  "area_climatizada", "ocupantes_fixos", "ocupantes_flutuantes", "carga_termica",
-  "status", "categoria", "data_instalacao", "observacoes"
-];
-
-const exemplo = [
-  "Split Hi-Wall", "EQ-001", "Hi-wall", "Ar-condicionado", "Climatização",
-  "Carrier", "42LUQA012515LC", "S/N123", "PAT001", "Bloco K", "Ala Sul",
-  "2º Pavimento", "Sala 280", "Escritório", "5.5", "12000", "220", "1500",
-  "30", "10", "5", "15000", "ativo", "Climatização", "2024-01-15", "Exemplo de observação"
-];
-
-const ws = XLSX.utils.aoa_to_sheet([headers, exemplo]);
-ws["!cols"] = headers.map((h) => ({ wch: Math.max(h.length + 4, 16) }));
-ws["!rows"] = [{ hpt: 24 }, { hpt: 20 }];
-
-const wb = XLSX.utils.book_new();
-XLSX.utils.book_append_sheet(wb, ws, "Ativos");
-XLSX.writeFile(wb, "modelo_ativos.xlsx");
-}}
-        >
-          <Upload className="h-4 w-4" /> Baixar modelo (.xlsx)
-        </Button>
-      </div>
-
-      <div className="rounded-md border bg-muted/30 p-3 space-y-2">
-        <p className="text-sm font-medium">Passo 2 — Importe a planilha preenchida</p>
-        <Input type="file" accept=".xlsx,.xls,.csv" onChange={handleFileChange} />
-      </div>
-
-      {importPreview.length > 0 && (
-        <div>
-          <p className="text-xs font-medium text-muted-foreground mb-2">Prévia (primeiras {importPreview.length} linhas):</p>
-          <div className="rounded-md border overflow-auto max-h-[200px]">
-            <table className="text-xs w-full">
-              <thead>
-                <tr className="bg-muted">
-                  {Object.keys(importPreview[0]).map(col => (
-                    <th key={col} className="px-2 py-1 text-left font-medium border-b">{col}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {importPreview.map((row, i) => (
-                  <tr key={i} className="border-b">
-                    {Object.values(row).map((val: any, j) => (
-                      <td key={j} className="px-2 py-1">{String(val)}</td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Importar Ativos via Excel</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+              <p className="text-sm font-medium">Passo 1 — Baixe o modelo</p>
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => {
+                const headers = ["nome","codigo","tipo","sistema","grupo","marca","modelo","numero_serie","patrimonio","bloco","grupo_areas","area_pavimento","ambiente","tipo_atividade","corrente","capacidade","tensao","potencia","area_climatizada","ocupantes_fixos","ocupantes_flutuantes","carga_termica","status","categoria","data_instalacao","observacoes"];
+                const exemplo = ["Split Hi-Wall","EQ-001","Hi-wall","Ar-condicionado","Climatização","Carrier","42LUQA012515LC","S/N123","PAT001","Bloco K","Ala Sul","2º Pavimento","Sala 280","Escritório","5.5","12000","220","1500","30","10","5","15000","ativo","Climatização","2024-01-15","Exemplo"];
+                const ws = XLSX.utils.aoa_to_sheet([headers, exemplo]);
+                ws["!cols"] = headers.map(h => ({ wch: Math.max(h.length + 4, 16) }));
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Ativos");
+                XLSX.writeFile(wb, "modelo_ativos.xlsx");
+              }}>
+                <Upload className="h-4 w-4" /> Baixar modelo (.xlsx)
+              </Button>
+            </div>
+            <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+              <p className="text-sm font-medium">Passo 2 — Importe a planilha preenchida</p>
+              <Input type="file" accept=".xlsx,.xls,.csv" onChange={handleFileChange} />
+            </div>
+            {importPreview.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-2">Prévia ({importPreview.length} linhas):</p>
+                <div className="rounded-md border overflow-auto max-h-[200px]">
+                  <table className="text-xs w-full">
+                    <thead><tr className="bg-muted">{Object.keys(importPreview[0]).map(col => <th key={col} className="px-2 py-1 text-left font-medium border-b">{col}</th>)}</tr></thead>
+                    <tbody>{importPreview.map((row, i) => <tr key={i} className="border-b">{Object.values(row).map((val: any, j) => <td key={j} className="px-2 py-1">{String(val)}</td>)}</tr>)}</tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => { setImportOpen(false); setImportFile(null); setImportPreview([]); }}>Cancelar</Button>
+              <Button onClick={handleImport} disabled={!importFile || importing}>
+                <Upload className="h-4 w-4 mr-2" />{importing ? "Importando..." : "Importar"}
+              </Button>
+            </div>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={() => { setImportOpen(false); setImportFile(null); setImportPreview([]); }}>
-          Cancelar
-        </Button>
-        <Button onClick={handleImport} disabled={!importFile || importing}>
-          <Upload className="h-4 w-4 mr-2" />
-          {importing ? "Importando..." : "Importar"}
-        </Button>
-      </div>
-    </div>
-  </DialogContent>
-</Dialog>
+      {/* Dialog Confirmar Exclusão */}
+      <Dialog open={!!confirmDeleteId} onOpenChange={o => { if (!o) setConfirmDeleteId(null); }}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Confirmar exclusão</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">
+              Tem certeza que deseja excluir o ativo <strong>{confirmDeleteNome}</strong>?
+            </p>
+            <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
+              ⚠️ O ativo possui registros históricos vinculados. Ele será <strong>inativado</strong> e não aparecerá mais nas listagens, mas todo histórico será preservado.
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDeleteId(null)}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleConfirmDelete} disabled={deleting}>
+              {deleting ? "Excluindo..." : "Excluir"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
