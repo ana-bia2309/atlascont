@@ -131,6 +131,22 @@ export default function PedidosRecebidos() {
       setSaving(false);
     }
   };
+  
+  const handleDelete = async () => {
+    if (!confirmDeleteId) return;
+    setDeleting(true);
+    try {
+      await (supabase as any).from("pedidos_compra_itens").delete().eq("pedido_id", confirmDeleteId);
+      await (supabase as any).from("pedidos_compra").delete().eq("id", confirmDeleteId);
+      toast({ title: `Pedido ${confirmDeleteNumero} exclu√≠do` });
+      setConfirmDeleteId(null);
+      fetchData();
+    } catch (e: any) {
+      toast({ title: "Erro ao excluir", description: e.message, variant: "destructive" });
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const getStatusBadge = (status: string) => {
     const opt = STATUS_OPTIONS.find(o => o.value === status);
@@ -288,20 +304,21 @@ export default function PedidosRecebidos() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setStatusDialog(false)}>Cancelar</Button>
-            <Button onClick={handleUpdateStatus} disabled={saving}>
+     <Button onClick={handleUpdateStatus} disabled={saving}>
               {saving ? "Salvando..." : "Salvar"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    {/* Dialog Confirmar Exclus„o */}
+
+      {/* Dialog Confirmar Exclus√£o */}
       <Dialog open={!!confirmDeleteId} onOpenChange={o => { if (!o) setConfirmDeleteId(null); }}>
         <DialogContent className="sm:max-w-[420px]">
-          <DialogHeader><DialogTitle>Confirmar exclus„o</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Confirmar exclus√£o</DialogTitle></DialogHeader>
           <div className="space-y-3 py-2">
             <p className="text-sm text-muted-foreground">Tem certeza que deseja excluir o pedido <strong>{confirmDeleteNumero}</strong>?</p>
             <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
-              ?? Esta aÁ„o n„o pode ser desfeita. Todos os itens do pedido ser„o removidos.
+              ‚ö†Ô∏è Esta a√ß√£o n√£o pode ser desfeita. Todos os itens do pedido ser√£o removidos.
             </div>
           </div>
           <DialogFooter>

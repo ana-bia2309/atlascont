@@ -676,15 +676,16 @@ const labelCampo = (label: string, campo: string) => (
       const { data: { session } } = await supabase.auth.getSession();
       const profileId = await getCurrentProfileId();
       const profileName = await getCurrentProfileName();
-      await supabase.from("historico_os").insert({
+      await (supabase as any).from("historico_os").insert({
         ordem_servico_id: osId,
+        company_id: companyId,
         acao,
         detalhes,
         usuario_id: profileId,
         usuario_nome: profileName,
         old_value: oldValue ?? null,
         new_value: newValue ?? null,
-      } as any);
+      });
     } catch {
       // Never block UI
     }
@@ -2073,3 +2074,4 @@ fetchData();
     </div>
   );
 }
+
