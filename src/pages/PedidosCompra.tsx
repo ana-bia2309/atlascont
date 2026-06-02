@@ -214,10 +214,12 @@ export default function PedidosCompra() {
           observacoes: observacoes.trim() || null,
           updated_at: new Date().toISOString(),
         }).eq("id", editing.id);
-        await (supabase as any).from("pedidos_compra_itens").delete().eq("pedido_id", editing.id);
+await (supabase as any).from("pedidos_compra_itens").delete().eq("pedido_id", editing.id);
       } else {
         const { data: numData } = await (supabase as any).rpc("next_pedido_numero", { p_company_id: companyId });
-        numeroGerado = numData;
+        console.log("numData:", numData, "tipo:", typeof numData);
+        numeroGerado = Array.isArray(numData) ? numData[0] : numData;
+        console.log("numeroGerado:", numeroGerado);
         const { data } = await (supabase as any).from("pedidos_compra").insert({
           company_id: companyId,
           numero: numeroGerado,
