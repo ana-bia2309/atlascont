@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { RefreshCw, Search, ShoppingCart, Package, Clock, Filter } from "@/lib/icons";
+import { RefreshCw, Search, ShoppingCart, Package, Clock, Filter, Trash2 } from "@/lib/icons";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -48,6 +48,9 @@ export default function PedidosRecebidos() {
   const { companyId } = useCompany();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loading, setLoading] = useState(true);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [confirmDeleteNumero, setConfirmDeleteNumero] = useState("");
+  const [deleting, setDeleting] = useState(false);
   const [profileId, setProfileId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState("todos");
   const [filterSearch, setFilterSearch] = useState("");
@@ -256,10 +259,8 @@ export default function PedidosRecebidos() {
                   )}
 
                   <div className="flex justify-end pt-1">
-                    <Button size="sm" variant="outline"
-                      onClick={() => { setSelected(p); setNovoStatus(p.status); setStatusDialog(true); }}>
-                      Atualizar Status
-                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => { setSelected(p); setNovoStatus(p.status); setStatusDialog(true); }}>Atualizar Status</Button>
+                    <Button size="sm" variant="outline" className="text-destructive hover:bg-destructive/10" onClick={() => { setConfirmDeleteId(p.id); setConfirmDeleteNumero(p.numero || `PED-${p.id.slice(0,6).toUpperCase()}`); }}><Trash2 className="h-3.5 w-3.5 mr-1" />Excluir</Button>
                   </div>
                 </CardContent>
               </Card>
@@ -293,6 +294,28 @@ export default function PedidosRecebidos() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    {/* Dialog Confirmar Exclusão */}
+      <Dialog open={!!confirmDeleteId} onOpenChange={o => { if (!o) setConfirmDeleteId(null); }}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader><DialogTitle>Confirmar exclusão</DialogTitle></DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">Tem certeza que deseja excluir o pedido <strong>{confirmDeleteNumero}</strong>?</p>
+            <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
+              ?? Esta ação não pode ser desfeita. Todos os itens do pedido serão removidos.
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDeleteId(null)}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+              {deleting ? "Excluindo..." : "Excluir"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
+
+
+
