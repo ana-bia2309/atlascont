@@ -183,6 +183,16 @@ export default function Ativos() {
       if (error) { toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" }); return; }
       toast({ title: "Ativo atualizado" });
     } else {
+      if (form.codigo_identificacao.trim()) {
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data: prof }: any = await supabase.from("profiles").select("company_id").eq("user_id", user!.id).single();
+        const { data: existing } = await (supabase.from("ativos" as any) as any)
+          .select("id").eq("codigo_identificacao", form.codigo_identificacao.trim()).eq("company_id", prof.company_id).maybeSingle();
+        if (existing?.id) {
+          toast({ title: "Código já cadastrado", description: `O código "${form.codigo_identificacao.trim()}" já existe. Use um código diferente.`, variant: "destructive" });
+          return;
+        }
+      }
       const { error } = await (supabase.from("ativos" as any) as any).insert(payload);
       if (error) { toast({ title: "Erro ao criar", description: error.message, variant: "destructive" }); return; }
       toast({ title: "Ativo cadastrado" });

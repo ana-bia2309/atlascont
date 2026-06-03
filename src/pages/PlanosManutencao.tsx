@@ -267,6 +267,11 @@ export default function PlanosManutencao() {
   const [planoAutomatico, setPlanoAutomatico] = useState(false);
   const [planoDataInicio, setPlanoDataInicio] = useState<Date | undefined>(undefined);
   const [planoQrCodeObrigatorio, setPlanoQrCodeObrigatorio] = useState(true);
+  const [localAtividades, setLocalAtividades] = useState<any[]>([]);
+  const [localAtNome, setLocalAtNome] = useState("");
+  const [localAtTipoAtividade, setLocalAtTipoAtividade] = useState("");
+  const [localAtTipoServico, setLocalAtTipoServico] = useState("");
+  const [localAtPrioridade, setLocalAtPrioridade] = useState("Média");
 
   // Delete
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -499,6 +504,7 @@ export default function PlanosManutencao() {
     setPlanoResponsavelId(""); setPlanoAutomatico(false);
     setPlanoDataInicio(undefined);
     setPlanoQrCodeObrigatorio(true);
+    setLocalAtividades([]); setLocalAtNome(""); setLocalAtTipoAtividade(""); setLocalAtTipoServico(""); setLocalAtPrioridade("Média");
   };
   const fillPlanoForm = (p: Plano) => {
     setEditing(p);
@@ -566,6 +572,12 @@ export default function PlanosManutencao() {
       const { error } = await supabase.from("planos_manutencao").insert(payload);
       if (error) { toast({ title: "Erro ao criar", description: error.message, variant: "destructive" }); return; }
       toast({ title: "Plano criado!" });
+      if (localAtividades.length > 0) {
+        const { data: planoCriado } = await supabase.from("planos_manutencao").select("id").eq("nome", nome.trim()).order("created_at", { ascending: false }).limit(1).maybeSingle();
+        if (planoCriado?.id) {
+          await supabase.from("plano_atividades").insert(localAtividades.map((a, idx) => ({ ...a, plano_id: planoCriado.id, ordem: idx })));
+        }
+      }
 
       // Auto-vínculo do ativo selecionado ao plano (se houver)
       if (planoAtivoId) {
@@ -1652,6 +1664,69 @@ for (const mestre of existentesArr) {
               <Switch checked={planoQrCodeObrigatorio} onCheckedChange={setPlanoQrCodeObrigatorio} disabled={is_view_mode} />
             </div>
           </div>
+          {dialog_mode === "create" && (
+              <div className="border rounded-lg overflow-hidden">
+                <div className="bg-muted/50 px-4 py-2 flex items-center justify-between border-b">
+                  <span className="text-sm font-semibold">Atividades do Plano</span>
+                  <span className="text-xs text-muted-foreground">{localAtividades.length} atividade(s)</span>
+                </div>
+                <div className="p-3 space-y-2">
+                  {localAtividades.map((a, idx) => (
+                    <div key={idx} className="flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm">
+                      <span className="flex-1 font-medium truncate">{a.nome}</span>
+                      <span className="text-xs text-muted-foreground">{a.tipo_atividade || "—"}</span>
+                      <button onClick={() => setLocalAtividades(prev => prev.filter((_, i) => i !== idx))} className="text-muted-foreground hover:text-destructive"><X className="h-3.5 w-3.5" /></button>
+                    </div>
+                  ))}
+                  <div className="rounded-md border bg-muted/20 p-2 space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-muted-foreground">Nome *</label>
+                        <Input value={localAtNome} onChange={e => setLocalAtNome(e.target.value)} placeholder="Ex: Medir pressão" className="h-8 text-sm" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground">Tipo de Atividade *</label>
+                        <Select value={localAtTipoAtividade || "__none__"} onValueChange={v => setLocalAtTipoAtividade(v === "__none__" ? "" : v)}>
+                          <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">Selecione</SelectItem>
+                            {TIPO_ATIVIDADE_OPTIONS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-muted-foreground">Tipo de Serviço</label>
+                        <Select value={localAtTipoServico || "__none__"} onValueChange={v => setLocalAtTipoServico(v === "__none__" ? "" : v)}>
+                          <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">Nenhum</SelectItem>
+                            {TIPO_SERVICO_OPTIONS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground">Prioridade</label>
+                        <Select value={localAtPrioridade} onValueChange={setLocalAtPrioridade}>
+                          <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {PRIORIDADE_OPTIONS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <Button size="sm" className="w-full h-8" disabled={!localAtNome.trim() || !localAtTipoAtividade}
+                      onClick={() => {
+                        setLocalAtividades(prev => [...prev, { nome: localAtNome.trim(), tipo_atividade: localAtTipoAtividade, tipo_servico: localAtTipoServico || null, prioridade: localAtPrioridade, descricao: null, tipo_medicao: null, unidade_medicao: null, responsavel_id: null }]);
+                        setLocalAtNome(""); setLocalAtTipoAtividade(""); setLocalAtTipoServico("");
+                      }}>
+                      <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar atividade
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setDialogOpen(false)}>
               {is_view_mode ? "Fechar" : "Cancelar"}
