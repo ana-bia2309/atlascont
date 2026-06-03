@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Timer } from "@/lib/icons";
 import { supabase } from "@/integrations/supabase/client";
+import { isFinishedStatus, isPausedStatus } from "@/lib/os-status";
 
 interface TimerOSSectionProps {
   osId: string;
@@ -24,6 +25,7 @@ export default function TimerOSSection({ osId }: TimerOSSectionProps) {
   const [displaySeconds, setDisplaySeconds] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isFinished, setIsFinished] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchOsDates = useCallback(async () => {
@@ -34,26 +36,22 @@ export default function TimerOSSection({ osId }: TimerOSSectionProps) {
       .maybeSingle();
 
     if (data) {
-      // Use data_inicio if available, otherwise created_at
       const start = data.data_inicio
         ? new Date(data.data_inicio + "T00:00:00")
         : data.created_at
           ? new Date(data.created_at)
           : null;
-
       const end = data.finalizado_em ? new Date(data.finalizado_em) : null;
-      const finished = data.status === "Concluída" || data.status === "Cancelada";
-
       setStartTime(start);
       setEndTime(end);
-      setIsFinished(finished);
+      setIsFinished(isFinishedStatus(data.status));
+      setIsPaused(isPausedStatus(data.status));
     }
     setLoading(false);
   }, [osId]);
 
   useEffect(() => { fetchOsDates(); }, [fetchOsDates]);
 
-  // Compute display
   const computeDisplay = useCallback(() => {
     if (!startTime) return 0;
     const end = endTime || new Date();
@@ -63,14 +61,11 @@ export default function TimerOSSection({ osId }: TimerOSSectionProps) {
   useEffect(() => {
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
     setDisplaySeconds(computeDisplay());
-
-    // If OS is still active (no endTime), tick every second
-    if (startTime && !endTime && !isFinished) {
+    if (startTime && !endTime && !isFinished && !isPaused) {
       intervalRef.current = setInterval(() => setDisplaySeconds(computeDisplay()), 1000);
     }
-
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [startTime, endTime, isFinished, computeDisplay]);
+  }, [startTime, endTime, isFinished, isPaused, computeDisplay]);
 
   if (loading) return null;
   if (!startTime) return null;
@@ -81,21 +76,20 @@ export default function TimerOSSection({ osId }: TimerOSSectionProps) {
         <Timer className="h-4 w-4 text-muted-foreground" />
         <h3 className="text-sm font-semibold">Tempo da O.S.</h3>
       </div>
-
       <div className="flex items-center justify-center gap-4 rounded-lg border bg-muted/30 p-4">
-        <span
-          className={`font-mono text-3xl font-bold tabular-nums ${
-            isFinished || endTime ? "text-muted-foreground" : "text-emerald-600"
-          }`}
-        >
+        <span className={`font-mono text-3xl font-bold tabular-nums ${
+          isFinished || endTime ? "text-muted-foreground" : isPaused ? "text-amber-500" : "text-emerald-600"
+        }`}>
           {formatTime(displaySeconds)}
         </span>
+        {isPaused && (
+          <span className="text-xs font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
+            ⏸ Pausado
+          </span>
+        )}
       </div>
-
       <p className="text-xs text-center text-muted-foreground">
-        {isFinished || endTime
-          ? "Tempo total da O.S. (finalizada)"
-          : "Tempo decorrido desde o início da O.S."}
+        {isFinished || endTime ? "Tempo total da O.S. (finalizada)" : isPaused ? "Cronômetro pausado — O.S. suspensa ou interrompida" : "Tempo decorrido desde o início da O.S."}
       </p>
     </div>
   );

@@ -1,10 +1,12 @@
-// Shared OS status definitions
+﻿// Shared OS status definitions
 export const STATUS_OPTIONS = [
   "Não Iniciada",
   "Em triagem",
   "Aguardando material",
   "Aguardando acesso",
   "Em execução",
+  "Suspenso",
+  "Interrompido",
   "Concluída",
   "Cancelada",
 ];
@@ -15,15 +17,21 @@ export const STATUS_COLORS: Record<string, string> = {
   "Aguardando material": "bg-orange-50 text-orange-700 border-orange-200",
   "Aguardando acesso": "bg-yellow-50 text-yellow-700 border-yellow-200",
   "Em execução": "bg-sky-50 text-sky-700 border-sky-200",
+  "Suspenso": "bg-purple-50 text-purple-700 border-purple-200",
+  "Interrompido": "bg-rose-50 text-rose-700 border-rose-200",
   "Concluída": "bg-emerald-50 text-emerald-700 border-emerald-200",
   "Cancelada": "bg-red-50 text-red-700 border-red-200",
 };
 
-/** Status that mean "finished" (won't count as open/overdue) */
 export const FINISHED_STATUSES = ["concluída", "concluida", "cancelada"];
+export const PAUSED_STATUSES = ["suspenso", "interrompido"];
 
 export function isFinishedStatus(status: string | null | undefined): boolean {
   return FINISHED_STATUSES.includes((status || "").toLowerCase().trim());
+}
+
+export function isPausedStatus(status: string | null | undefined): boolean {
+  return PAUSED_STATUSES.includes((status || "").toLowerCase().trim());
 }
 
 export function getStatusColor(status: string | null | undefined): string {
