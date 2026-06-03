@@ -123,7 +123,6 @@ const configGroup: MenuGroup = {
   id: "config", title: "Configurações", icon: Settings, iconColor: "#374151", menuKey: "menu.os",
   items: [
     { title: "Definições de SLA", url: "/sla", icon: Timer, requiredPermission: "sla.visualizar" },
-    { title: "Checklist Templates", url: "/checklist-templates", icon: ListChecks, requiredPermission: "checklist_templates.visualizar" },
     { title: "Tipos de Atividade", url: "/tipos-atividade", icon: ClipboardList, requiredPermission: "sla.visualizar" },
     { title: "Tipos de Sistema", url: "/tipos-sistema", icon: Settings2, requiredPermission: "sla.visualizar" },
     { title: "Campos Obrigatórios O.S.", url: "/os-campos-config", icon: Settings2 },

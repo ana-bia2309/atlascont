@@ -2085,7 +2085,7 @@ fetchData();
               <div className="border-t pt-3">
                 <ColaboradoresOSSection
                   osId={viewing.id}
-                  readOnly={!can("painel_os.editar")}
+                  readOnly={true}
                   responsibleUserIds={viewing.responsible_user_ids || []}
                 />
               </div>
@@ -2138,19 +2138,16 @@ fetchData();
                 <AnexosSection osId={viewing.id} readOnly canDownload={can("painel_os.baixar")} />
               </div>
               <div className="border-t pt-3">
-                <FotosOSSection osId={viewing.id} readOnly={!isTecnicoAssigned(viewing) && !can("painel_os.editar")} />
+                <FotosOSSection osId={viewing.id} readOnly={true} />
               </div>
               <div className="border-t pt-3">
                 <TimerOSSection osId={viewing.id} />
               </div>
               {can("painel_os.visualizar_atividades") && (
                 <div className="border-t pt-3">
-                  <CronogramaSection osId={viewing.id} readOnly={!can("painel_os.editar_atividades")} currentProfileId={currentProfileId} responsibleUserId={viewing.responsible_user_ids?.[0] || viewing.responsible_user_id} />
+                  <CronogramaSection osId={viewing.id} readOnly={true} currentProfileId={currentProfileId} responsibleUserId={viewing.responsible_user_ids?.[0] || viewing.responsible_user_id} />
                 </div>
               )}
-              <div className="border-t pt-3">
-                <ChecklistOSSection osId={viewing.id} tipoServico={(viewing as any).tipo_servico} readOnly={!can("painel_os.editar")} />
-              </div>
               <div className="border-t pt-3">
                 <ComentariosOSSection osId={viewing.id} readOnly={!can("painel_os.editar") && !isTecnicoAssigned(viewing)} />
               </div>
@@ -2162,32 +2159,9 @@ fetchData();
             </div>
           )}
           <DialogFooter className="flex gap-2">
-            {viewing && isFinishedStatus(viewing.status) && can("painel_os.editar") && (
-              <Button
-                variant="outline"
-                className="border-amber-400 text-amber-700 hover:bg-amber-50"
-                onClick={() => { handleReopen(viewing); setViewing(null); }}
-              >
-                <RefreshCw className="mr-2 h-4 w-4" /> Reabrir
-              </Button>
-            )}
-            {viewing && !isFinishedStatus(viewing.status) && can("painel_os.editar") && (
-              <Button
-                variant="default"
-                className="bg-emerald-600 hover:bg-emerald-700"
-                onClick={() => { handleFinalize(viewing); setViewing(null); }}
-              >
-                <CheckCircle2 className="mr-2 h-4 w-4" /> Finalizar
-              </Button>
-            )}
             {viewing && can("painel_os.baixar") && (
               <Button variant="outline" onClick={() => downloadPdf(viewing)}>
                 <DownloadIcon className="mr-2 h-4 w-4" /> Baixar PDF
-              </Button>
-            )}
-            {viewing && (can("painel_os.editar") || isTecnicoAssigned(viewing)) && !isFinishedStatus(viewing.status) && (
-              <Button variant="outline" onClick={() => { setPendingEdit(viewing); setViewing(null); }}>
-                <Pencil className="mr-2 h-4 w-4" /> Editar
               </Button>
             )}
             <Button variant="outline" onClick={() => setViewing(null)}>Fechar</Button>
