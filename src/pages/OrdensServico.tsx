@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+﻿import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useCompany } from "@/hooks/use-company";
 import { useUserRole } from "@/hooks/use-user-role";
@@ -323,7 +323,7 @@ export default function OrdensServico() {
         .select("*")
         .eq("company_id", companyId)
         .not("origem", "in", "(Preventiva,Chamado)")
-        .order("created_at", { ascending: false }),
+        .order("created_at", { ascending: true }),
 
       (supabase as any)
         .from("blocos")
@@ -599,6 +599,8 @@ const { data: colabData } = await (supabase as any)
   const atividadesNovaRef = useRef<AtividadesNovaOSSectionHandle>(null);
   const [chamadoOrigemId, setChamadoOrigemId] = useState<string | null>(null);
   const [chamadoExternoId, setChamadoExternoId] = useState<string | null>(null);
+  const [numeroOsExterno, setNumeroOsExterno] = useState("");
+  const [osTab, setOsTab] = useState("materiais");
 
  const isObrigatorio = (campo: string) => camposObrigatorios.includes(campo);
 const labelCampo = (label: string, campo: string) => (
@@ -612,6 +614,7 @@ const labelCampo = (label: string, campo: string) => (
     setObservacoes(""); setEquipamentos(""); setFormResponsaveis([]); setFormColaboradores([]); setFormFiscais([]); setEditing(null);
     setChamadoOrigemId(null);
     setChamadoExternoId(null);
+    setNumeroOsExterno("");
   };
 
   const openCreate = () => { resetForm(); setDialogOpen(true); };
@@ -627,6 +630,7 @@ const labelCampo = (label: string, campo: string) => (
     setAtivoId((os as any).ativo_id || "");
     setTipoServico((os as any).tipo_servico || "");
     // Load responsáveis and colaboradores for this OS
+    setNumeroOsExterno((os as any).numero_os_externo || "");
    Promise.all([
   supabase.from("os_responsaveis").select("profile_id").eq("os_id", os.id),
   supabase.from("os_colaboradores").select("profile_id").eq("os_id", os.id),
@@ -694,7 +698,7 @@ const labelCampo = (label: string, campo: string) => (
   const handleSave = async () => {
     if (!editing && !can("painel_os.criar")) { toast({ title: "Sem permissão para criar O.S.", variant: "destructive" }); return; }
     if (editing && !can("painel_os.editar") && !isTecnicoAssigned(editing)) { toast({ title: "Sem permissão para editar O.S.", variant: "destructive" }); return; }
-    if (!codigoOs.trim()) { toast({ title: "Código da O.S. é obrigatório", variant: "destructive" }); return; }
+    // codigo_os gerado automaticamente
 
     // Valida campos obrigatórios configurados
     if (companyId) {
@@ -756,7 +760,7 @@ const labelCampo = (label: string, campo: string) => (
     }
 
     const payload: any = {
-      codigo_os: codigoOs.trim(), status, prioridade,
+      codigo_os: editing ? codigoOs.trim() : await (async () => { const { data } = await (supabase as any).rpc("next_os_numero"); return data || codigoOs.trim(); })(),
       bloco_id: blocoId || null, andar: andar.trim() || null, sala: sala.trim() || null,
       prazo: formatDateStr(prazo),
       data_inicio: formatDateStr(dataInicio), data_termino: formatDateStr(dataTermino),
@@ -766,6 +770,7 @@ const labelCampo = (label: string, campo: string) => (
       ativo_id: (ativoId && ativoId !== "__none__") ? ativoId : null,
       tipo_servico: tipoServico || null,
       responsible_user_id: formResponsaveis.length > 0 ? formResponsaveis[0] : null,
+      numero_os_externo: numeroOsExterno.trim() || null,
     };
 
     // Auto-calculate SLA deadline
@@ -1364,9 +1369,9 @@ fetchData();
                     />
                   </TableHead>
                 )}
-                <TableHead className="w-[100px]">Código</TableHead>
+                <TableHead className="w-[80px]">Código</TableHead>
+                <TableHead className="w-[100px]">OS Externa</TableHead>
                 <TableHead>Local</TableHead>
-                <TableHead>Equipamentos</TableHead>
                 <TableHead>Prioridade</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>SLA</TableHead>
@@ -1407,10 +1412,14 @@ fetchData();
                     )}
                     {/* Código + Tipo */}
                     <TableCell>
-                      <span className="font-mono text-sm font-semibold">{os.codigo_os || "—"}</span>
+                      <span className="font-mono text-sm font-bold">{os.codigo_os ? os.codigo_os.replace("OS-0*", "OS-").replace(/^OS-0+/, "OS-") : "—"}</span>
                       {(os as any).tipo_servico && (
                         <p className="text-xs text-muted-foreground mt-0.5">{(os as any).tipo_servico}</p>
                       )}
+                    </TableCell>
+                    {/* OS Externa */}
+                    <TableCell>
+                      <span className="text-xs font-semibold text-foreground">{(os as any).numero_os_externo || "—"}</span>
                     </TableCell>
 
                     {/* Local agrupado */}
@@ -1630,224 +1639,394 @@ fetchData();
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) { setDialogOpen(false); resetForm(); } }}>
-        <DialogContent className="max-w-[95vw] lg:max-w-[900px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editing ? "Editar Ordem de Serviço" : "Nova Ordem de Serviço"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            {isTecnico && editing && (
-              <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-md p-2">
-                Técnico: você pode alterar apenas o status e adicionar fotos.
-              </p>
-            )}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div>
-                <label className="text-sm font-medium mb-1 block">Código da O.S.</label>
-                <Input value={codigoOs} onChange={(e) => setCodigoOs(e.target.value)} placeholder="Ex: OS-001" disabled={isTecnico && !!editing} />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-1 block">{labelCampo("Bloco", "bloco_id")}</label>
-                <Select value={blocoId} onValueChange={setBlocoId} disabled={isTecnico && !!editing}>
-                  <SelectTrigger><SelectValue placeholder="Selecione o bloco" /></SelectTrigger>
-                  <SelectContent>
-                    {blocos.map((b) => (<SelectItem key={b.id} value={b.id}>{b.nome}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-1 block">{labelCampo("Andar", "andar")}</label>
-                <Input value={andar} onChange={(e) => setAndar(e.target.value)} placeholder="Ex: 3º" disabled={isTecnico && !!editing} />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-1 block">{labelCampo("Sala", "sala")}</label>
-                <Input value={sala} onChange={(e) => setSala(e.target.value)} placeholder="Ex: 301" disabled={isTecnico && !!editing} />
-              </div>
+        <DialogContent className="max-w-[95vw] lg:max-w-[1100px] max-h-[95vh] overflow-y-auto p-0">
+          {/* Header */}
+          <div className="flex items-start justify-between px-8 pt-7 pb-4 border-b">
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">Início &rsaquo; Ordens de Serviço &rsaquo; <span className="text-primary font-medium">{editing ? `Editar ${editing.codigo_os || ""}` : "Nova Ordem de Serviço"}</span></div>
+              <h2 className="text-2xl font-bold">{editing ? "Editar Ordem de Serviço" : "Nova Ordem de Serviço"}</h2>
+              <p className="text-sm text-muted-foreground mt-0.5">{editing ? "Atualize as informações desta O.S." : "Preencha as informações para criar uma nova O.S."}</p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium mb-1 block">Status</label>
-                <Select value={status} onValueChange={setStatus}>
-                  <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
-                  <SelectContent>
-                    {STATUS_OPTIONS.map((s) => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {!(isTecnico && editing) ? (
-              <div>
-                <label className="text-sm font-medium mb-1 block">{labelCampo("Prioridade", "prioridade")}</label>
-                <Select value={prioridade} onValueChange={handlePrioridadeChange}>
-                  <SelectTrigger><SelectValue placeholder="Prioridade" /></SelectTrigger>
-                  <SelectContent>
-                    {PRIORIDADE_OPTIONS.map((p) => (<SelectItem key={p} value={p}>{p}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-              </div>
-              ) : (
-              <div>
-                <label className="text-sm font-medium mb-1 block">Prioridade</label>
-                <Input value={prioridade} disabled />
-              </div>
-              )}
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium mb-1 block">{labelCampo("Tipo de Serviço", "tipo_servico")}</label>
-                <Select value={tipoServico || "__none__"} onValueChange={(v) => setTipoServico(v === "__none__" ? "" : v)} disabled={isTecnico && !!editing}>
-                  <SelectTrigger><SelectValue placeholder="Selecione o tipo (opcional)" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Nenhum</SelectItem>
-                    {TIPO_SERVICO_OPTIONS.map((t) => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-                {tipoServico && prioridade && (() => {
-                  const slaDef = slaDefinicoes.find((s: any) => s.tipo_servico === tipoServico && s.prioridade === prioridade);
-                  return slaDef ? (
-                    <p className="text-xs text-muted-foreground mt-1">⏱ SLA automático: {slaDef.prazo_horas}h para {tipoServico} + {prioridade}</p>
-                  ) : null;
-                })()}
-              </div>
-              <MultiUserSelect
-                label="Responsável (Técnico)"
-                options={tecnicosOptions}
-                selected={formResponsaveis}
-                onChange={setFormResponsaveis}
-                placeholder="Adicionar responsável..."
-                disabled={isTecnico && !!editing}
-                excludeIds={formColaboradores}
-              />
-            </div>
-          {/* Auxiliares multi-select */}
-            {!(isTecnico && editing) && (
-              <MultiUserSelect
-                label="Auxiliares"
-                options={tecnicosOptions}
-                selected={formColaboradores}
-                onChange={setFormColaboradores}
-                placeholder="Adicionar auxiliar..."
-                excludeIds={[...formResponsaveis, ...formFiscais]}
-              />
-            )}
+            <Button variant="ghost" size="sm" className="gap-1.5 mt-1" onClick={() => { setDialogOpen(false); resetForm(); }}>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium mb-1 block">Cronograma</label>
-                <Select value={cronogramaId} onValueChange={setCronogramaId}>
-                  <SelectTrigger><SelectValue placeholder="Selecione um cronograma (opcional)" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Nenhum</SelectItem>
-                    {cronogramas.map((c) => (<SelectItem key={c.id} value={c.id}>{c.titulo}</SelectItem>))}
-                  </SelectContent>
-                </Select>
+            </Button>
+          </div>
+
+          {/* Body: form + sidebar */}
+          <div className="flex gap-0 min-h-0">
+            {/* Main form */}
+            <div className="flex-1 overflow-y-auto px-8 py-6 space-y-5">
+
+              {isTecnico && editing && (
+                <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-md p-2">
+                  Técnico: você pode alterar apenas o status e adicionar fotos.
+                </p>
+              )}
+
+              {/* Bloco OS Interna / Externa */}
+              <div className="rounded-xl border bg-card p-5 flex flex-col sm:flex-row gap-6">
+                <div className="flex items-start gap-4 flex-1">
+                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                    <FileText className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-0.5">OS Interna (automática)</div>
+                    <div className="text-2xl font-bold text-primary">{codigoOs || <span className="text-muted-foreground text-base font-normal">Será gerada ao salvar</span>}</div>
+                    {!editing && <div className="text-xs text-muted-foreground mt-0.5">Gerada automaticamente pelo sistema</div>}
+
+
+
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <label className="text-sm font-medium mb-1 block">Número da O.S. Externa <span className="text-muted-foreground font-normal">(opcional)</span></label>
+                  <Input
+                    value={numeroOsExterno}
+                    placeholder="Ex.: OS-MGI-2026-015, ENG-2458, CONTRATO-001"
+                    disabled={isTecnico && !!editing && !can("painel_os.editar")}
+                    onChange={(e) => setNumeroOsExterno(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Número/Referência utilizada na documentação ou contrato.</p>
+                </div>
               </div>
-              <div>
-                <label className="text-sm font-medium mb-1 block">Ativo vinculado</label>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="flex-1 justify-start font-normal"
-                    onClick={() => setAtivoModalOpen(true)}
-                    disabled={isTecnico && !!editing}
-                  >
-                    {ativoId && ativoId !== "__none__"
-                      ? ativosOptions.find(a => a.id === ativoId)?.nome || "Ativo selecionado"
-                      : <span className="text-muted-foreground">Selecione um ativo (opcional)</span>
-                    }
-                  </Button>
-                  {ativoId && ativoId !== "__none__" && (
-                    <Button type="button" variant="ghost" size="icon" onClick={() => setAtivoId("")}>
-                      <X className="h-4 w-4" />
-                    </Button>
+
+              {/* Seção 2: Localização */}
+              <div className="rounded-xl border bg-card overflow-hidden">
+                <div className="flex items-center gap-3 px-5 py-3.5 border-b bg-muted/30">
+                  <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">2</span>
+                  <span className="font-semibold text-sm">Localização</span>
+                </div>
+                <div className="p-5 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">{labelCampo("Bloco", "bloco_id")}</label>
+                      <Select value={blocoId} onValueChange={setBlocoId} disabled={isTecnico && !!editing}>
+                        <SelectTrigger><SelectValue placeholder="Selecione o bloco" /></SelectTrigger>
+                        <SelectContent>
+                          {blocos.map((b) => (<SelectItem key={b.id} value={b.id}>{b.nome}</SelectItem>))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">{labelCampo("Andar", "andar")}</label>
+                      <Input value={andar} onChange={(e) => setAndar(e.target.value)} placeholder="Ex: 3º" disabled={isTecnico && !!editing} />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">{labelCampo("Sala", "sala")}</label>
+                      <Input value={sala} onChange={(e) => setSala(e.target.value)} placeholder="Ex: 301" disabled={isTecnico && !!editing} />
+                    </div>
+                  </div>
+
+
+
+
+                </div>
+              </div>
+
+              {/* Seção 3: Classificação */}
+              <div className="rounded-xl border bg-card overflow-hidden">
+                <div className="flex items-center gap-3 px-5 py-3.5 border-b bg-muted/30">
+                  <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">3</span>
+                  <span className="font-semibold text-sm">Classificação</span>
+                </div>
+                <div className="p-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">{labelCampo("Tipo de Serviço", "tipo_servico")}</label>
+                      <Select value={tipoServico || "__none__"} onValueChange={(v) => setTipoServico(v === "__none__" ? "" : v)} disabled={isTecnico && !!editing}>
+                        <SelectTrigger><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">Nenhum</SelectItem>
+                          {TIPO_SERVICO_OPTIONS.map((t) => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
+                        </SelectContent>
+                      </Select>
+                      {tipoServico && prioridade && (() => {
+                        const slaDef = slaDefinicoes.find((s: any) => s.tipo_servico === tipoServico && s.prioridade === prioridade);
+                        return slaDef ? (
+                          <p className="text-xs text-muted-foreground mt-1">⏱ SLA automático: {slaDef.prazo_horas}h</p>
+                        ) : null;
+                      })()}
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">{labelCampo("Prioridade", "prioridade")}</label>
+                      {!(isTecnico && editing) ? (
+                        <Select value={prioridade} onValueChange={handlePrioridadeChange}>
+                          <SelectTrigger><SelectValue placeholder="Selecione a prioridade" /></SelectTrigger>
+                          <SelectContent>
+                            {PRIORIDADE_OPTIONS.map((p) => (<SelectItem key={p} value={p}>{p}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Input value={prioridade} disabled />
+                      )}
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">Status</label>
+                      <Select value={status} onValueChange={setStatus}>
+                        <SelectTrigger><SelectValue placeholder="Selecione o status" /></SelectTrigger>
+                        <SelectContent>
+                          {STATUS_OPTIONS.map((s) => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Seção 4: Equipe Responsável */}
+              <div className="rounded-xl border bg-card overflow-hidden">
+                <div className="flex items-center gap-3 px-5 py-3.5 border-b bg-muted/30">
+                  <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">4</span>
+                  <span className="font-semibold text-sm">Equipe Responsável</span>
+                </div>
+                <div className="p-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <MultiUserSelect
+                      label="Responsavel (Tecnico)"
+                      options={tecnicosOptions}
+                      selected={formResponsaveis}
+                      onChange={setFormResponsaveis}
+                      placeholder="Selecione um responsável"
+                      disabled={isTecnico && !!editing}
+                      excludeIds={formColaboradores}
+                    />
+                    {!(isTecnico && editing) && (
+                      <MultiUserSelect
+                        label="Auxiliares"
+                        options={tecnicosOptions}
+                        selected={formColaboradores}
+                        onChange={setFormColaboradores}
+                        placeholder="Selecione os auxiliares"
+                        excludeIds={[...formResponsaveis, ...formFiscais]}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Seção 5: Planejamento */}
+              <div className="rounded-xl border bg-card overflow-hidden">
+                <div className="flex items-center gap-3 px-5 py-3.5 border-b bg-muted/30">
+                  <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">5</span>
+                  <span className="font-semibold text-sm">Planejamento</span>
+                </div>
+                <div className="p-5 space-y-4">
+                <div className="p-5 space-y-4">
+
+
+
+
+
+
+
+
+
+
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">Ativo vinculado <span className="text-muted-foreground font-normal">(opcional)</span></label>
+                      <div className="flex gap-2">
+                        <Button type="button" variant="outline" className="flex-1 justify-start font-normal" onClick={() => setAtivoModalOpen(true)} disabled={isTecnico && !!editing}>
+                          {ativoId && ativoId !== "__none__"
+                            ? ativosOptions.find(a => a.id === ativoId)?.nome || "Ativo selecionado"
+                            : <span className="text-muted-foreground">Selecione um ativo</span>
+                          }
+                        </Button>
+                        {ativoId && ativoId !== "__none__" && (
+                          <Button type="button" variant="ghost" size="icon" onClick={() => setAtivoId("")}><X className="h-4 w-4" /></Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  {isTecnico && editing ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div><label className="text-sm font-medium mb-1 block">Prazo</label><Input value={prazo ? format(prazo, "dd/MM/yyyy") : "—"} disabled /></div>
+                      <div><label className="text-sm font-medium mb-1 block">Data Início</label><Input value={dataInicio ? format(dataInicio, "dd/MM/yyyy") : "—"} disabled /></div>
+                      <div><label className="text-sm font-medium mb-1 block">Data Término</label><Input value={dataTermino ? format(dataTermino, "dd/MM/yyyy") : "—"} disabled /></div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
+                        <label className="text-sm font-medium mb-1 block">{labelCampo("Prazo", "prazo")}</label>
+                        <div className="flex items-center gap-2 h-10 px-3 rounded-md border bg-muted text-sm text-muted-foreground cursor-not-allowed">
+                          {prazo ? format(prazo, "dd/MM/yyyy") : "Definido automaticamente pela prioridade"}
+                        </div>
+                      </div>
+                      <DatePickerField label={labelCampo("Data Início", "data_inicio")} value={dataInicio} onChange={setDataInicio} />
+                      <DatePickerField label={labelCampo("Data Término", "data_termino")} value={dataTermino} onChange={setDataTermino} />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Seção 6: Execução */}
+              <div className="rounded-xl border bg-card overflow-hidden">
+                <div className="flex items-center gap-3 px-5 py-3.5 border-b bg-muted/30">
+                  <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">6</span>
+                  <span className="font-semibold text-sm">Execução</span>
+                </div>
+                <div className="p-5 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">{labelCampo("Equipamentos", "equipamentos")}</label>
+                      <Textarea value={equipamentos} onChange={(e) => setEquipamentos(e.target.value)} placeholder={"Ex.:\n1 aparelho split 12.000 BTU/h\n2 aparelhos cassete 24.000 BTU/h"} rows={5} disabled={isTecnico && !!editing} />
+                      <div className="text-xs text-muted-foreground text-right mt-0.5">{equipamentos.length}/500</div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">{labelCampo("Observações", "observacoes")}</label>
+                      <Textarea value={observacoes} onChange={(e) => setObservacoes(e.target.value)} placeholder="Observações gerais sobre a O.S." rows={5} disabled={isTecnico && !!editing} />
+                      <div className="text-xs text-muted-foreground text-right mt-0.5">{observacoes.length}/500</div>
+                    </div>
+                  </div>
+
+                  {editing?.id && ativoId && ativoId !== "__none__" && (
+                    <div className="border-t pt-4">
+                      <AtivoDisponibilidadeSection
+                        osId={editing.id}
+                        ativoId={ativoId}
+                        ativoNome={ativosOptions.find(a => a.id === ativoId)?.nome || "Ativo"}
+                        readOnly={!can("painel_os.editar") && !isTecnicoAssigned(editing)}
+                      />
+                    </div>
+                  )}
+
+                  {/* Tabs: Materiais / Evidencias / Atividades */}
+                  <div className="border-t pt-4">
+                    <div>
+                      <div className="flex border-b mb-4">
+                        <button onClick={() => setOsTab("materiais")} className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${osTab === "materiais" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+                          <Package className="h-4 w-4" /> Materiais
+                        </button>
+                        <button onClick={() => setOsTab("evidencias")} className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${osTab === "evidencias" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+                          <Paperclip className="h-4 w-4" /> Evidencias (Anexos e Fotos)
+                        </button>
+                        {(!editing || can("painel_os.criar")) && (
+                          <button onClick={() => setOsTab("atividades")} className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${osTab === "atividades" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+                            <CheckCircle2 className="h-4 w-4" /> Atividades
+                          </button>
+                        )}
+                      </div>
+                      {osTab === "materiais" && !(isTecnico && editing) && (
+                        <MateriaisSection ref={materiaisRef} osId={editing?.id || null} readOnly={!can("painel_os.editar") && !can("painel_os.criar")} />
+                      )}
+                      {osTab === "evidencias" && (
+                        <div className="space-y-4">
+                          <AnexosSection ref={anexosRef} osId={editing?.id || null} readOnly={(isTecnico && !!editing) || !can("painel_os.anexar")} canAttach={can("painel_os.anexar")} canDownload={can("painel_os.baixar")} />
+                          <FotosOSSection ref={fotosRef} osId={editing?.id || null} readOnly={!can("painel_os.editar") && !isTecnicoAssigned(editing)} />
+                        </div>
+                      )}
+                      {osTab === "atividades" && !editing && can("painel_os.criar") && (
+                        <AtividadesNovaOSSection ref={atividadesNovaRef} />
+                      )}
+                    </div>
+                  </div>
+
+                  {editing?.id && (
+                    <div className="border-t pt-4">
+                      <TimerOSSection osId={editing.id} />
+                    </div>
+                  )}
+                  {editing?.id && can("painel_os.visualizar_atividades") && (
+                    <div className="border-t pt-4">
+                      <CronogramaSection osId={editing.id} readOnly={isTecnico || !can("painel_os.editar_atividades")} currentProfileId={currentProfileId} responsibleUserId={editing.responsible_user_ids?.[0] || editing.responsible_user_id} />
+                    </div>
+                  )}
+                  {editing?.id && (
+                    <div className="border-t pt-4">
+                      <ComentariosOSSection osId={editing.id} readOnly={!can("painel_os.editar") && !isTecnicoAssigned(editing)} />
+                    </div>
                   )}
                 </div>
               </div>
             </div>
-            {isTecnico && editing ? (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div><label className="text-sm font-medium mb-1 block">Prazo</label><Input value={prazo ? format(prazo, "dd/MM/yyyy") : "—"} disabled /></div>
-                <div><label className="text-sm font-medium mb-1 block">Data Início</label><Input value={dataInicio ? format(dataInicio, "dd/MM/yyyy") : "—"} disabled /></div>
-                <div><label className="text-sm font-medium mb-1 block">Data Término</label><Input value={dataTermino ? format(dataTermino, "dd/MM/yyyy") : "—"} disabled /></div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="text-sm font-medium mb-1 block">{labelCampo("Prazo", "prazo")}</label>
-                  <div className="flex items-center gap-2 h-10 px-3 rounded-md border bg-muted text-sm text-muted-foreground cursor-not-allowed">
-                    {prazo ? format(prazo, "dd/MM/yyyy") : "Definido automaticamente pela prioridade"}
+
+            {/* Sidebar: Resumo da O.S. */}
+            <div className="hidden lg:block w-64 shrink-0 border-l bg-muted/20 px-5 py-6">
+              <div className="font-semibold text-sm mb-4">Resumo da O.S.</div>
+              <div className="space-y-3 text-sm">
+                <div className="flex items-start gap-2">
+                  <FileText className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                  <div><div className="text-xs text-muted-foreground">OS Interna</div><div className="font-medium text-primary">{codigoOs || "—"}</div></div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <FileText className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div><div className="text-xs text-muted-foreground">Nº O.S. Externa</div><div className="font-medium">—</div></div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <RefreshCw className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div><div className="text-xs text-muted-foreground">Status</div><div className="font-medium">{status || "Não iniciada"}</div></div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="mt-0.5 text-sm">{PRIORIDADE_ICONS[prioridade] || "🟡"}</span>
+                  <div><div className="text-xs text-muted-foreground">Prioridade</div><div className="font-medium">{prioridade || "Média"}</div></div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Wrench className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div><div className="text-xs text-muted-foreground">Tipo de Serviço</div><div className="font-medium">{tipoServico || "—"}</div></div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Package className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <div className="text-xs text-muted-foreground">Localização</div>
+                    <div className="font-medium text-xs leading-relaxed">
+                      {[blocoId ? blocosMap[blocoId] : null, andar, sala].filter(Boolean).join(" › ") || "—"}
+                    </div>
                   </div>
                 </div>
-                <DatePickerField label={labelCampo("Data Início", "data_inicio")} value={dataInicio} onChange={setDataInicio} />
-                <DatePickerField label={labelCampo("Data Término", "data_termino")} value={dataTermino} onChange={setDataTermino} />
-              </div>
-            )}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium mb-1 block">{labelCampo("Equipamentos", "equipamentos")}</label>
-                <Textarea value={equipamentos} onChange={(e) => setEquipamentos(e.target.value)} placeholder={"Ex:\n1 aparelho split 12.000 BTU/h\n2 aparelhos cassete 24.000 BTU/h"} rows={4} disabled={isTecnico && !!editing} />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-1 block">{labelCampo("Observações", "observacoes")}</label>
-                <Textarea value={observacoes} onChange={(e) => setObservacoes(e.target.value)} placeholder="Observações" rows={4} disabled={isTecnico && !!editing} />
+                <div className="flex items-start gap-2">
+                  <Star className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <div className="text-xs text-muted-foreground">Responsável (Técnico)</div>
+                    <div className="font-medium text-xs leading-relaxed">
+                      {formResponsaveis.length > 0
+                        ? formResponsaveis.map(id => tecnicosOptions.find(t => t.id === id)?.nome || id).join(", ")
+                        : "—"}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Search className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div><div className="text-xs text-muted-foreground">Ativo vinculado</div><div className="font-medium text-xs">{ativoId && ativoId !== "__none__" ? ativosOptions.find(a => a.id === ativoId)?.nome || "—" : "—"}</div></div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CalendarIcon className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div><div className="text-xs text-muted-foreground">Prazo</div><div className="font-medium text-xs">{prazo ? format(prazo, "dd/MM/yyyy") : "Definido automaticamente"}</div></div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CalendarIcon className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div><div className="text-xs text-muted-foreground">Início</div><div className="font-medium text-xs">{dataInicio ? format(dataInicio, "dd/MM/yyyy") : "—"}</div></div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CalendarIcon className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div><div className="text-xs text-muted-foreground">Término</div><div className="font-medium text-xs">{dataTermino ? format(dataTermino, "dd/MM/yyyy") : "—"}</div></div>
+                </div>
+                <div className="rounded-lg bg-primary/5 border border-primary/10 p-3 mt-2">
+                  <p className="text-xs text-muted-foreground">ℹ️ As informações do resumo são atualizadas automaticamente conforme o preenchimento.</p>
+                </div>
               </div>
             </div>
-            {editing?.id && ativoId && ativoId !== "__none__" && (
-              <div className="border-t pt-4">
-                <AtivoDisponibilidadeSection
-                  osId={editing.id}
-                  ativoId={ativoId}
-                  ativoNome={ativosOptions.find(a => a.id === ativoId)?.nome || "Ativo"}
-                  readOnly={!can("painel_os.editar") && !isTecnicoAssigned(editing)}
-                />
-              </div>
-            )}
-            {!(isTecnico && editing) && (
-              <div className="border-t pt-4">
-                <MateriaisSection ref={materiaisRef} osId={editing?.id || null} readOnly={!can("painel_os.editar") && !can("painel_os.criar")} />
-              </div>
-            )}
-            <div className="border-t pt-4">
-              <AnexosSection ref={anexosRef} osId={editing?.id || null} readOnly={(isTecnico && !!editing) || !can("painel_os.anexar")} canAttach={can("painel_os.anexar")} canDownload={can("painel_os.baixar")} />
-            </div>
-            <div className="border-t pt-4">
-              <FotosOSSection ref={fotosRef} osId={editing?.id || null} readOnly={!can("painel_os.editar") && !isTecnicoAssigned(editing)} />
-            </div>
-            {!editing && can("painel_os.criar") && (
-              <div className="border-t pt-4">
-                <AtividadesNovaOSSection ref={atividadesNovaRef} />
-              </div>
-            )}
-            {editing?.id && (
-              <div className="border-t pt-4">
-                <TimerOSSection osId={editing.id} />
-              </div>
-            )}
-            {editing?.id && can("painel_os.visualizar_atividades") && (
-              <div className="border-t pt-4">
-                <CronogramaSection osId={editing.id} readOnly={isTecnico || !can("painel_os.editar_atividades")} currentProfileId={currentProfileId} responsibleUserId={editing.responsible_user_ids?.[0] || editing.responsible_user_id} />
-              </div>
-            )}
-            {editing?.id && (
-              <div className="border-t pt-4">
-                <ComentariosOSSection osId={editing.id} readOnly={!can("painel_os.editar") && !isTecnicoAssigned(editing)} />
-              </div>
+          </div>
+
+          <AtivoQuickModal
+            open={ativoModalOpen}
+            onClose={() => setAtivoModalOpen(false)}
+            onSelect={(id, nome) => {
+              setAtivoId(id);
+              setAtivosOptions(prev => prev.find(a => a.id === id) ? prev : [...prev, { id, nome, codigo_identificacao: null }]);
+            }}
+            companyId={companyId}
+          />
+
+          {/* Footer */}
+          <div className="flex items-center justify-between px-8 py-4 border-t bg-card">
+            <Button variant="outline" className="gap-2" onClick={() => { setDialogOpen(false); resetForm(); }}>
+              <FileText className="h-4 w-4" /> Salvar rascunho
+            </Button>
+            {(can("painel_os.criar") || can("painel_os.editar") || (isTecnico && editing)) && (
+              <Button onClick={handleSave} className="gap-2 px-6">
+                Salvar e continuar <span>→</span>
+              </Button>
             )}
           </div>
-          <AtivoQuickModal
-  open={ativoModalOpen}
-  onClose={() => setAtivoModalOpen(false)}
-  onSelect={(id, nome) => {
-    setAtivoId(id);
-    setAtivosOptions(prev => prev.find(a => a.id === id) ? prev : [...prev, { id, nome, codigo_identificacao: null }]);
-  }}
-  companyId={companyId}
-/>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setDialogOpen(false); resetForm(); }}>Cancelar</Button>
-            {(can("painel_os.criar") || can("painel_os.editar") || (isTecnico && editing)) && (
-              <Button onClick={handleSave}>Salvar</Button>
-            )}
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -2074,4 +2253,3 @@ fetchData();
     </div>
   );
 }
-
