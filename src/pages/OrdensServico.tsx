@@ -516,7 +516,7 @@ const { data: colabData } = await (supabase as any)
       if (filterAndar !== "__all__" && os.andar !== filterAndar) return false;
       if (filterSala !== "__all__" && os.sala !== filterSala) return false;
       if (filterTipoServico !== "__all__" && (os as any).tipo_servico !== filterTipoServico) return false;
-      if (filterCodigo.trim() && !(os.codigo_os || "").toLowerCase().includes(filterCodigo.trim().toLowerCase())) return false;
+      if (filterCodigo.trim() && !(os.codigo_os || "").toLowerCase().includes(filterCodigo.trim().toLowerCase()) && !((os as any).numero_os_externo || "").toLowerCase().includes(filterCodigo.trim().toLowerCase())) return false;
       
       if (filterDateFrom) {
         const created = os.created_at ? new Date(os.created_at) : null;
@@ -1369,16 +1369,16 @@ fetchData();
                     />
                   </TableHead>
                 )}
-                <TableHead className="w-[80px]">Código</TableHead>
-                <TableHead className="w-[100px]">OS Externa</TableHead>
-                <TableHead>Local</TableHead>
-                <TableHead>Prioridade</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>SLA</TableHead>
-                <TableHead>Prazo</TableHead>
-                <TableHead>Custo</TableHead>
-                <TableHead>Auxiliares</TableHead>
-                <TableHead className="w-[140px] text-right">Ações</TableHead>
+                <TableHead className="font-bold text-foreground w-[80px]">Código</TableHead>
+                <TableHead className="font-bold text-foreground w-[100px]">OS Externa</TableHead>
+                <TableHead className="font-bold text-foreground">Local</TableHead>
+                <TableHead className="font-bold text-foreground">Prioridade</TableHead>
+                <TableHead className="font-bold text-foreground">Status</TableHead>
+                <TableHead className="font-bold text-foreground">SLA</TableHead>
+                <TableHead className="font-bold text-foreground">Prazo</TableHead>
+                <TableHead className="font-bold text-foreground">Custo</TableHead>
+                <TableHead className="font-bold text-foreground">Auxiliares</TableHead>
+                <TableHead className="font-bold text-foreground w-[140px] text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1424,9 +1424,8 @@ fetchData();
 
                     {/* Local agrupado */}
                     <TableCell>
-                      <span className="text-sm font-medium">
-                        {locParts.length > 0 ? locParts.join(" › ") : "—"}
-                      </span>
+                      <span className="text-sm font-medium block">{os.bloco_id ? blocosMap[os.bloco_id] : "-"}</span>
+                      {(os.andar || os.sala) && <div className="text-xs text-muted-foreground mt-0.5"><div>{os.andar ? "Andar: " + os.andar : ""}</div><div>{os.sala ? "Sala: " + os.sala : ""}</div></div>}
                       {responsavel && (
                         <p className="text-xs text-muted-foreground mt-0.5">
                           Resp: {responsavel}
