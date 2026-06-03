@@ -1,0 +1,14 @@
+﻿                    {/* Local agrupado */}
+                    <TableCell>
+                      <span className="text-sm font-medium block">{os.bloco_id ? blocosMap[os.bloco_id] : "—"}</span>
+                      {(os.andar || os.sala) && (
+                        <span className="text-xs text-muted-foreground">
+                          {[os.andar ? os.andar + "o andar" : null, os.sala ? "Sala " + os.sala : null].filter(Boolean).join(" · ")}
+                        </span>
+                      )}
+                      {responsavel && (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Resp: {responsavel}
+                        </p>
+                      )}
+                    </TableCell>

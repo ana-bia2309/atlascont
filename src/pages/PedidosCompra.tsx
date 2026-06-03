@@ -202,7 +202,9 @@ export default function PedidosCompra() {
   const removeItem = (idx: number) => setItens(prev => prev.filter((_, i) => i !== idx));
 
   const handleSave = async () => {
-    if (itens.length === 0) { toast({ title: "Adicione pelo menos um item", variant: "destructive" }); return; }
+    if (!responsavelId) { toast({ title: "Responsável é obrigatório", variant: "destructive" }); return; }
+if (!prazo) { toast({ title: "Prazo é obrigatório", variant: "destructive" }); return; }
+if (itens.length === 0) { toast({ title: "Adicione pelo menos um item", variant: "destructive" }); return; }
     setSaving(true);
     try {
       let pedidoId = editing?.id;
@@ -362,6 +364,29 @@ ${p.observacoes ? `<div class="section"><div class="section-title">Observações
     setTimeout(() => { win.print(); }, 500);
   };
 
+const gerarExcel = (pedidosList: Pedido[]) => {
+    const rows = [
+      ["Número", "Solicitante", "Responsável", "Prazo", "Status", "Itens", "Data"],
+      ...pedidosList.map(p => [
+        p.numero || "",
+        p.solicitante_nome || "",
+        p.responsavel_nome || "",
+        p.prazo ? format(new Date(p.prazo + "T00:00:00"), "dd/MM/yyyy") : "",
+        p.status,
+        String((p.itens || []).length),
+        format(new Date(p.created_at), "dd/MM/yyyy"),
+      ])
+    ];
+    const csv = rows.map(r => r.map(c => `"${c}"`).join(";")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `pedidos_${format(new Date(), "yyyyMMdd")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -374,6 +399,7 @@ ${p.observacoes ? `<div class="section"><div class="section-title">Observações
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="icon" onClick={fetchData}><RefreshCw className="h-4 w-4" /></Button>
+          <Button variant="outline" onClick={() => gerarExcel(filtered)}><FileText className="h-4 w-4 mr-2" /> Exportar Excel</Button>
           <Button onClick={() => { resetForm(); setDialogOpen(true); }}><Plus className="h-4 w-4 mr-2" /> Novo Pedido</Button>
         </div>
       </div>
@@ -540,11 +566,11 @@ ${p.observacoes ? `<div class="section"><div class="section-title">Observações
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium mb-1 block">Prazo necessário</label>
+                <label className="text-sm font-medium mb-1 block">Prazo necessário <span className="text-destructive">*</span></label>
                 <Input type="date" value={prazo} onChange={e => setPrazo(e.target.value)} />
               </div>
               <div>
-                <label className="text-sm font-medium mb-1 block">Responsável pela compra</label>
+                <label className="text-sm font-medium mb-1 block">Responsável pela compra <span className="text-destructive">*</span></label>
                 <Select value={responsavelId || "__none__"} onValueChange={v => setResponsavelId(v === "__none__" ? "" : v)}>
                   <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
