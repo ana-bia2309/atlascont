@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { Moon, Sun } from "@/lib/icons";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Outlet, Navigate, useLocation } from "react-router-dom";
@@ -22,6 +23,11 @@ export default function Layout() {
   const maxRetries = 3;
   // Track which user_id the profileStatus was resolved for
   const profileCheckedForRef = useRef<string | null>(null);
+  const [dark, setDark] = useState(() => localStorage.getItem("theme") === "dark");
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", dark);
+    localStorage.setItem("theme", dark ? "dark" : "light");
+  }, [dark]);
 
   // Keep ref in sync so timeout never reads stale closure
   useEffect(() => {
@@ -268,6 +274,13 @@ return (
             <SidebarTrigger />
             <div className="flex-1" />
             <GlobalSearch />
+            <button
+              onClick={() => setDark(d => !d)}
+              className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-border hover:bg-accent transition-colors"
+              title={dark ? "Modo claro" : "Modo escuro"}
+            >
+              {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
           </header>
           <main className="flex-1 p-6">
             <Outlet />
