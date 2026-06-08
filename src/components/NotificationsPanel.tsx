@@ -30,11 +30,33 @@ interface BoletoAlerta {
   status: string;
 }
 
+interface OSAtrasada {
+  id: string;
+  codigo_os: string | null;
+  prazo: string;
+  status: string | null;
+}
+
+interface OrcamentoPendente {
+  id: string;
+  codigo_os: string | null;
+  created_at: string;
+}
+
+interface PreventivaVencida {
+  id: string;
+  codigo_op: string;
+  data_inicio: string;
+}
+
 export function NotificationsPanel() {
   const { session } = useAuth();
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [boletosAlerta, setBoletosAlerta] = useState<BoletoAlerta[]>([]);
+  const [osAtrasadas, setOsAtrasadas] = useState<OSAtrasada[]>([]);
+  const [orcamentosPendentes, setOrcamentosPendentes] = useState<OrcamentoPendente[]>([]);
+  const [preventivasVencidas, setPreventivasVencidas] = useState<PreventivaVencida[]>([]);
   const [profileId, setProfileId] = useState<string | null>(null);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -98,6 +120,26 @@ export function NotificationsPanel() {
     const limite = new Date();
     limite.setDate(limite.getDate() + diasAlerta);
     const limiteStr = limite.toISOString().slice(0, 10);
+    const fetchAlertas = useCallback(async () => {
+    if (!companyId) return;
+    const hoje = new Date().toISOString().slice(0, 10);
+
+    const [osRes, orcRes, prevRes] = await Promise.all([
+      (supabase as any).from("ordens_servico").select("id, codigo_os, prazo, status")
+        .eq("company_id", companyId).not("status", "in", "(Concluída,Cancelada,Encerrado)")
+        .lt("prazo", hoje).not("prazo", "is", null).limit(10),
+      (supabase as any).from("os_notifications").select("id, os_id, ordens_servico(codigo_os, orcamento_status)")
+        .eq("company_id", companyId).limit(20),
+      (supabase as any).from("ordens_preventivas").select("id, codigo_op, data_inicio")
+        .eq("company_id", companyId).not("status", "in", "(Concluída,Cancelada)")
+        .lt("data_inicio", hoje).not("data_inicio", "is", null).limit(10),
+    ]);
+
+    setOsAtrasadas(osRes.data || []);
+    const pendentes = (orcRes.data || []).filter((n: any) => (n.ordens_servico as any)?.orcamento_status === "pendente");
+    setOrcamentosPendentes(pendentes.map((n: any) => ({ id: n.id, codigo_os: (n.ordens_servico as any)?.codigo_os, created_at: n.created_at })));
+    setPreventivasVencidas(prevRes.data || []);
+  }, [companyId]);
 
     const { data } = await (supabase as any)
       .from("boletos")
@@ -109,15 +151,35 @@ export function NotificationsPanel() {
 
     setBoletosAlerta(data || []);
   }, [companyId, diasAlerta]);
+  const fetchAlertas = useCallback(async () => {
+    if (!companyId) return;
+    const hoje = new Date().toISOString().slice(0, 10);
+    const [osRes, orcRes, prevRes] = await Promise.all([
+      (supabase as any).from("ordens_servico").select("id, codigo_os, prazo, status")
+        .eq("company_id", companyId).not("status", "in", "(Concluída,Cancelada,Encerrado)")
+        .lt("prazo", hoje).not("prazo", "is", null).limit(10),
+      (supabase as any).from("os_notifications").select("id, os_id, ordens_servico(codigo_os, orcamento_status)")
+        .eq("company_id", companyId).limit(20),
+      (supabase as any).from("ordens_preventivas").select("id, codigo_op, data_inicio")
+        .eq("company_id", companyId).not("status", "in", "(Concluída,Cancelada)")
+        .lt("data_inicio", hoje).not("data_inicio", "is", null).limit(10),
+    ]);
+    setOsAtrasadas(osRes.data || []);
+    const pendentes = (orcRes.data || []).filter((n: any) => (n.ordens_servico as any)?.orcamento_status === "pendente");
+    setOrcamentosPendentes(pendentes.map((n: any) => ({ id: n.id, codigo_os: (n.ordens_servico as any)?.codigo_os, created_at: n.created_at })));
+    setPreventivasVencidas(prevRes.data || []);
+  }, [companyId]);
 
   useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
   useEffect(() => { fetchBoletosAlerta(); }, [fetchBoletosAlerta]);
+  useEffect(() => { fetchAlertas(); }, [fetchAlertas]);
+  useEffect(() => { if (open) fetchAlertas(); }, [open]);
 
   // Recarregar boletos ao abrir o sino
   useEffect(() => { if (open) fetchBoletosAlerta(); }, [open]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
-  const totalBadge = unreadCount + boletosAlerta.length;
+  const totalBadge = unreadCount + boletosAlerta.length + osAtrasadas.length + orcamentosPendentes.length + preventivasVencidas.length;
 
   const markAsRead = async (id: string) => {
     await supabase.from("os_notifications").update({ read: true } as any).eq("id", id);
@@ -194,6 +256,59 @@ export function NotificationsPanel() {
                       </p>
                     </div>
                   </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+{/* OS Atrasadas */}
+          {osAtrasadas.length > 0 && (
+            <div>
+              <div className="px-4 py-2 bg-red-50 border-b">
+                <p className="text-xs font-semibold text-red-700 uppercase tracking-wide">🔴 OS Atrasadas ({osAtrasadas.length})</p>
+              </div>
+              {osAtrasadas.map(os => (
+                <button key={`os-${os.id}`} onClick={() => { setOpen(false); navigate("/ordens-servico"); }}
+                  className="w-full text-left px-4 py-3 border-b hover:bg-accent/50 transition-colors bg-red-50/30">
+                  <div className="flex items-start gap-2">
+                    <span className="text-sm shrink-0">⚠️</span>
+                    <div>
+                      <p className="text-sm font-medium">{os.codigo_os || "OS"} — {os.status}</p>
+                      <p className="text-xs text-red-600 font-medium">Prazo: {format(new Date(os.prazo + "T00:00:00"), "dd/MM/yyyy")}</p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Orçamentos Pendentes */}
+          {orcamentosPendentes.length > 0 && (
+            <div>
+              <div className="px-4 py-2 bg-violet-50 border-b">
+                <p className="text-xs font-semibold text-violet-700 uppercase tracking-wide">📋 Orçamentos Pendentes ({orcamentosPendentes.length})</p>
+              </div>
+              {orcamentosPendentes.map(orc => (
+                <button key={`orc-${orc.id}`} onClick={() => { setOpen(false); navigate("/aprovacoes"); }}
+                  className="w-full text-left px-4 py-3 border-b hover:bg-accent/50 transition-colors bg-violet-50/30">
+                  <p className="text-sm font-medium">{orc.codigo_os || "OS"} — Aguardando aprovação</p>
+                  <p className="text-xs text-muted-foreground">Clique para aprovar ou reprovar</p>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Preventivas Vencidas */}
+          {preventivasVencidas.length > 0 && (
+            <div>
+              <div className="px-4 py-2 bg-teal-50 border-b">
+                <p className="text-xs font-semibold text-teal-700 uppercase tracking-wide">🛡️ Preventivas Vencidas ({preventivasVencidas.length})</p>
+              </div>
+              {preventivasVencidas.map(pv => (
+                <button key={`pv-${pv.id}`} onClick={() => { setOpen(false); navigate("/ordens-preventivas"); }}
+                  className="w-full text-left px-4 py-3 border-b hover:bg-accent/50 transition-colors bg-teal-50/30">
+                  <p className="text-sm font-medium">{pv.codigo_op} — Não executada</p>
+                  <p className="text-xs text-teal-600 font-medium">Data: {format(new Date(pv.data_inicio + "T00:00:00"), "dd/MM/yyyy")}</p>
                 </button>
               ))}
             </div>
