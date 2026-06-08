@@ -235,6 +235,31 @@ function downloadPdf(titulo: string, rows: Record<string, unknown>[]) {
   doc.save(`${titulo}.pdf`);
 }
 
+async function buscarAtencaoHoje(companyId: string): Promise<string> {
+  const hoje = new Date().toISOString().slice(0, 10);
+  const [osRes, prevRes, estoqueRes, aprovacoesRes, boletosRes] = await Promise.all([
+    (supabase as any).from("ordens_servico").select("codigo_os, status, prioridade, prazo").eq("company_id", companyId).not("status", "in", "(Concluída,Cancelada,Encerrado)"),
+    (supabase as any).from("ordens_preventivas").select("codigo_op, status, data_inicio").eq("company_id", companyId).not("status", "in", "(Concluída,Cancelada)"),
+    (supabase as any).from("estoque").select("material_id, quantidade_disponivel, quantidade_minima, materiais(descricao)").eq("company_id", companyId),
+    (supabase as any).from("os_notifications").select("os_id, ordens_servico(codigo_os, orcamento_status)").eq("company_id", companyId),
+    (supabase as any).from("boletos").select("descricao, valor, data_vencimento, status").eq("company_id", companyId).in("status", ["pendente", "vencido"]),
+  ]);
+
+  const osAtrasadas = (osRes.data || []).filter((os: any) => os.prazo && os.prazo < hoje);
+  const prevAtrasadas = (prevRes.data || []).filter((op: any) => op.data_inicio && op.data_inicio < hoje);
+  const estoqueBaixo = (estoqueRes.data || []).filter((e: any) => e.quantidade_minima > 0 && e.quantidade_disponivel <= e.quantidade_minima);
+  const orcamentosPendentes = (aprovacoesRes.data || []).filter((n: any) => (n.ordens_servico as any)?.orcamento_status === "pendente");
+  const boletosVencendo = (boletosRes.data || []).filter((b: any) => b.data_vencimento <= hoje);
+
+  return JSON.stringify({
+    os_atrasadas: osAtrasadas.map((os: any) => ({ codigo: os.codigo_os, prazo: os.prazo })),
+    preventivas_atrasadas: prevAtrasadas.map((op: any) => ({ codigo: op.codigo_op, data: op.data_inicio })),
+    estoque_baixo: estoqueBaixo.map((e: any) => ({ material: (e.materiais as any)?.descricao, disponivel: e.quantidade_disponivel, minimo: e.quantidade_minima })),
+    orcamentos_pendentes: orcamentosPendentes.length,
+    boletos_vencendo: boletosVencendo.map((b: any) => ({ descricao: b.descricao, valor: b.valor, vencimento: b.data_vencimento })),
+  });
+}
+
 const SUGGESTIONS = [
   "Quais OS estão em aberto hoje?",
   "Relatório de materiais em estoque",
@@ -369,6 +394,17 @@ export default function IAAtlas() {
                 </span>
               ))}
             </div>
+            <button
+              onClick={async () => {
+                if (!companyId) return;
+                const dados = await buscarAtencaoHoje(companyId);
+                sendMessage(`O que precisa da minha atenção hoje? Dados do sistema: ${dados}. Responda de forma objetiva listando os pontos mais críticos.`);
+              }}
+              className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 text-white font-semibold text-sm hover:from-violet-600 hover:to-purple-700 transition-all shadow-lg shadow-violet-200 hover:shadow-violet-300 hover:-translate-y-0.5"
+            >
+              <Sparkles className="w-5 h-5" />
+              O que precisa da minha atenção hoje?
+            </button>
             <div className="grid grid-cols-2 gap-3 w-full max-w-lg">
               {SUGGESTIONS.map(s => (
                 <button key={s} onClick={() => sendMessage(s)}
