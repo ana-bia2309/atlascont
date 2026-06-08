@@ -45,6 +45,7 @@ import AtividadesUsuarioSection from "@/components/os/AtividadesUsuarioSection";
 import ColaboradoresOSSection from "@/components/os/ColaboradoresOSSection";
 import MultiUserSelect from "@/components/os/MultiUserSelect";
 import { format } from "date-fns";
+import SignatureCanvas from "react-signature-canvas";
 import { cn } from "@/lib/utils";
 import { logActivity, computeDiff } from "@/lib/activity-log";
 import { computeSlaStatus, formatSlaDeadline } from "@/lib/sla-utils";
@@ -195,6 +196,9 @@ export default function OrdensServico() {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [editing, setEditing] = useState<OrdemServico | null>(null);
   const [viewing, setViewing] = useState<OrdemServico | null>(null);
+  const [assinaturaOpen, setAssinaturaOpen] = useState(false);
+  const sigCanvasRef = useRef<any>(null);
+  const [salvandoAssinatura, setSalvandoAssinatura] = useState(false);
   useEffect(() => {
     if (!viewing) return;
     console.log("[clima] viewing status:", viewing.status, "temp:", (viewing as any).clima_temperatura);
@@ -1009,7 +1013,26 @@ const labelCampo = (label: string, campo: string) => (
     }
     setBulkDeleteOpen(false);
   };
-
+const handleSalvarAssinatura = async () => {
+    if (!viewing || !sigCanvasRef.current) return;
+    if (sigCanvasRef.current.isEmpty()) {
+      toast({ title: "Desenhe a assinatura antes de salvar", variant: "destructive" });
+      return;
+    }
+    setSalvandoAssinatura(true);
+    try {
+      const dataUrl = sigCanvasRef.current.getTrimmedCanvas().toDataURL("image/png");
+      await (supabase as any).from("ordens_servico").update({
+        assinatura_tecnico: dataUrl,
+        assinatura_em: new Date().toISOString(),
+      }).eq("id", viewing.id);
+      toast({ title: "Assinatura salva com sucesso!" });
+      setAssinaturaOpen(false);
+      fetchData();
+    } finally {
+      setSalvandoAssinatura(false);
+    }
+  };
   const handleReopen = async (os: OrdemServico) => {
   if (!can("painel_os.editar")) {
     toast({ title: "Sem permissão para reabrir O.S.", variant: "destructive" });
@@ -2179,12 +2202,27 @@ fetchData();
               )}
             </div>
           )}
+          {/* Assinatura */}
+          {viewing && (viewing as any).assinatura_tecnico && (
+            <div className="border-t pt-3">
+              <p className="text-xs font-semibold text-muted-foreground mb-2">ASSINATURA DO TÉCNICO</p>
+              <img src={(viewing as any).assinatura_tecnico} alt="Assinatura" className="border rounded-md max-h-20 bg-white" />
+              {(viewing as any).assinatura_em && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Assinado em {format(new Date((viewing as any).assinatura_em), "dd/MM/yyyy HH:mm")}
+                </p>
+              )}
+            </div>
+          )}
           <DialogFooter className="flex gap-2">
             {viewing && can("painel_os.baixar") && (
               <Button variant="outline" onClick={() => downloadPdf(viewing)}>
                 <DownloadIcon className="mr-2 h-4 w-4" /> Baixar PDF
               </Button>
             )}
+            <Button variant="outline" onClick={() => setAssinaturaOpen(true)}>
+              ✍️ Assinar
+            </Button>
             <Button variant="outline" onClick={() => setViewing(null)}>Fechar</Button>
           </DialogFooter>
         </DialogContent>
@@ -2242,6 +2280,33 @@ fetchData();
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setAnexosModalOsId(null)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Dialog Assinatura */}
+      <Dialog open={assinaturaOpen} onOpenChange={o => { if (!o) setAssinaturaOpen(false); }}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Assinatura do Técnico</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">Assine abaixo com o dedo ou mouse:</p>
+            <div className="border-2 border-dashed rounded-lg overflow-hidden bg-white">
+              <SignatureCanvas
+                ref={sigCanvasRef}
+                canvasProps={{ width: 460, height: 200, className: "signature-canvas" }}
+                backgroundColor="white"
+              />
+            </div>
+            <Button variant="outline" size="sm" onClick={() => sigCanvasRef.current?.clear()}>
+              Limpar
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAssinaturaOpen(false)}>Cancelar</Button>
+            <Button onClick={handleSalvarAssinatura} disabled={salvandoAssinatura}>
+              {salvandoAssinatura ? "Salvando..." : "Salvar Assinatura"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
