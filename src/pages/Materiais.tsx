@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, RefreshCw, Search, X, Package, ChevronLeft, Hash } from "@/lib/icons";
+import { Plus, Pencil, Trash2, RefreshCw, Search, X, Package, ChevronLeft, Hash, FileText } from "@/lib/icons";
+import * as XLSX from "xlsx";
 import { cn } from "@/lib/utils";
 import { logActivity } from "@/lib/activity-log";
 
@@ -191,6 +192,25 @@ export default function Materiais() {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="gap-2" onClick={() => {
+            const rows = filtered.map(m => ({
+              "Código": m.codigo || "",
+              "Descrição": m.descricao,
+              "Unidade": m.unidade || "",
+              "Valor Unit.": m.valor_unitario || "",
+              "Fornecedor": m.fornecedor || "",
+              "Sistema": m.tipo_sistema || "",
+              "Categoria": (m as any).categoria || "",
+              "Status": m.status,
+            }));
+            const ws = XLSX.utils.json_to_sheet(rows);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Materiais");
+            XLSX.writeFile(wb, `materiais_${new Date().toISOString().slice(0,10)}.xlsx`);
+            toast({ title: "Excel exportado!" });
+          }}>
+            <FileText className="h-4 w-4" /> Exportar Excel
+          </Button>
           <Button variant="outline" size="icon" onClick={fetchData}><RefreshCw className="h-4 w-4" /></Button>
           <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" />Novo Material</Button>
         </div>

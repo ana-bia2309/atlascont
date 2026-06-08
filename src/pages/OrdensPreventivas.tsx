@@ -77,6 +77,7 @@ import {
   Sparkles,
   Activity,
   Settings,
+  FileText,
 } from "@/lib/icons";
 
 import { cn } from "@/lib/utils";
@@ -85,6 +86,7 @@ import { format } from "date-fns";
 
 import { migrateLegacyPreventiveOrdersIfNeeded } from "@/lib/migrateLegacyPreventiveOrders";
 import { autoGeneratePreventivas } from "@/lib/autoGeneratePreventivas";
+import * as XLSX from "xlsx";
 
 type Bloco = {
   id: string;
@@ -508,18 +510,30 @@ useEffect(() => {
           </p>
         </div>
 
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={fetchData}
-        >
-          <RefreshCw
-            className={cn(
-              "h-4 w-4",
-              loading && "animate-spin"
-            )}
-          />
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="gap-2" onClick={() => {
+            const rows = filtered.map(op => ({
+              "Código": op.codigo_op,
+              "Status": op.status,
+              "Prioridade": op.prioridade,
+              "Bloco": op.bloco_id ? blocosMap[op.bloco_id] : "",
+              "Responsável": op.responsible_user_id ? profilesMap[op.responsible_user_id] : "",
+              "Ativo": op.ativo_id ? ativosMap[op.ativo_id] : "",
+              "Data Início": op.data_inicio || "",
+              "Prazo": op.prazo || "",
+            }));
+            const ws = XLSX.utils.json_to_sheet(rows);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Preventivas");
+            XLSX.writeFile(wb, `preventivas_${new Date().toISOString().slice(0,10)}.xlsx`);
+            toast({ title: "Excel exportado!" });
+          }}>
+            <FileText className="h-4 w-4" /> Exportar Excel
+          </Button>
+          <Button variant="outline" size="icon" onClick={fetchData}>
+            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
