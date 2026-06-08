@@ -77,6 +77,7 @@ export function NotificationsPanel() {
       });
   }, [session?.user?.id]);
 
+  // Carregar configuração de dias de alerta do localStorage
   useEffect(() => {
     const saved = localStorage.getItem("boleto_dias_alerta");
     if (saved) setDiasAlerta(Number(saved));
@@ -115,9 +116,30 @@ export function NotificationsPanel() {
 
   const fetchBoletosAlerta = useCallback(async () => {
     if (!companyId) return;
+    const hoje = new Date().toISOString().slice(0, 10);
     const limite = new Date();
     limite.setDate(limite.getDate() + diasAlerta);
     const limiteStr = limite.toISOString().slice(0, 10);
+    const fetchAlertas = useCallback(async () => {
+    if (!companyId) return;
+    const hoje = new Date().toISOString().slice(0, 10);
+
+    const [osRes, orcRes, prevRes] = await Promise.all([
+      (supabase as any).from("ordens_servico").select("id, codigo_os, prazo, status")
+        .eq("company_id", companyId).not("status", "in", "(Concluída,Cancelada,Encerrado)")
+        .lt("prazo", hoje).not("prazo", "is", null).limit(10),
+      (supabase as any).from("os_notifications").select("id, os_id, ordens_servico(codigo_os, orcamento_status)")
+        .eq("company_id", companyId).limit(20),
+      (supabase as any).from("ordens_preventivas").select("id, codigo_op, data_inicio")
+        .eq("company_id", companyId).not("status", "in", "(Concluída,Cancelada)")
+        .lt("data_inicio", hoje).not("data_inicio", "is", null).limit(10),
+    ]);
+
+    setOsAtrasadas(osRes.data || []);
+    const pendentes = (orcRes.data || []).filter((n: any) => (n.ordens_servico as any)?.orcamento_status === "pendente");
+    setOrcamentosPendentes(pendentes.map((n: any) => ({ id: n.id, codigo_os: (n.ordens_servico as any)?.codigo_os, created_at: n.created_at })));
+    setPreventivasVencidas(prevRes.data || []);
+  }, [companyId]);
 
     const { data } = await (supabase as any)
       .from("boletos")
@@ -129,7 +151,6 @@ export function NotificationsPanel() {
 
     setBoletosAlerta(data || []);
   }, [companyId, diasAlerta]);
-
   const fetchAlertas = useCallback(async () => {
     if (!companyId) return;
     const hoje = new Date().toISOString().slice(0, 10);
@@ -152,7 +173,10 @@ export function NotificationsPanel() {
   useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
   useEffect(() => { fetchBoletosAlerta(); }, [fetchBoletosAlerta]);
   useEffect(() => { fetchAlertas(); }, [fetchAlertas]);
-  useEffect(() => { if (open) { fetchAlertas(); fetchBoletosAlerta(); } }, [open]);
+  useEffect(() => { if (open) fetchAlertas(); }, [open]);
+
+  // Recarregar boletos ao abrir o sino
+  useEffect(() => { if (open) fetchBoletosAlerta(); }, [open]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
   const totalBadge = unreadCount + boletosAlerta.length + osAtrasadas.length + orcamentosPendentes.length + preventivasVencidas.length;
@@ -237,7 +261,7 @@ export function NotificationsPanel() {
             </div>
           )}
 
-          {/* OS Atrasadas */}
+{/* OS Atrasadas */}
           {osAtrasadas.length > 0 && (
             <div>
               <div className="px-4 py-2 bg-red-50 border-b">

@@ -56,6 +56,7 @@ import PedidosCompra from "@/pages/PedidosCompra";
 import PedidosRecebidos from "@/pages/PedidosRecebidos";
 import DiagnosticoFalhas from "@/pages/DiagnosticoFalhas";
 import MapaAtivos from "@/pages/MapaAtivos";
+import RelatorioTecnicos from "@/pages/RelatorioTecnicos";
 import Boletos from "@/pages/Boletos";
 const queryClient = new QueryClient();
 
@@ -110,6 +111,7 @@ const App = () => (
             <Route path="/boletos" element={<Boletos />} />
             <Route path="/diagnostico" element={<DiagnosticoFalhas />} />
             <Route path="/mapa-ativos" element={<MapaAtivos />} />
+            <Route path="/relatorio-tecnicos" element={<RelatorioTecnicos />} />
           </Route>
 <Route path="/login" element={<Login />} />
 <Route path="/onboarding" element={<Onboarding />} />

@@ -303,16 +303,16 @@ export default function IAAtlas() {
         ? `${content}\n\n[DADOS DO SISTEMA:${ctx}]${isRelatorio ? "\n[INSTRUÇÃO: Use as tags <excel> ou <pdf> para gerar o relatório com os dados acima]" : ""}`
         : content;
 
-      const response = await fetch("https://tayxbbpyxbomiatbiirx.supabase.co/functions/v1/openai-proxy", {
+      const response = await fetch("https://tayxbbpyxbomiatbiirx.supabase.co/functions/v1/claude-proxy", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
         body: JSON.stringify({
-          model: "gpt-4o-mini",
+          system: SYSTEM_PROMPT,
           messages: [
-            { role: "system", content: SYSTEM_PROMPT },
             ...messages.map(m => ({ role: m.role, content: m.content })),
             { role: "user", content: userContent },
           ],

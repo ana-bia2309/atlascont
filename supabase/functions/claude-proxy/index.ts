@@ -21,20 +21,17 @@ Deno.serve(async (req) => {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-5-20251001",
         max_tokens,
-        system: system || "Você é o Atlas Intelligence, assistente de manutenção predial do sistema Atlas Control. Responda sempre em português brasileiro de forma clara e objetiva.",
+        system: system || "Você é o Atlas Intelligence. Responda em português.",
         messages,
       }),
     });
 
     const data = await response.json();
 
-    // Retorna no mesmo formato que o OpenAI para não precisar mudar o frontend
-    const content = data.content?.[0]?.text || "";
-    return new Response(JSON.stringify({
-      choices: [{ message: { role: "assistant", content } }]
-    }), {
+    // Retorna o raw completo para debug
+    return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
