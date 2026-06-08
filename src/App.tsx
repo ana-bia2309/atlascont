@@ -55,6 +55,7 @@ import Canvas from "@/pages/Canvas";
 import PedidosCompra from "@/pages/PedidosCompra";
 import PedidosRecebidos from "@/pages/PedidosRecebidos";
 import DiagnosticoFalhas from "@/pages/DiagnosticoFalhas";
+import MapaAtivos from "@/pages/MapaAtivos";
 import Boletos from "@/pages/Boletos";
 const queryClient = new QueryClient();
 
@@ -108,6 +109,7 @@ const App = () => (
             <Route path="/pedidos-recebidos" element={<PedidosRecebidos />} />
             <Route path="/boletos" element={<Boletos />} />
             <Route path="/diagnostico" element={<DiagnosticoFalhas />} />
+            <Route path="/mapa-ativos" element={<MapaAtivos />} />
           </Route>
 <Route path="/login" element={<Login />} />
 <Route path="/onboarding" element={<Onboarding />} />

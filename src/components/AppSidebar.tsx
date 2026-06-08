@@ -138,6 +138,7 @@ const cadastrosGroup: MenuGroup = {
     { title: "Ativos", url: "/ativos", icon: Box, requiredPermission: "ativos.visualizar" },
     { title: "Controle de Acesso", url: "/controle-acesso", icon: ShieldCheck, requiredPermission: "controle_acesso.visualizar" },
     { title: "Perfis de Acesso", url: "/perfis-acesso", icon: KeyRound, requiredPermission: "perfis_acesso.visualizar" },
+    { title: "Mapa dos Ativos", url: "/mapa-ativos", icon: Building2, iconColor: "#3B82F6" },
   ],
 };
 
