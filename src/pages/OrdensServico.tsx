@@ -811,6 +811,14 @@ const labelCampo = (label: string, campo: string) => (
           await supabase.from("os_notifications").insert({ os_id: editing.id, user_id: rid } as any);
         }
       }
+
+      // Registra clima quando OS vai para Em Execução
+      if (status === "Em Execução" && editing?.status !== "Em Execução") {
+        import("@/lib/registrarClima").then(({ registrarClimaOS }) => {
+          if (editing?.id) registrarClimaOS(editing.id);
+        });
+      }
+
       toast({ title: "O.S. atualizada" });
     } else {
       payload.criado_por = profileId;
@@ -2072,6 +2080,14 @@ fetchData();
                     <span className="font-medium">—</span>
                   )}
                 </div>
+                {(viewing as any).clima_temperatura && (
+  <div>
+    <span className="text-muted-foreground">Clima na execução:</span>{" "}
+    <span className="font-medium">
+      {(viewing as any).clima_condicao} · {(viewing as any).clima_temperatura}°C
+    </span>
+  </div>
+)}
                 <div><span className="text-muted-foreground">Responsável:</span> <span className="font-medium">{
                   (responsaveisMap[viewing.id] || []).length > 0 ? responsaveisMap[viewing.id].join(", ") : "—"
                 }</span></div>
