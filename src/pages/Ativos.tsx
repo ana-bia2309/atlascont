@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+﻿import { useState, useEffect, useCallback, useMemo } from "react";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,6 +15,7 @@ import { Plus, Pencil, Trash2, RefreshCw, Eye, Search, X, Box, CheckCircle2, Ale
 import * as XLSX from "xlsx";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { logActivity } from "@/lib/activity-log";
 
 type Bloco = { id: string; nome: string | null };
 
@@ -182,6 +183,7 @@ export default function Ativos() {
       const { error } = await (supabase.from("ativos" as any) as any).update(payload).eq("id", editing.id);
       if (error) { toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" }); return; }
       toast({ title: "Ativo atualizado" });
+      logActivity({ actionType: "edicao", module: "Ativos", description: `Editou ativo: ${form.nome}` });
     } else {
       if (form.codigo_identificacao.trim()) {
         const { data: { user } } = await supabase.auth.getUser();
@@ -196,6 +198,7 @@ export default function Ativos() {
       const { error } = await (supabase.from("ativos" as any) as any).insert(payload);
       if (error) { toast({ title: "Erro ao criar", description: error.message, variant: "destructive" }); return; }
       toast({ title: "Ativo cadastrado" });
+      logActivity({ actionType: "criacao", module: "Ativos", description: `Cadastrou ativo: ${form.nome}` });
     }
     setOpen(false); setEditing(null); setForm(emptyForm); fetchData();
   };
@@ -219,6 +222,7 @@ export default function Ativos() {
         return;
       }
       toast({ title: "Ativo excluído com sucesso" });
+      logActivity({ actionType: "exclusao", module: "Ativos", description: `Excluiu ativo: ${confirmDeleteNome}` });
       setConfirmDeleteId(null);
       fetchData();
     } finally {

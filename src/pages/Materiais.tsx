@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+﻿import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { usePermissions } from "@/hooks/use-permissions";
 import { toast } from "@/hooks/use-toast";
@@ -10,6 +10,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, RefreshCw, Search, X, Package, ChevronLeft, Hash } from "@/lib/icons";
 import { cn } from "@/lib/utils";
+import { logActivity } from "@/lib/activity-log";
 
 const SISTEMA_OPTIONS = [
   "Ar-condicionado", "Bombeamento hidráulico", "Bebedouro", "Elétrico",
@@ -106,7 +107,7 @@ export default function Materiais() {
         };
         const { error } = await (supabase as any).from("materiais").update(payload).eq("id", editing.id);
         if (error) { toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" }); return; }
-        toast({ title: "Material atualizado" });
+        logActivity({ actionType: "edicao", module: "Materiais", description: `Editou material` }); toast({ title: "Material atualizado" });
       } else {
         // Novo — gera código automático
         const { data: codigoData, error: codigoError } = await (supabase as any)
@@ -141,7 +142,7 @@ export default function Materiais() {
     if (!confirm("Deseja excluir este material?")) return;
     const { error } = await (supabase as any).from("materiais").delete().eq("id", id);
     if (error) { toast({ title: "Erro ao excluir", variant: "destructive" }); return; }
-    toast({ title: "Material excluído" }); fetchData();
+    logActivity({ actionType: "exclusao", module: "Materiais", description: `Excluiu material` }); toast({ title: "Material excluído" }); fetchData();
   };
 
   const openEdit = (m: Material) => {
