@@ -58,6 +58,8 @@ export default function HistoricoAtividades() {
   const [filterSearch, setFilterSearch] = useState("");
   const [filterAction, setFilterAction] = useState("__all__");
   const [filterModule, setFilterModule] = useState("__all__");
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(0);
   const [detailEntry, setDetailEntry] = useState<LogEntry | null>(null);
@@ -76,6 +78,12 @@ export default function HistoricoAtividades() {
     }
     if (filterModule !== "__all__") {
       query = query.eq("module", filterModule);
+    }
+    if (filterDateFrom) {
+      query = query.gte("created_at", filterDateFrom + "T00:00:00");
+    }
+    if (filterDateTo) {
+      query = query.lte("created_at", filterDateTo + "T23:59:59");
     }
     if (filterSearch.trim()) {
       query = query.or(
@@ -99,7 +107,7 @@ export default function HistoricoAtividades() {
   useEffect(() => { fetchEntries(); }, [fetchEntries]);
 
   // Reset page when filters change
-  useEffect(() => { setPage(0); }, [filterAction, filterModule, filterSearch]);
+  useEffect(() => { setPage(0); }, [filterAction, filterModule, filterSearch, filterDateFrom, filterDateTo]);
 
   const uniqueModules = useMemo(() => {
     const mods = new Set(entries.map((e) => e.module).filter(Boolean));
@@ -107,7 +115,7 @@ export default function HistoricoAtividades() {
   }, [entries]);
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
-  const hasActiveFilters = filterAction !== "__all__" || filterModule !== "__all__" || filterSearch.trim() !== "";
+  const hasActiveFilters = filterAction !== "__all__" || filterModule !== "__all__" || filterSearch.trim() !== "" || !!filterDateFrom || !!filterDateTo;
 
   const fmtDate = (d: string | null) => {
     if (!d) return "—";
@@ -159,8 +167,16 @@ export default function HistoricoAtividades() {
             </SelectContent>
           </Select>
         </div>
+        <div className="min-w-[140px]">
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">De</label>
+          <Input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} className="h-9" />
+        </div>
+        <div className="min-w-[140px]">
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">Até</label>
+          <Input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} className="h-9" />
+        </div>
         {hasActiveFilters && (
-          <Button variant="ghost" size="sm" onClick={() => { setFilterSearch(""); setFilterAction("__all__"); setFilterModule("__all__"); }} className="text-muted-foreground">
+          <Button variant="ghost" size="sm" onClick={() => { setFilterSearch(""); setFilterAction("__all__"); setFilterModule("__all__"); setFilterDateFrom(""); setFilterDateTo(""); }} className="text-muted-foreground">
             <X className="mr-1 h-3 w-3" /> Limpar
           </Button>
         )}
