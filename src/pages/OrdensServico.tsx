@@ -195,6 +195,14 @@ export default function OrdensServico() {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [editing, setEditing] = useState<OrdemServico | null>(null);
   const [viewing, setViewing] = useState<OrdemServico | null>(null);
+  useEffect(() => {
+    if (!viewing) return;
+    if (viewing.status === "Em Execução" && !(viewing as any).clima_temperatura) {
+      import("@/lib/registrarClima").then(({ registrarClimaOS }) => {
+        registrarClimaOS(viewing.id).then(() => fetchData());
+      });
+    }
+  }, [viewing?.id]);
   const [pendingEdit, setPendingEdit] = useState<OrdemServico | null>(null);
 
   // Filter state
