@@ -494,7 +494,50 @@ useEffect(() => {
     setFilterCodigo("");
 
   };
+const ComentariosOP = ({ opId }: { opId: string }) => {
+    const [comentarios, setComentarios] = useState<any[]>([]);
+    const [texto, setTexto] = useState("");
+    const [salvando, setSalvando] = useState(false);
 
+    useEffect(() => {
+      (supabase as any).from("comentarios_op").select("*").eq("op_id", opId).order("created_at").then(({ data }: any) => setComentarios(data || []));
+    }, [opId]);
+
+    const salvar = async () => {
+      if (!texto.trim()) return;
+      setSalvando(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: prof }: any = await supabase.from("profiles").select("nome").eq("user_id", user!.id).maybeSingle();
+      await (supabase as any).from("comentarios_op").insert({ op_id: opId, texto: texto.trim(), autor_nome: prof?.nome || user?.email, autor_id: currentProfileId });
+      setTexto("");
+      const { data } = await (supabase as any).from("comentarios_op").select("*").eq("op_id", opId).order("created_at");
+      setComentarios(data || []);
+      setSalvando(false);
+    };
+
+    return (
+      <div className="border-t pt-3 space-y-3">
+        <p className="text-sm font-semibold">Comentários ({comentarios.length})</p>
+        <div className="space-y-2 max-h-48 overflow-y-auto">
+          {comentarios.length === 0 ? <p className="text-xs text-muted-foreground">Nenhum comentário ainda.</p>
+            : comentarios.map((c: any) => (
+              <div key={c.id} className="rounded-md bg-muted/50 p-2.5">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-semibold">{c.autor_nome || "—"}</span>
+                  <span className="text-[10px] text-muted-foreground">{format(new Date(c.created_at), "dd/MM/yyyy HH:mm")}</span>
+                </div>
+                <p className="text-sm">{c.texto}</p>
+              </div>
+            ))}
+        </div>
+        <div className="flex gap-2">
+          <Input value={texto} onChange={e => setTexto(e.target.value)} placeholder="Adicionar comentário..." className="h-8 text-sm"
+            onKeyDown={e => e.key === "Enter" && salvar()} />
+          <Button size="sm" onClick={salvar} disabled={salvando || !texto.trim()} className="h-8">Enviar</Button>
+        </div>
+      </div>
+    );
+  };
   return (
     <div className="space-y-4">
 
@@ -939,6 +982,9 @@ useEffect(() => {
             <p>{viewing.observacoes}</p>
           </div>
         )}
+
+        {/* Comentários */}
+        <ComentariosOP opId={viewing.id} />
       </div>
     )}
   </DialogContent>
