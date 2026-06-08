@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export async function registrarClimaOS(osId: string): Promise<void> {
   try {
+    console.log("[registrarClima] Iniciando para OS:", osId);
     // Brasília coordenadas
     const lat = -15.7801;
     const lon = -47.9292;
@@ -16,6 +17,7 @@ export async function registrarClimaOS(osId: string): Promise<void> {
     const code = data.current?.weathercode;
 
     const condicao = interpretarClima(code);
+    console.log("[registrarClima] Temp:", temp, "Condição:", condicao);
 
     await (supabase as any)
       .from("ordens_servico")

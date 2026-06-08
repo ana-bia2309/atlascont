@@ -197,7 +197,9 @@ export default function OrdensServico() {
   const [viewing, setViewing] = useState<OrdemServico | null>(null);
   useEffect(() => {
     if (!viewing) return;
-    if (viewing.status === "Em Execução" && !(viewing as any).clima_temperatura) {
+    console.log("[clima] viewing status:", viewing.status, "temp:", (viewing as any).clima_temperatura);
+    if ((viewing.status || "").toLowerCase().includes("em execu") && !(viewing as any).clima_temperatura) {
+      console.log("[clima] Registrando clima para:", viewing.id);
       import("@/lib/registrarClima").then(({ registrarClimaOS }) => {
         registrarClimaOS(viewing.id).then(() => fetchData());
       });
