@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/use-company";
 import { useNavigate } from "react-router-dom";
-import { Building2, Wrench, CheckCircle2, AlertTriangle, X, Eye, RefreshCw } from "@/lib/icons";
+import { Building2, Wrench, CheckCircle2, AlertTriangle, X, Eye, RefreshCw, TrendingUp } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -34,6 +34,7 @@ export default function MapaAtivos() {
   const [selectedBloco, setSelectedBloco] = useState<BlocoInfo | null>(null);
   const [ativosBloco, setAtivosBloco] = useState<AtivoDetalhe[]>([]);
   const [loadingAtivos, setLoadingAtivos] = useState(false);
+  const [activeTab, setActiveTab] = useState<"mapa" | "heatmap">("mapa");
 
   const fetchData = useCallback(async () => {
     if (!companyId) return;
@@ -113,6 +114,9 @@ export default function MapaAtivos() {
     return { icon: "✅", label: "Tudo OK", color: "text-emerald-600" };
   };
 
+ const maxOs = Math.max(...blocos.map(b => b.os_abertas), 1);
+  const maxAtivos = Math.max(...blocos.map(b => b.total_ativos), 1);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -126,46 +130,120 @@ export default function MapaAtivos() {
         <Button variant="outline" size="icon" onClick={fetchData}><RefreshCw className="h-4 w-4" /></Button>
       </div>
 
-      {/* Legenda */}
-      <div className="flex flex-wrap gap-3 text-xs">
-        {[
-          { cor: "bg-emerald-100 border-emerald-300", label: "Tudo OK" },
-          { cor: "bg-amber-100 border-amber-300", label: "OS abertas" },
-          { cor: "bg-red-100 border-red-300", label: "Muitas OS" },
-          { cor: "bg-yellow-100 border-yellow-300", label: "Em manutenção" },
-          { cor: "bg-muted border-muted-foreground/20", label: "Sem ativos" },
-        ].map(l => (
-          <div key={l.label} className="flex items-center gap-1.5">
-            <div className={cn("w-4 h-4 rounded border", l.cor)} />
-            <span className="text-muted-foreground">{l.label}</span>
-          </div>
+      {/* Abas */}
+      <div className="flex gap-1 rounded-lg border p-1 bg-muted w-fit">
+        {(["mapa", "heatmap"] as const).map(v => (
+          <button key={v} onClick={() => setActiveTab(v)}
+            className={cn("px-4 py-1.5 rounded text-sm font-medium transition-colors",
+              activeTab === v ? "bg-card shadow-sm text-primary" : "text-muted-foreground hover:text-foreground")}>
+            {v === "mapa" ? "🗺️ Mapa" : "🔥 Heatmap"}
+          </button>
         ))}
       </div>
 
-      {loading ? <p className="text-muted-foreground">Carregando...</p> : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {blocos.map(bloco => {
-            const status = getBlocoStatus(bloco);
-            return (
-              <div key={bloco.id}
-                onClick={() => handleBlocoClick(bloco)}
-                className={cn(
-                  "rounded-xl border-2 p-4 cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5",
-                  getBlocoColor(bloco),
-                  selectedBloco?.id === bloco.id && "ring-2 ring-primary ring-offset-2"
-                )}>
-                <div className="flex items-start justify-between mb-3">
-                  <Building2 className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-lg">{status.icon}</span>
-                </div>
-                <h3 className="font-bold text-sm leading-tight mb-2">{bloco.nome}</h3>
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">{bloco.total_ativos} ativo(s)</p>
-                  <p className={cn("text-xs font-medium", status.color)}>{status.label}</p>
-                </div>
+      {loading ? <p className="text-muted-foreground">Carregando...</p> : activeTab === "mapa" ? (
+        <>
+          <div className="flex flex-wrap gap-3 text-xs">
+            {[
+              { cor: "bg-emerald-100 border-emerald-300", label: "Tudo OK" },
+              { cor: "bg-amber-100 border-amber-300", label: "OS abertas" },
+              { cor: "bg-red-100 border-red-300", label: "Muitas OS" },
+              { cor: "bg-yellow-100 border-yellow-300", label: "Em manutenção" },
+              { cor: "bg-muted border-muted-foreground/20", label: "Sem ativos" },
+            ].map(l => (
+              <div key={l.label} className="flex items-center gap-1.5">
+                <div className={cn("w-4 h-4 rounded border", l.cor)} />
+                <span className="text-muted-foreground">{l.label}</span>
               </div>
-            );
-          })}
+            ))}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            {blocos.map(bloco => {
+              const status = getBlocoStatus(bloco);
+              return (
+                <div key={bloco.id} onClick={() => handleBlocoClick(bloco)}
+                  className={cn("rounded-xl border-2 p-4 cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5",
+                    getBlocoColor(bloco), selectedBloco?.id === bloco.id && "ring-2 ring-primary ring-offset-2")}>
+                  <div className="flex items-start justify-between mb-3">
+                    <Building2 className="h-5 w-5 text-muted-foreground" />
+                    <span className="text-lg">{status.icon}</span>
+                  </div>
+                  <h3 className="font-bold text-sm leading-tight mb-2">{bloco.nome}</h3>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">{bloco.total_ativos} ativo(s)</p>
+                    <p className={cn("text-xs font-medium", status.color)}>{status.label}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      ) : (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="rounded-xl border bg-card p-4">
+              <p className="text-xs text-muted-foreground">Total de OS abertas</p>
+              <p className="text-2xl font-bold text-amber-600">{blocos.reduce((s, b) => s + b.os_abertas, 0)}</p>
+            </div>
+            <div className="rounded-xl border bg-card p-4">
+              <p className="text-xs text-muted-foreground">Bloco mais crítico</p>
+              <p className="text-lg font-bold text-red-600">{[...blocos].sort((a,b) => b.os_abertas - a.os_abertas)[0]?.nome || "—"}</p>
+            </div>
+            <div className="rounded-xl border bg-card p-4">
+              <p className="text-xs text-muted-foreground">Total de ativos</p>
+              <p className="text-2xl font-bold text-primary">{blocos.reduce((s, b) => s + b.total_ativos, 0)}</p>
+            </div>
+          </div>
+
+          <div className="rounded-xl border bg-card p-6 space-y-3">
+            <div className="flex items-center gap-2 mb-4">
+              <TrendingUp className="h-4 w-4 text-amber-600" />
+              <h3 className="font-semibold">OS Abertas por Bloco</h3>
+              <span className="text-xs text-muted-foreground ml-auto">escala de calor</span>
+            </div>
+            {[...blocos].sort((a, b) => b.os_abertas - a.os_abertas).map(bloco => {
+              const pct = (bloco.os_abertas / maxOs) * 100;
+              const cor = bloco.os_abertas === 0 ? "bg-emerald-400" : pct > 66 ? "bg-red-500" : pct > 33 ? "bg-amber-500" : "bg-yellow-400";
+              return (
+                <div key={bloco.id} onClick={() => handleBlocoClick(bloco)} className="cursor-pointer hover:opacity-80 transition-opacity">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium">{bloco.nome}</span>
+                    <span className="text-sm font-bold">{bloco.os_abertas} OS</span>
+                  </div>
+                  <div className="h-8 rounded-lg bg-muted overflow-hidden">
+                    <div className={cn("h-full rounded-lg transition-all duration-500 flex items-center px-3", cor)}
+                      style={{ width: `${Math.max(pct, bloco.os_abertas > 0 ? 5 : 0)}%` }}>
+                      {bloco.os_abertas > 0 && <span className="text-white text-xs font-bold">{bloco.os_abertas}</span>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="rounded-xl border bg-card p-6 space-y-3">
+            <div className="flex items-center gap-2 mb-4">
+              <Building2 className="h-4 w-4 text-primary" />
+              <h3 className="font-semibold">Ativos por Bloco</h3>
+            </div>
+            {[...blocos].sort((a, b) => b.total_ativos - a.total_ativos).map(bloco => {
+              const pct = (bloco.total_ativos / maxAtivos) * 100;
+              return (
+                <div key={bloco.id} onClick={() => handleBlocoClick(bloco)} className="cursor-pointer hover:opacity-80 transition-opacity">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium">{bloco.nome}</span>
+                    <span className="text-sm font-bold">{bloco.total_ativos} ativos</span>
+                  </div>
+                  <div className="h-6 rounded-lg bg-muted overflow-hidden">
+                    <div className="h-full rounded-lg bg-primary/60 transition-all duration-500 flex items-center px-3"
+                      style={{ width: `${Math.max(pct, bloco.total_ativos > 0 ? 5 : 0)}%` }}>
+                      {bloco.total_ativos > 0 && <span className="text-white text-xs font-bold">{bloco.total_ativos}</span>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -184,16 +262,13 @@ export default function MapaAtivos() {
               </div>
               <Button variant="ghost" size="icon" onClick={() => setSelectedBloco(null)}><X className="h-4 w-4" /></Button>
             </div>
-
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
               {loadingAtivos ? <p className="text-muted-foreground text-sm">Carregando ativos...</p>
                 : ativosBloco.length === 0 ? (
                   <div className="text-center py-8">
                     <Building2 className="h-8 w-8 mx-auto mb-2 text-muted-foreground opacity-30" />
                     <p className="text-sm text-muted-foreground">Nenhum ativo cadastrado neste bloco.</p>
-                    <Button size="sm" variant="outline" className="mt-3" onClick={() => navigate("/ativos")}>
-                      Cadastrar Ativo
-                    </Button>
+                    <Button size="sm" variant="outline" className="mt-3" onClick={() => navigate("/ativos")}>Cadastrar Ativo</Button>
                   </div>
                 ) : ativosBloco.map(a => (
                   <div key={a.id} className={cn(
@@ -205,9 +280,7 @@ export default function MapaAtivos() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-semibold truncate">{a.nome}</p>
-                        {a.codigo_identificacao && (
-                          <span className="text-xs font-mono text-muted-foreground shrink-0">{a.codigo_identificacao}</span>
-                        )}
+                        {a.codigo_identificacao && <span className="text-xs font-mono text-muted-foreground shrink-0">{a.codigo_identificacao}</span>}
                       </div>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <span className={cn("text-xs px-1.5 py-0.5 rounded-full border font-medium",
@@ -223,14 +296,12 @@ export default function MapaAtivos() {
                         )}
                       </div>
                     </div>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0"
-                      onClick={() => navigate(`/ativos/${a.id}`)}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => navigate(`/ativos/${a.id}`)}>
                       <Eye className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 ))}
             </div>
-
             <div className="p-4 border-t">
               <Button className="w-full" variant="outline" onClick={() => navigate(`/ativos?bloco=${selectedBloco.id}`)}>
                 Ver todos os ativos deste bloco
