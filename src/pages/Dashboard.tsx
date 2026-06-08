@@ -4,7 +4,7 @@ import { useCompany } from "@/hooks/use-company";
 import { useRealtime } from "@/hooks/use-realtime";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { ClipboardList, Clock, Play, AlertTriangle, CheckCircle2, RefreshCw, CalendarRange, CalendarClock, Flag, Timer, DollarSign, Wrench, ShieldCheck, TrendingUp, BarChart3 } from "@/lib/icons";
+import { ClipboardList, Clock, Play, AlertTriangle, CheckCircle2, RefreshCw, CalendarRange, CalendarClock, Flag, Timer, DollarSign, Wrench, ShieldCheck, TrendingUp, BarChart3, FileText } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LineChart, Line, Legend, PieChart, Pie } from "recharts";
@@ -12,6 +12,8 @@ import InsightsPanel from "@/components/dashboard/InsightsPanel";
 import InvestigadorAutomatico from "@/components/dashboard/InvestigadorAutomatico";
 import AlertsPanel from "@/components/dashboard/AlertsPanel";
 import { format, isToday, isBefore, startOfDay, differenceInCalendarDays, isTomorrow } from "date-fns";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { computeSlaStatus } from "@/lib/sla-utils";
 import { isFinishedStatus } from "@/lib/os-status";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -441,9 +443,85 @@ useRealtime(
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Dashboard</h1>
-        <Button variant="outline" size="icon" onClick={fetchStats} title="Atualizar">
-          <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="gap-2" onClick={() => {
+            const doc = new jsPDF();
+            const hoje = format(new Date(), "dd/MM/yyyy HH:mm");
+            doc.setFontSize(18); doc.setTextColor(99, 102, 241);
+            doc.text("Atlas Control — Relatório Executivo", 14, 18);
+            doc.setFontSize(10); doc.setTextColor(100);
+            doc.text(`Gerado em ${hoje}`, 14, 26);
+            doc.setDrawColor(99, 102, 241); doc.setLineWidth(0.5);
+            doc.line(14, 29, 196, 29);
+
+            // Resumo OS
+            doc.setFontSize(13); doc.setTextColor(30);
+            doc.text("Resumo de Ordens de Serviço", 14, 38);
+            autoTable(doc, {
+              startY: 42,
+              head: [["Indicador", "Quantidade"]],
+              body: [
+                ["Total de OS", stats.total],
+                ["Em Aberto", openCount],
+                ["Atrasadas", atrasadas],
+                ["Concluídas no Mês", concluidasMes],
+                ["Preventivas", preventivaCount],
+                ["Corretivas", corretivaCount],
+              ],
+              headStyles: { fillColor: [99, 102, 241] },
+              styles: { fontSize: 10 },
+            });
+
+            // OS por Prioridade
+            const y1 = (doc as any).lastAutoTable.finalY + 10;
+            doc.setFontSize(13); doc.text("OS por Prioridade", 14, y1);
+            autoTable(doc, {
+              startY: y1 + 4,
+              head: [["Prioridade", "Quantidade"]],
+              body: Object.entries(prioStats).map(([k, v]) => [k, v]),
+              headStyles: { fillColor: [99, 102, 241] },
+              styles: { fontSize: 10 },
+            });
+
+            // Performance
+            const y2 = (doc as any).lastAutoTable.finalY + 10;
+            doc.setFontSize(13); doc.text("Indicadores de Performance", 14, y2);
+            autoTable(doc, {
+              startY: y2 + 4,
+              head: [["Indicador", "Valor"]],
+              body: [
+                ["Preventivas no Prazo", preventivasNoPrazo !== null ? `${preventivasNoPrazo}%` : "—"],
+                ["Tempo Médio de Execução", tempoMedioExecucao !== null ? `${tempoMedioExecucao} dias` : "—"],
+                ["OS com SLA Estourado", atrasadas],
+              ],
+              headStyles: { fillColor: [99, 102, 241] },
+              styles: { fontSize: 10 },
+            });
+
+            // Gastos por OS
+            if (gastosPorOs.length > 0) {
+              const y3 = (doc as any).lastAutoTable.finalY + 10;
+              if (y3 > 240) doc.addPage();
+              const yg = y3 > 240 ? 14 : y3;
+              doc.setFontSize(13); doc.text("Gastos por O.S.", 14, yg);
+              autoTable(doc, {
+                startY: yg + 4,
+                head: [["Código OS", "Descrição", "Total"]],
+                body: gastosPorOs.slice(0, 10).map(g => [g.codigoOs, g.equipamentos || "—", `R$ ${g.total.toFixed(2)}`]),
+                headStyles: { fillColor: [99, 102, 241] },
+                styles: { fontSize: 9 },
+              });
+            }
+
+            doc.save(`relatorio-executivo-${format(new Date(), "yyyyMMdd")}.pdf`);
+            toast({ title: "📄 Relatório gerado com sucesso!" });
+          }}>
+            <FileText className="h-4 w-4" /> Relatório PDF
+          </Button>
+          <Button variant="outline" size="icon" onClick={fetchStats} title="Atualizar">
+            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+          </Button>
+        </div>
       </div>
 
       {loading ? (
