@@ -464,7 +464,9 @@ useEffect(() => {
 
   const filtered = useMemo(() => {
 
-    return ordens.filter((op) => {
+   return ordens.filter((op) => {
+      // Ocultar concluídas quando plano selecionado e mostrarConcluidas = false
+      if (planoSelecionado && !mostrarConcluidas && op.status === "Concluída") return false;
 
       if (
         filterStatus !== "__all__" &&
