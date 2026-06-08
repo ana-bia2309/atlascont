@@ -258,6 +258,20 @@ const [qrResolveRef] = useState<{ resolve: ((ok: boolean) => void) | null }>({ r
 
   const [chamadoAtividade, setChamadoAtividade] =
     useState<AtividadeOP | null>(null);
+    type PlanoInfo = {
+    id: string;
+    nome: string;
+    total: number;
+    pendentes: number;
+    emExecucao: number;
+    atrasadas: number;
+    concluidas: number;
+  };
+
+  const [planos, setPlanos] = useState<PlanoInfo[]>([]);
+  const [planoSelecionado, setPlanoSelecionado] = useState<PlanoInfo | null>(null);
+  const [mostrarConcluidas, setMostrarConcluidas] = useState(false);
+  const [planosMap, setPlanosMap] = useState<Record<string, string>>({});
 
   const fetchData = useCallback(async () => {
 
@@ -347,7 +361,44 @@ setAtivos(
         .single();
       if (prof) setCurrentProfileId(prof.id);
     }
+// Buscar planos
+    const { data: planosData } = await (supabase as any)
+      .from("planos_manutencao")
+      .select("id, nome");
+    
+    const pMap: Record<string, string> = {};
+    (planosData || []).forEach((p: any) => { pMap[p.id] = p.nome; });
+    setPlanosMap(pMap);
 
+    // Buscar preventiva_mestre para mapear op → plano
+    const { data: prevData } = await (supabase as any)
+      .from("manutencao_preventiva")
+      .select("id, plano_id");
+    
+    const prevToPlano: Record<string, string> = {};
+    (prevData || []).forEach((p: any) => { if (p.plano_id) prevToPlano[p.id] = p.plano_id; });
+
+    // Agrupar OPs por plano
+    const hoje = new Date().toISOString().slice(0, 10);
+    const porPlano: Record<string, any[]> = {};
+    ((opRes.data as OrdemPreventiva[]) || []).forEach(op => {
+      const planoId = op.preventiva_id ? prevToPlano[op.preventiva_id] : null;
+      const key = planoId || "__sem_plano__";
+      if (!porPlano[key]) porPlano[key] = [];
+      porPlano[key].push(op);
+    });
+
+    const planosInfo: PlanoInfo[] = Object.entries(porPlano).map(([planoId, ops]) => ({
+      id: planoId,
+      nome: planoId === "__sem_plano__" ? "Sem Plano" : (pMap[planoId] || "Plano Desconhecido"),
+      total: ops.length,
+      pendentes: ops.filter(op => op.status === "Não Iniciada").length,
+      emExecucao: ops.filter(op => op.status === "Em Execução").length,
+      atrasadas: ops.filter(op => op.prazo && op.prazo < hoje && op.status !== "Concluída").length,
+      concluidas: ops.filter(op => op.status === "Concluída").length,
+    }));
+
+    setPlanos(planosInfo.sort((a, b) => b.total - a.total));
     setLoading(false);
 
   }, [companyId, session]);
@@ -540,20 +591,28 @@ const ComentariosOP = ({ opId }: { opId: string }) => {
   };
   return (
     <div className="space-y-4">
-
       <div className="flex items-center justify-between">
-
         <div>
-          <h1 className="text-2xl font-bold">
-            Ordens Preventivas
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            {planoSelecionado && (
+              <button onClick={() => setPlanoSelecionado(null)} className="text-muted-foreground hover:text-foreground mr-1">
+                ←
+              </button>
+            )}
+            {planoSelecionado ? planoSelecionado.nome : "Manutenção Preventiva"}
           </h1>
-
           <p className="text-sm text-muted-foreground">
-            Controle de ordens preventivas
+            {planoSelecionado ? "Ordens do plano" : "Selecione um plano de manutenção"}
           </p>
         </div>
-
         <div className="flex gap-2">
+          {planoSelecionado && (
+            <Button variant="outline" size="sm" className="gap-2"
+              onClick={() => setMostrarConcluidas(!mostrarConcluidas)}>
+              <Eye className="h-4 w-4" />
+              {mostrarConcluidas ? "Ocultar concluídas" : "Ver concluídas"}
+            </Button>
+          )}
           <Button variant="outline" size="sm" className="gap-2" onClick={() => {
             const rows = filtered.map(op => ({
               "Código": op.codigo_op,
@@ -578,7 +637,59 @@ const ComentariosOP = ({ opId }: { opId: string }) => {
           </Button>
         </div>
       </div>
+       {/* CARDS DE PLANOS — tela inicial */}
+      {!planoSelecionado && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {loading ? <p className="text-muted-foreground col-span-3">Carregando...</p>
+            : planos.length === 0 ? (
+              <div className="col-span-3 text-center py-12 text-muted-foreground border rounded-lg">
+                <ShieldCheck className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                <p>Nenhum plano de manutenção encontrado.</p>
+              </div>
+            ) : planos.map(plano => (
+              <div key={plano.id}
+                onClick={() => setPlanoSelecionado(plano)}
+                className="rounded-xl border-2 bg-card hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer p-5 space-y-4"
+                style={{ borderTopColor: plano.atrasadas > 0 ? "#ef4444" : plano.emExecucao > 0 ? "#f59e0b" : "#10b981", borderTopWidth: 4 }}>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="font-bold text-base">{plano.nome}</h3>
+                    <p className="text-xs text-muted-foreground">{plano.total} ordem(ns)</p>
+                  </div>
+                  <ShieldCheck className={cn("h-6 w-6",
+                    plano.atrasadas > 0 ? "text-red-500" :
+                    plano.emExecucao > 0 ? "text-amber-500" : "text-emerald-500"
+                  )} />
+                </div>
+                <div className="grid grid-cols-4 gap-2 text-center">
+                  <div className="rounded-lg bg-muted/50 p-2">
+                    <p className="text-lg font-bold">{plano.pendentes}</p>
+                    <p className="text-[10px] text-muted-foreground">Pendentes</p>
+                  </div>
+                  <div className="rounded-lg bg-amber-50 p-2">
+                    <p className="text-lg font-bold text-amber-600">{plano.emExecucao}</p>
+                    <p className="text-[10px] text-muted-foreground">Em exec.</p>
+                  </div>
+                  <div className="rounded-lg bg-red-50 p-2">
+                    <p className="text-lg font-bold text-red-600">{plano.atrasadas}</p>
+                    <p className="text-[10px] text-muted-foreground">Atrasadas</p>
+                  </div>
+                  <div className="rounded-lg bg-emerald-50 p-2">
+                    <p className="text-lg font-bold text-emerald-600">{plano.concluidas}</p>
+                    <p className="text-[10px] text-muted-foreground">Concluídas</p>
+                  </div>
+                </div>
+                <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+                  <div className="h-full bg-emerald-500 rounded-full transition-all"
+                    style={{ width: `${plano.total > 0 ? (plano.concluidas / plano.total) * 100 : 0}%` }} />
+                </div>
+              </div>
+            ))}
+        </div>
+      )}
 
+      {/* LISTA DE OPs — após selecionar plano */}
+      {planoSelecionado && <>
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
 
         <div className="rounded-lg border p-3">
@@ -1003,6 +1114,7 @@ const ComentariosOP = ({ opId }: { opId: string }) => {
   }}
 />
 
+    </>}
     </div>
   );
 }
