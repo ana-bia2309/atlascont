@@ -115,6 +115,7 @@ const almoxarifadoGroup: MenuGroup = {
     { title: "Estoque", url: "/estoque", icon: Package, iconColor: "#10B981" },
     { title: "Pedidos de Compra", url: "/pedidos-compra", icon: ShoppingCart },
     { title: "Pedidos Recebidos", url: "/pedidos-recebidos", icon: ShoppingCart },
+    { title: "Diagnóstico de Falhas", url: "/diagnostico", icon: Wrench, iconColor: "#F59E0B" },
   ],
 };
 
