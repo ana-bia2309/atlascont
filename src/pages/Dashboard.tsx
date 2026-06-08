@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LineChart, Line, Legend, PieChart, Pie } from "recharts";
 import InsightsPanel from "@/components/dashboard/InsightsPanel";
+import InvestigadorAutomatico from "@/components/dashboard/InvestigadorAutomatico";
 import AlertsPanel from "@/components/dashboard/AlertsPanel";
 import { format, isToday, isBefore, startOfDay, differenceInCalendarDays, isTomorrow } from "date-fns";
 import { computeSlaStatus } from "@/lib/sla-utils";
@@ -539,6 +540,7 @@ useRealtime(
 
           <AlertsPanel osRows={rawRows} atividades={atividades} cronogramas={cronogramasList} blocoMap={blocoMap} />
           <InsightsPanel rows={rawRows} blocoMap={blocoMap} />
+          <InvestigadorAutomatico />
 
           {/* ── Preventivas vs Corretivas (chart) ── */}
           {origemChartData.length > 0 && (
