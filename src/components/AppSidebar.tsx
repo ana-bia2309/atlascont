@@ -54,6 +54,7 @@ const osGroup: MenuGroup = {
     { title: "Chamados", url: "/chamados-os", icon: MessagesSquare, iconColor: "#0EA5E9", requiredPermission: "chamados_os.visualizar" },
     { title: "Chamados Externos", url: "/chamados-externos", icon: MessagesSquare, iconColor: "#F97316", requiredPermission: "chamados_externos.visualizar" },
     { title: "Aprovações", url: "/aprovacoes", icon: CheckCircle2, iconColor: "#22C55E" },
+    { title: "Diagnóstico de Falhas", url: "/diagnostico", icon: Wrench, iconColor: "#F59E0B" },
   ],
 };
 
@@ -115,7 +116,6 @@ const almoxarifadoGroup: MenuGroup = {
     { title: "Estoque", url: "/estoque", icon: Package, iconColor: "#10B981" },
     { title: "Pedidos de Compra", url: "/pedidos-compra", icon: ShoppingCart },
     { title: "Pedidos Recebidos", url: "/pedidos-recebidos", icon: ShoppingCart },
-    { title: "Diagnóstico de Falhas", url: "/diagnostico", icon: Wrench, iconColor: "#F59E0B" },
   ],
 };
 
