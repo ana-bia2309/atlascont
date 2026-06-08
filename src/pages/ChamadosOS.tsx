@@ -61,6 +61,9 @@ type MeuChamado = {
   justificativa_recusa: string | null;
   os_id: string | null;
   os_codigo?: string | null;
+  os_status?: string | null;
+  os_responsavel?: string | null;
+  avaliacao?: number | null;
 };
 
 function extractCode(raw: string): string {
@@ -195,11 +198,16 @@ export default function ChamadosOS() {
     if (osIds.length > 0) {
       const { data: oss } = await supabase
         .from("ordens_servico")
-        .select("id, codigo_os")
+        .select("id, codigo_os, status, responsible_user_id, profiles!ordens_servico_responsible_user_id_fkey(nome)")
         .in("id", osIds);
-      const map = new Map((oss ?? []).map((o: any) => [o.id, o.codigo_os]));
+      const map = new Map((oss ?? []).map((o: any) => [o.id, { codigo: o.codigo_os, status: o.status, responsavel: (o.profiles as any)?.nome }]));
       lista.forEach((c) => {
-        if (c.os_id) c.os_codigo = map.get(c.os_id) ?? null;
+        if (c.os_id) {
+          const os = map.get(c.os_id);
+          c.os_codigo = os?.codigo ?? null;
+          c.os_status = os?.status ?? null;
+          c.os_responsavel = os?.responsavel ?? null;
+        }
       });
     }
     setMeusChamados(lista);
@@ -657,9 +665,40 @@ export default function ChamadosOS() {
                                     {format(new Date(c.analisado_em), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                                   </div>
                                   {c.os_codigo && (
-                                    <div className="text-xs mt-1">
-                                      <span className="font-semibold">O.S. gerada:</span>{" "}
-                                      <span className="font-mono">{c.os_codigo}</span>
+                                    <div className="text-xs mt-1 space-y-1">
+                                      <div><span className="font-semibold">O.S. gerada:</span> <span className="font-mono">{c.os_codigo}</span></div>
+                                      {c.os_status && (
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="font-semibold">Status:</span>
+                                          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold border ${
+                                            c.os_status === "Concluída" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                                            c.os_status?.includes("Execução") ? "bg-blue-50 text-blue-700 border-blue-200" :
+                                            "bg-zinc-100 text-zinc-600 border-zinc-200"
+                                          }`}>{c.os_status}</span>
+                                        </div>
+                                      )}
+                                      {c.os_responsavel && (
+                                        <div><span className="font-semibold">Técnico:</span> {c.os_responsavel}</div>
+                                      )}
+                                      {c.os_status === "Concluída" && (
+                                        <div className="mt-2">
+                                          <span className="font-semibold block mb-1">Avalie o atendimento:</span>
+                                          <div className="flex gap-1">
+                                            {[1,2,3,4,5].map(star => (
+                                              <button key={star}
+                                                onClick={() => {
+                                                  (supabase as any).from("chamados").update({ avaliacao: star }).eq("id", c.id);
+                                                  setMeusChamados(prev => prev.map(ch => ch.id === c.id ? {...ch, avaliacao: star} : ch));
+                                                  toast({ title: `Avaliação ${star}⭐ registrada!` });
+                                                }}
+                                                className={`text-lg transition-transform hover:scale-110 ${(c.avaliacao || 0) >= star ? "text-amber-400" : "text-muted-foreground/30"}`}>
+                                                ★
+                                              </button>
+                                            ))}
+                                            {c.avaliacao && <span className="text-xs text-muted-foreground self-center ml-1">{c.avaliacao}/5</span>}
+                                          </div>
+                                        </div>
+                                      )}
                                     </div>
                                   )}
                                   {c.justificativa_recusa && (
