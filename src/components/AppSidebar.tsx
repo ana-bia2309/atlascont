@@ -248,6 +248,7 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const { minhasOs, cronogramasPendentes } = usePendingCounts();
   const { session } = useAuth();
+  const isSuperAdmin = session?.user?.email === "anafranca00@icloud.com";
 
   const [userName, setUserName] = useState<string | null>(null);
 
@@ -418,6 +419,23 @@ const filterItems = useCallback(
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        {isSuperAdmin && (
+  <>
+    <Separator className="mx-3 my-1 w-auto" />
+    <SidebarGroup>
+      {!collapsed && (
+        <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+          Super Admin
+        </SidebarGroupLabel>
+      )}
+      <SidebarGroupContent>
+        <SidebarMenu>
+          <SidebarTopItem item={{ title: "Gerenciar Empresas", url: "/gerenciar-empresas", icon: Building2, iconColor: "#6366F1" }} collapsed={collapsed} />
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  </>
+)}
       </SidebarContent>
 
       <SidebarFooter>
