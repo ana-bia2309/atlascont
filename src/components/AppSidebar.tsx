@@ -98,6 +98,7 @@ const relatoriosGroup: MenuGroup = {
     { title: "Histórico Atividades", url: "/historico-atividades", icon: Activity, iconColor: "#6B7280", requiredPermission: "sla.visualizar" },
     { title: "Tempo de Parada de Ativos", url: "/relatorio-ativos", icon: BarChart3, requiredPermission: "relatorios.visualizar" },
     { title: "Desempenho por Técnico", url: "/relatorio-tecnicos", icon: Users, iconColor: "#8B5CF6" },
+    { title: "Saúde dos Ativos", url: "/saude-ativos", icon: Activity, iconColor: "#10B981" },
   ],
 };
 
