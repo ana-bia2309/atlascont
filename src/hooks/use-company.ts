@@ -1,83 +1,47 @@
 import { useEffect, useState } from "react";
-
 import { supabase } from "@/integrations/supabase/client";
 
 export function useCompany() {
-
-  const [companyId, setCompanyId] =
-    useState<string | null>(null);
-
-  const [loading, setLoading] =
-    useState(true);
+  const [companyId, setCompanyId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-
-    const fetchCompany = async () => {
-
+    const fetchCompany = async (userId: string) => {
       try {
+        const { data: profile }: any = await (supabase as any)
+          .from("profiles")
+          .select("company_id")
+          .eq("user_id", userId)
+          .maybeSingle();
 
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
-
-        console.log("AUTH USER:", user);
-        console.log("AUTH ERROR:", userError);
-
-        if (!user) {
-
-          setCompanyId(null);
-          setLoading(false);
-
-          return;
-        }
-
-        const {
-          data: profile,
-          error: profileError,
-        }: any =
-          await (supabase as any)
-            .from("profiles")
-            .select("company_id")
-            .eq("user_id", user.id)
-            .maybeSingle();
-
-        console.log("PROFILE:", profile);
-        console.log("PROFILE ERROR:", profileError);
         console.log("COMPANY ID:", profile?.company_id);
-
-        if (profile?.company_id) {
-
-          setCompanyId(
-            profile.company_id
-          );
-
-        } else {
-
-          setCompanyId(null);
-        }
-
+        setCompanyId(profile?.company_id ?? null);
       } catch (err) {
-
-        console.error(
-          "ERRO useCompany:",
-          err
-        );
-
+        console.error("ERRO useCompany:", err);
         setCompanyId(null);
-
       } finally {
-
         setLoading(false);
       }
     };
 
-    fetchCompany();
+    // Escuta mudanças de auth (resolve o problema de null no carregamento inicial)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        fetchCompany(session.user.id);
+      } else {
+        setCompanyId(null);
+        setLoading(false);
+      }
+    });
 
+    // Também tenta imediatamente com sessão atual
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) fetchCompany(user.id);
+      else setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  return {
-    companyId,
-    loading,
-  };
+  return { companyId, loading };
 }
