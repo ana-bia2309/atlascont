@@ -18,7 +18,7 @@ import { computeSlaStatus } from "@/lib/sla-utils";
 import { isFinishedStatus } from "@/lib/os-status";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-
+import DashboardHealthScore from "@/components/dashboard/DashboardHealthScore";
 type AtividadeGlobal = {
   id: string;
   os_id: string;
@@ -528,7 +528,7 @@ useRealtime(
         <p className="text-muted-foreground">Carregando...</p>
       ) : (
         <>
-
+        <DashboardHealthScore rows={rawRows} ordensPreventivasCount={ordensPreventivasCount} />
           {/* ── Cards principais ── */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
             {cards.map((c) => (
