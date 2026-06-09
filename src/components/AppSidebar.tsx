@@ -99,6 +99,7 @@ const relatoriosGroup: MenuGroup = {
     { title: "Tempo de Parada de Ativos", url: "/relatorio-ativos", icon: BarChart3, requiredPermission: "relatorios.visualizar" },
     { title: "Desempenho por Técnico", url: "/relatorio-tecnicos", icon: Users, iconColor: "#8B5CF6" },
     { title: "Saúde dos Ativos", url: "/saude-ativos", icon: Activity, iconColor: "#10B981" },
+    { title: "Relatório Geral de O.S.", url: "/relatorio-geral-os", icon: ClipboardList, iconColor: "#6366F1" },
   ],
 };
 
@@ -251,7 +252,27 @@ export function AppSidebar() {
   const isSuperAdmin = session?.user?.email === "anafranca00@icloud.com";
 
   const [userName, setUserName] = useState<string | null>(null);
+const [companyLogo, setCompanyLogo] = useState<string | null>(null);
 
+useEffect(() => {
+  if (!session?.user?.id) return;
+  (supabase as any)
+    .from("profiles")
+    .select("company_id")
+    .eq("user_id", session.user.id)
+    .maybeSingle()
+    .then(({ data }: any) => {
+      if (!data?.company_id) return;
+      (supabase as any)
+        .from("companies")
+        .select("logo_url")
+        .eq("id", data.company_id)
+        .maybeSingle()
+        .then(({ data: company }: any) => {
+          setCompanyLogo(company?.logo_url || null);
+        });
+    });
+}, [session?.user?.id]);
   useEffect(() => {
     const userId = session?.user?.id;
     if (!userId) { setUserName(null); return; }
@@ -321,7 +342,7 @@ const filterItems = useCallback(
         {/* Brand */}
         <SidebarGroup>
           <SidebarGroupLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            {!collapsed && "Atlas Control"}
+            {!collapsed && (companyLogo ? <img src={companyLogo} alt="Logo" className="h-7 object-contain max-w-[140px]" /> : "Atlas Control")}
           </SidebarGroupLabel>
           {!collapsed && userName && (
             <div className="px-3 pb-1 text-xs text-muted-foreground leading-snug">

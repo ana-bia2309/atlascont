@@ -61,6 +61,7 @@ import Boletos from "@/pages/Boletos";
 import GerenciarEmpresas from "@/pages/GerenciarEmpresas";
 import PortalCliente from "@/pages/PortalCliente";
 import RelatorioSaudeAtivos from "@/pages/RelatorioSaudeAtivos";
+import RelatorioGeralOS from "@/pages/RelatorioGeralOS";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -117,6 +118,7 @@ const App = () => (
             <Route path="/relatorio-tecnicos" element={<RelatorioTecnicos />} />
             <Route path="/gerenciar-empresas" element={<GerenciarEmpresas />} />
             <Route path="/saude-ativos" element={<RelatorioSaudeAtivos />} />
+            <Route path="/relatorio-geral-os" element={<RelatorioGeralOS />} />
             </Route>
 <Route path="/login" element={<Login />} />
 <Route path="/portal-cliente" element={<PortalCliente />} />
