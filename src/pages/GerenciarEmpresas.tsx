@@ -11,7 +11,7 @@ import {
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from "@/components/ui/table";
-import { Plus, Pencil, RefreshCw, Building2, Users } from "@/lib/icons";
+import { Plus, Pencil, RefreshCw, Building2, Users, Eye } from "@/lib/icons";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -51,10 +51,11 @@ export default function GerenciarEmpresas() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [viewingOpen, setViewingOpen] = useState(false);
+  const [viewing, setViewing] = useState<Company | null>(null);
   const [editing, setEditing] = useState<Company | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Form state
   const [formName, setFormName] = useState("");
   const [formCnpj, setFormCnpj] = useState("");
   const [formEndereco, setFormEndereco] = useState("");
@@ -62,7 +63,6 @@ export default function GerenciarEmpresas() {
   const [formAdminEmail, setFormAdminEmail] = useState("");
   const [formAdminNome, setFormAdminNome] = useState("");
 
-  // Verificar se é super admin
   const isSuperAdmin = session?.user?.email === SUPER_ADMIN_EMAIL;
 
   const fetchCompanies = useCallback(async () => {
@@ -75,7 +75,6 @@ export default function GerenciarEmpresas() {
 
       if (error) throw error;
 
-      // Buscar contagem de usuários por empresa
       const { data: profilesData } = await (supabase as any)
         .from("profiles")
         .select("company_id");
@@ -109,6 +108,11 @@ export default function GerenciarEmpresas() {
 
   const openCreate = () => { resetForm(); setDialogOpen(true); };
 
+  const openView = (company: Company) => {
+    setViewing(company);
+    setViewingOpen(true);
+  };
+
   const openEdit = (company: Company) => {
     setEditing(company);
     setFormName(company.name);
@@ -137,7 +141,6 @@ export default function GerenciarEmpresas() {
     setSaving(true);
     try {
       if (editing) {
-        // Editar empresa existente
         const { error } = await (supabase as any)
           .from("companies")
           .update({
@@ -151,7 +154,6 @@ export default function GerenciarEmpresas() {
         if (error) throw error;
         toast({ title: "Empresa atualizada com sucesso" });
       } else {
-        // Criar nova empresa
         const { data: newCompany, error: companyError } = await (supabase as any)
           .from("companies")
           .insert({
@@ -166,29 +168,30 @@ export default function GerenciarEmpresas() {
 
         if (companyError) throw companyError;
 
-        // Convidar admin via Edge Function
         const { data, error: fnError } = await supabase.functions.invoke("invite-user", {
           body: {
             nome: formAdminNome.trim(),
-            cpf: "00000000000", // CPF provisório — admin vai atualizar depois
+            cpf: "00000000000",
             email: formAdminEmail.trim(),
             role: "administrador",
-            company_id_override: newCompany.id, // passa o company_id da nova empresa
           },
         });
 
         if (fnError) throw fnError;
         if (data?.error) throw new Error(data.error);
 
-        // Atualizar o profile do admin com o company_id correto
         if (data?.profile_id) {
           await (supabase as any)
             .from("profiles")
             .update({ company_id: newCompany.id })
             .eq("id", data.profile_id);
+
+          await (supabase as any)
+            .from("user_roles")
+            .update({ company_id: newCompany.id })
+            .eq("user_id", data.profile_id);
         }
 
-        // Atualizar owner_id da empresa
         await (supabase as any)
           .from("companies")
           .update({ owner_id: data?.userId || null })
@@ -256,7 +259,6 @@ export default function GerenciarEmpresas() {
         </div>
       </div>
 
-      {/* Resumo */}
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div className="rounded-lg border bg-card p-4">
           <p className="text-sm text-muted-foreground">Total de Empresas</p>
@@ -323,9 +325,14 @@ export default function GerenciarEmpresas() {
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{fmtDate(company.created_at)}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(company)} title="Editar">
-                      <Pencil className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center justify-end gap-0.5">
+                      <Button variant="ghost" size="icon" onClick={() => openView(company)} title="Ver detalhes">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => openEdit(company)} title="Editar">
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -334,7 +341,62 @@ export default function GerenciarEmpresas() {
         </div>
       )}
 
-      {/* Dialog */}
+      {/* Dialog Visualizar */}
+      <Dialog open={viewingOpen} onOpenChange={(open) => { if (!open) { setViewingOpen(false); setViewing(null); } }}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Detalhes da Empresa</DialogTitle>
+            <DialogDescription className="sr-only">Informações da empresa.</DialogDescription>
+          </DialogHeader>
+          {viewing && (
+            <div className="space-y-3 py-2 text-sm">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <span className="text-muted-foreground">Nome:</span>{" "}
+                  <span className="font-medium">{viewing.name}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">CNPJ:</span>{" "}
+                  <span className="font-medium">{viewing.cnpj ? formatCnpj(viewing.cnpj) : "—"}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Telefone:</span>{" "}
+                  <span className="font-medium">{viewing.telefone ? formatTelefone(viewing.telefone) : "—"}</span>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-muted-foreground">Endereço:</span>{" "}
+                  <span className="font-medium">{viewing.endereco || "—"}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Usuários:</span>{" "}
+                  <span className="font-medium">{viewing.user_count}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Status:</span>{" "}
+                  <Badge variant="outline" className={cn("text-xs", viewing.is_active
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    : "bg-destructive/15 text-destructive border-destructive/30"
+                  )}>
+                    {viewing.is_active ? "Ativa" : "Inativa"}
+                  </Badge>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Criada em:</span>{" "}
+                  <span className="font-medium">{fmtDate(viewing.created_at)}</span>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewingOpen(false)}>Fechar</Button>
+            {viewing && (
+              <Button onClick={() => { setViewingOpen(false); openEdit(viewing); }}>Editar</Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Criar/Editar */}
       <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) { setDialogOpen(false); resetForm(); } }}>
         <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
@@ -360,26 +422,23 @@ export default function GerenciarEmpresas() {
               <label className="text-sm font-medium mb-1 block">Telefone</label>
               <Input value={formTelefone} onChange={(e) => setFormTelefone(formatTelefone(e.target.value))} placeholder="(00) 00000-0000" maxLength={15} />
             </div>
-
             {!editing && (
-              <>
-                <div className="border-t pt-4">
-                  <p className="text-sm font-medium mb-3">Administrador Inicial</p>
-                  <p className="text-xs text-muted-foreground bg-muted/50 rounded-md p-3 mb-3">
-                    📧 Um e-mail de convite será enviado para o administrador definir sua senha.
-                  </p>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-sm font-medium mb-1 block">Nome do Administrador *</label>
-                      <Input value={formAdminNome} onChange={(e) => setFormAdminNome(e.target.value)} placeholder="Nome completo" />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium mb-1 block">Email do Administrador *</label>
-                      <Input type="email" value={formAdminEmail} onChange={(e) => setFormAdminEmail(e.target.value)} placeholder="admin@empresa.com" />
-                    </div>
+              <div className="border-t pt-4">
+                <p className="text-sm font-medium mb-3">Administrador Inicial</p>
+                <p className="text-xs text-muted-foreground bg-muted/50 rounded-md p-3 mb-3">
+                  📧 Um e-mail de convite será enviado para o administrador definir sua senha.
+                </p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">Nome do Administrador *</label>
+                    <Input value={formAdminNome} onChange={(e) => setFormAdminNome(e.target.value)} placeholder="Nome completo" />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">Email do Administrador *</label>
+                    <Input type="email" value={formAdminEmail} onChange={(e) => setFormAdminEmail(e.target.value)} placeholder="admin@empresa.com" />
                   </div>
                 </div>
-              </>
+              </div>
             )}
           </div>
           <DialogFooter>
