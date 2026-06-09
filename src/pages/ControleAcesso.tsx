@@ -291,7 +291,7 @@ const {
       created_at: p.created_at,
 
      role:
-  rolesMap[p.user_id] ||
+  rolesMap[p.id] ||
   "visualizacao",
 
       perfil_acesso_id:
@@ -596,7 +596,7 @@ const { error: rErr } =
     .from("user_roles")
     .upsert(
       {
-        user_id: editing.user_id,
+        user_id: editing.id,
         company_id: currentCompanyId,
         role: formRole,
       },
@@ -623,12 +623,9 @@ if (rErr) {
   return;
 }
 await fetchUsers();
-
-window.location.reload();
-toast({
-  title:
-    "Usuário atualizado",
-});
+toast({ title: "Usuário atualizado" });
+setDialogOpen(false);
+resetForm();
 
 }
 
