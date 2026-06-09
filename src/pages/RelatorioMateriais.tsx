@@ -218,8 +218,13 @@ export default function RelatorioMateriais() {
             <Download className="mr-2 h-4 w-4" /> Excel
           </Button>
           <Button variant="outline" onClick={exportPDF} disabled={osComMateriais.length === 0 || exporting}>
-            <FileText className="mr-2 h-4 w-4" /> {exporting ? "Gerando..." : "PDF"}
+            <FileText className="mr-2 h-4 w-4" /> {exporting ? "Gerando..." : "PDF Completo"}
           </Button>
+          {hasFilters && osComMateriais.length > 0 && (
+            <Button onClick={exportPDF} disabled={exporting}>
+              <FileText className="mr-2 h-4 w-4" /> {exporting ? "Gerando..." : "PDF Filtrado"}
+            </Button>
+          )}
         </div>
       </div>
 

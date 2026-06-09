@@ -11,6 +11,8 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { addPdfHeader, getCompanyInfo } from "@/lib/pdfHeader";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+const [filterOS, setFilterOS] = useState("__all__");
 
 type MatOS = {
   id: string;
@@ -59,6 +61,10 @@ export default function RelatorioConsolidadoMateriais() {
   const [filterSearch, setFilterSearch] = useState("");
   const [exporting, setExporting] = useState(false);
   const [sortBy, setSortBy] = useState<"nome" | "qtd" | "custo" | "os">("custo");
+  const [filterStatus, setFilterStatus] = useState("__all__");
+const [filterTecnico, setFilterTecnico] = useState("__all__");
+const [filterDateFrom, setFilterDateFrom] = useState("");
+const [filterDateTo, setFilterDateTo] = useState("");
 
   const fetchData = useCallback(async () => {
     if (!companyId) { setLoading(false); return; }
@@ -125,7 +131,17 @@ export default function RelatorioConsolidadoMateriais() {
   }, [materiais, osMap, profilesMap]);
 
   const filtered = useMemo(() => {
-    let list = consolidado;
+    let list = consolidado.map(m => ({
+      ...m,
+      ocorrencias: m.ocorrencias.filter(o => {
+        if (filterStatus !== "__all__" && o.status !== filterStatus) return false;
+        if (filterTecnico !== "__all__" && o.tecnico !== profilesMap[filterTecnico]) return false;
+        if (filterDateFrom && o.data && o.data.slice(0, 10) < filterDateFrom) return false;
+        if (filterDateTo && o.data && o.data.slice(0, 10) > filterDateTo) return false;
+        if (filterOS !== "__all__" && o.osId !== filterOS) return false;
+        return true;
+      }),
+    })).filter(m => m.ocorrencias.length > 0);
     if (filterSearch.trim()) {
       const q = filterSearch.toLowerCase();
       list = list.filter(m => m.nome.toLowerCase().includes(q));
@@ -190,6 +206,7 @@ export default function RelatorioConsolidadoMateriais() {
       const company = await getCompanyInfo();
       const startY = await addPdfHeader(doc, "Consolidado de Materiais", `${filtered.length} materiais diferentes`, company);
 
+      // Tabela resumo
       autoTable(doc, {
         startY,
         head: [["Material", "Unidade", "Qtd Total", "Custo Total", "Qtd O.S.", "Última Utilização"]],
@@ -201,10 +218,46 @@ export default function RelatorioConsolidadoMateriais() {
           m.totalOS,
           fmtDate(m.ultimaUtilizacao),
         ]),
+        foot: [["TOTAL", "", filtered.reduce((s,m) => s + m.totalQtd, 0), `R$ ${filtered.reduce((s,m) => s + m.totalCusto, 0).toFixed(2)}`, filtered.reduce((s,m) => s + m.totalOS, 0), ""]],
         headStyles: { fillColor: [99, 102, 241], fontSize: 8 },
         bodyStyles: { fontSize: 8 },
         alternateRowStyles: { fillColor: [248, 248, 255] },
+        footStyles: { fillColor: [99, 102, 241], textColor: 255, fontStyle: "bold", fontSize: 8 },
       });
+
+      // Detalhamento por material
+      let y = (doc as any).lastAutoTable.finalY + 10;
+      doc.setFontSize(11);
+      doc.setTextColor(50, 50, 80);
+      if (y > 170) { doc.addPage(); y = 14; }
+      doc.text("Detalhamento por Material", 14, y);
+      y += 6;
+
+      for (const m of filtered) {
+        if (y > 175) { doc.addPage(); y = 14; }
+        doc.setFontSize(9);
+        doc.setTextColor(99, 102, 241);
+        doc.text(`${m.nome} — ${m.totalQtd} ${m.unidade} em ${m.totalOS} O.S. — Total: R$ ${m.totalCusto.toFixed(2)}`, 14, y);
+        y += 4;
+
+        autoTable(doc, {
+          startY: y,
+          head: [["O.S.", "Status", "Técnico", "Data", "Quantidade"]],
+          body: m.ocorrencias
+            .sort((a, b) => (b.data || "").localeCompare(a.data || ""))
+            .map(o => [
+              o.codigoOs || "—",
+              o.status || "—",
+              o.tecnico || "—",
+              fmtDate(o.data),
+              `${o.quantidade} ${m.unidade}`,
+            ]),
+          headStyles: { fillColor: [230, 230, 250], textColor: [50, 50, 100], fontSize: 7 },
+          bodyStyles: { fontSize: 7 },
+          margin: { left: 14 },
+        });
+        y = (doc as any).lastAutoTable.finalY + 8;
+      }
 
       doc.save(`relatorio-consolidado-materiais-${format(new Date(), "yyyyMMdd")}.pdf`);
       toast({ title: "PDF exportado!" });
@@ -261,6 +314,46 @@ export default function RelatorioConsolidadoMateriais() {
             </Button>
           ))}
         </div>
+      </div>
+
+  {/* Filtros */}
+      <div className="flex flex-wrap gap-3 items-center">
+        <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <SelectTrigger className="w-44"><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__">Todos os status</SelectItem>
+            {["Não Iniciada","Em Execução","Concluída","Cancelada"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={filterTecnico} onValueChange={setFilterTecnico}>
+          <Select value={filterOS} onValueChange={setFilterOS}>
+  <SelectTrigger className="w-48"><SelectValue placeholder="Filtrar por O.S." /></SelectTrigger>
+  <SelectContent>
+    <SelectItem value="__all__">Todas as O.S.</SelectItem>
+    {osList
+      .filter(os => materiais.some(m => m.os_id === os.id))
+      .sort((a, b) => (a.codigo_os || "").localeCompare(b.codigo_os || ""))
+      .map(os => <SelectItem key={os.id} value={os.id}>{os.codigo_os || os.titulo || os.id}</SelectItem>)
+    }
+  </SelectContent>
+</Select>
+          <SelectTrigger className="w-44"><SelectValue placeholder="Técnico" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__">Todos</SelectItem>
+            {profiles.map(p => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">De</span>
+          <Input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} className="w-36 h-9" />
+          <span className="text-xs text-muted-foreground">até</span>
+          <Input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} className="w-36 h-9" />
+        </div>
+        {(filterStatus !== "__all__" || filterTecnico !== "__all__" || filterDateFrom || filterDateTo) && (
+          <Button variant="ghost" size="sm" onClick={() => { setFilterStatus("__all__"); setFilterTecnico("__all__"); setFilterDateFrom(""); setFilterDateTo("");setFilterDateTo("") }}>
+            <X className="h-3 w-3 mr-1" /> Limpar
+          </Button>
+        )}
       </div>
 
       {/* Resumo */}
