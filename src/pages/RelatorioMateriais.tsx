@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { addPdfHeader, getCompanyInfo } from "@/lib/pdfHeader";
 
 type MatOS = {
   id: string;
@@ -152,17 +153,13 @@ export default function RelatorioMateriais() {
     toast({ title: "Excel exportado!" });
   };
 
-  const exportPDF = async () => {
+ const exportPDF = async () => {
     setExporting(true);
     try {
       const doc = new jsPDF({ orientation: "landscape" });
-      doc.setFontSize(16); doc.setTextColor(99, 102, 241);
-      doc.text("Atlas Control — Relatório de Materiais por O.S.", 14, 16);
-      doc.setFontSize(9); doc.setTextColor(120);
-      doc.text(`Gerado em ${format(new Date(), "dd/MM/yyyy HH:mm")} · ${osComMateriais.length} O.S.`, 14, 22);
-      doc.setDrawColor(99, 102, 241); doc.line(14, 25, 283, 25);
+      const company = await getCompanyInfo();
+      let y = await addPdfHeader(doc, "Relatório de Materiais por O.S.", `${osComMateriais.length} O.S. com materiais`, company);
 
-      let y = 28;
       for (const os of osComMateriais) {
         if (y > 170) { doc.addPage(); y = 14; }
         doc.setFontSize(9); doc.setTextColor(99, 102, 241);

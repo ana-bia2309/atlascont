@@ -19,6 +19,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { STATUS_OPTIONS, getStatusColor } from "@/lib/os-status";
+import { addPdfHeader, getCompanyInfo } from "@/lib/pdfHeader";
 
 type OSFull = {
   id: string;
@@ -238,12 +239,10 @@ const fetchData = useCallback(async () => {
     return parts.length ? parts.join(" | ") : "Todos os dados";
   };
 
-  const exportPeriodoPDF = () => {
+  const exportPeriodoPDF = async () => {
     const doc = new jsPDF({ orientation: "landscape" });
-    doc.setFontSize(16);
-    doc.text("Relatório de O.S. por Período — Atlas Control", 14, 18);
-    doc.setFontSize(9);
-    doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm")} | Filtros: ${getFilterLabel()}`, 14, 25);
+    const company = await getCompanyInfo();
+    const startY = await addPdfHeader(doc, "Relatório de O.S. por Período", getFilterLabel(), company);
 
     const headers = ["Código", "Bloco", "Andar", "Sala", "Equipamentos", "Status", "Prioridade", "Tipo Serviço", "Prazo", "Início", "Término", "Custo"];
     const rows = filtered.map(os => [
@@ -253,7 +252,7 @@ const fetchData = useCallback(async () => {
     ]);
 
     autoTable(doc, {
-      startY: 30, head: [headers], body: rows,
+      startY, head: [headers], body: rows,
       styles: { fontSize: 7, cellPadding: 2 },
       headStyles: { fillColor: [30, 58, 95], textColor: 255, fontStyle: "bold" },
       alternateRowStyles: { fillColor: [240, 245, 250] },
@@ -262,19 +261,17 @@ const fetchData = useCallback(async () => {
     toast({ title: "PDF exportado!" });
   };
 
-  const exportStatusPDF = () => {
+  const exportStatusPDF = async () => {
     const doc = new jsPDF();
-    doc.setFontSize(16);
-    doc.text("Relatório de O.S. por Status — Atlas Control", 14, 18);
-    doc.setFontSize(9);
-    doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm")} | Filtros: ${getFilterLabel()}`, 14, 25);
+    const company = await getCompanyInfo();
+    const startY = await addPdfHeader(doc, "Relatório de O.S. por Status", getFilterLabel(), company);
 
     const headers = ["Status", "Quantidade", "% do Total"];
     const rows = pieData.map(e => [e.name, String(e.value), `${((e.value / filtered.length) * 100).toFixed(1)}%`]);
     rows.push(["TOTAL", String(filtered.length), "100%"]);
 
     autoTable(doc, {
-      startY: 30, head: [headers], body: rows,
+      startY, head: [headers], body: rows,
       styles: { fontSize: 10 },
       headStyles: { fillColor: [30, 58, 95], textColor: 255 },
     });
@@ -282,18 +279,16 @@ const fetchData = useCallback(async () => {
     toast({ title: "PDF exportado!" });
   };
 
-  const exportResponsavelPDF = () => {
+  const exportResponsavelPDF = async () => {
     const doc = new jsPDF();
-    doc.setFontSize(16);
-    doc.text("Relatório de O.S. por Responsável — Atlas Control", 14, 18);
-    doc.setFontSize(9);
-    doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm")} | Filtros: ${getFilterLabel()}`, 14, 25);
+    const company = await getCompanyInfo();
+    const startY = await addPdfHeader(doc, "Relatório de O.S. por Responsável", getFilterLabel(), company);
 
     const headers = ["Responsável", "Total O.S.", "Concluídas", "Abertas"];
     const rows = byResponsavel.map(r => [r.nome, String(r.total), String(r.concluidas), String(r.abertas)]);
 
     autoTable(doc, {
-      startY: 30, head: [headers], body: rows,
+      startY, head: [headers], body: rows,
       styles: { fontSize: 10 },
       headStyles: { fillColor: [30, 58, 95], textColor: 255 },
     });
@@ -301,12 +296,10 @@ const fetchData = useCallback(async () => {
     toast({ title: "PDF exportado!" });
   };
 
-  const exportCustosPDF = () => {
+  const exportCustosPDF = async () => {
     const doc = new jsPDF({ orientation: "landscape" });
-    doc.setFontSize(16);
-    doc.text("Relatório de Custos por O.S. — Atlas Control", 14, 18);
-    doc.setFontSize(9);
-    doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm")} | Total: ${fmtBRL(totalCustos)} | Filtros: ${getFilterLabel()}`, 14, 25);
+    const company = await getCompanyInfo();
+    const startY = await addPdfHeader(doc, "Relatório de Custos por O.S.", `Total: ${fmtBRL(totalCustos)} | ${getFilterLabel()}`, company);
 
     const headers = ["Código O.S.", "Bloco", "Status", "Custo Total", "Materiais"];
     const rows = custosData.map(c => [
@@ -316,7 +309,7 @@ const fetchData = useCallback(async () => {
     rows.push(["", "", "TOTAL", fmtBRL(totalCustos), ""]);
 
     autoTable(doc, {
-      startY: 30, head: [headers], body: rows,
+      startY, head: [headers], body: rows,
       styles: { fontSize: 8 },
       headStyles: { fillColor: [30, 58, 95], textColor: 255 },
     });
@@ -324,11 +317,11 @@ const fetchData = useCallback(async () => {
     toast({ title: "PDF exportado!" });
   };
 
-  const exportCurrentPDF = () => {
-    if (activeTab === "periodo") exportPeriodoPDF();
-    else if (activeTab === "status") exportStatusPDF();
-    else if (activeTab === "responsavel") exportResponsavelPDF();
-    else exportCustosPDF();
+  const exportCurrentPDF = async () => {
+    if (activeTab === "periodo") await exportPeriodoPDF();
+    else if (activeTab === "status") await exportStatusPDF();
+    else if (activeTab === "responsavel") await exportResponsavelPDF();
+    else await exportCustosPDF();
   };
 
   const exportCurrentExcel = () => {

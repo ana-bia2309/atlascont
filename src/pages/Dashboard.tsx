@@ -19,6 +19,7 @@ import { isFinishedStatus } from "@/lib/os-status";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import DashboardHealthScore from "@/components/dashboard/DashboardHealthScore";
+import { addPdfHeader, getCompanyInfo } from "@/lib/pdfHeader";
 type AtividadeGlobal = {
   id: string;
   os_id: string;
@@ -444,21 +445,16 @@ useRealtime(
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Dashboard</h1>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="gap-2" onClick={() => {
+          <Button variant="outline" size="sm" className="gap-2" onClick={async () => {
             const doc = new jsPDF();
-            const hoje = format(new Date(), "dd/MM/yyyy HH:mm");
-            doc.setFontSize(18); doc.setTextColor(99, 102, 241);
-            doc.text("Atlas Control — Relatório Executivo", 14, 18);
-            doc.setFontSize(10); doc.setTextColor(100);
-            doc.text(`Gerado em ${hoje}`, 14, 26);
-            doc.setDrawColor(99, 102, 241); doc.setLineWidth(0.5);
-            doc.line(14, 29, 196, 29);
+            const company = await getCompanyInfo();
+            const startY = await addPdfHeader(doc, "Relatório Executivo", format(new Date(), "dd/MM/yyyy HH:mm"), company);
 
             // Resumo OS
             doc.setFontSize(13); doc.setTextColor(30);
-            doc.text("Resumo de Ordens de Serviço", 14, 38);
+            doc.text("Resumo de Ordens de Serviço", 14, startY);
             autoTable(doc, {
-              startY: 42,
+              startY: startY + 4,
               head: [["Indicador", "Quantidade"]],
               body: [
                 ["Total de OS", stats.total],

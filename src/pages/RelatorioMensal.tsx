@@ -20,6 +20,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { usePermissions } from "@/hooks/use-permissions";
+import { addPdfHeader, getCompanyInfo } from "@/lib/pdfHeader";
 
 type OSRow = {
   id: string;
@@ -244,37 +245,32 @@ const fetchData = useCallback(async () => {
       fmtDateShort(os.created_at),
     ]);
 
-  const exportPDF = () => {
+  const exportPDF = async () => {
     const doc = new jsPDF({ orientation: "landscape" });
-    doc.setFillColor(15, 23, 42);
-    doc.rect(0, 0, doc.internal.pageSize.getWidth(), 30, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    doc.text("Atlas Control — Relatório Mensal de Gastos", 14, 14);
+    const company = await getCompanyInfo();
+    const startY = await addPdfHeader(doc, "Relatório Mensal de Gastos", filterLabel, company);
+
     doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
+    doc.setTextColor(60, 60, 80);
     const filterInfo = [
-      `Período: ${filterLabel}`,
       filterBloco !== "all" ? `Bloco: ${blocoMap[filterBloco]}` : "",
       filterStatus !== "all" ? `Status: ${filterStatus}` : "",
     ].filter(Boolean).join(" | ");
-    doc.text(filterInfo, 14, 22);
-    doc.text(`Emissão: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, doc.internal.pageSize.getWidth() - 14, 14, { align: "right" });
+    if (filterInfo) doc.text(filterInfo, 14, startY);
 
-    doc.setTextColor(30, 30, 30);
     doc.setFontSize(10);
-    doc.text(`Total Gasto: ${fmtBRL(totalGasto)}   |   O.S.: ${qtdOS}   |   Média: ${qtdOS > 0 ? fmtBRL(mediaOS) : "—"}   |   Maior Gasto: ${blocoMaiorNome}`, 14, 38);
+    doc.setTextColor(30, 30, 30);
+    doc.text(`Total: ${fmtBRL(totalGasto)}   |   O.S.: ${qtdOS}   |   Média: ${qtdOS > 0 ? fmtBRL(mediaOS) : "—"}   |   Maior Gasto: ${blocoMaiorNome}`, 14, startY + 6);
 
     autoTable(doc, {
-      startY: 44,
+      startY: startY + 12,
       head: [HEADERS],
       body: buildRows(),
       styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold" },
+      headStyles: { fillColor: [99, 102, 241], textColor: 255, fontStyle: "bold" },
       alternateRowStyles: { fillColor: [240, 245, 250] },
       foot: [["", "", "", "", fmtBRL(totalGasto), ""]],
-      footStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold" },
+      footStyles: { fillColor: [99, 102, 241], textColor: 255, fontStyle: "bold" },
     });
 
     doc.save(`relatorio_mensal_${filterYear}_${filterMonth}.pdf`);

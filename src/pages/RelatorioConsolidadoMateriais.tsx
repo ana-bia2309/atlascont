@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { addPdfHeader, getCompanyInfo } from "@/lib/pdfHeader";
 
 type MatOS = {
   id: string;
@@ -182,18 +183,15 @@ export default function RelatorioConsolidadoMateriais() {
     toast({ title: "Excel exportado!" });
   };
 
-  const exportPDF = async () => {
+ const exportPDF = async () => {
     setExporting(true);
     try {
       const doc = new jsPDF({ orientation: "landscape" });
-      doc.setFontSize(16); doc.setTextColor(99, 102, 241);
-      doc.text("Atlas Control — Relatório Consolidado de Materiais", 14, 16);
-      doc.setFontSize(9); doc.setTextColor(120);
-      doc.text(`Gerado em ${format(new Date(), "dd/MM/yyyy HH:mm")} · ${filtered.length} materiais`, 14, 22);
-      doc.setDrawColor(99, 102, 241); doc.line(14, 25, 283, 25);
+      const company = await getCompanyInfo();
+      const startY = await addPdfHeader(doc, "Consolidado de Materiais", `${filtered.length} materiais diferentes`, company);
 
       autoTable(doc, {
-        startY: 28,
+        startY,
         head: [["Material", "Unidade", "Qtd Total", "Custo Total", "Qtd O.S.", "Última Utilização"]],
         body: filtered.map(m => [
           m.nome,

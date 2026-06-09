@@ -11,7 +11,7 @@ import {
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from "@/components/ui/table";
-import { Plus, Pencil, RefreshCw, Building2, Users, Eye } from "@/lib/icons";
+import { Plus, Pencil, RefreshCw, Building2, Users, Eye, Upload, X } from "@/lib/icons";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +26,7 @@ interface Company {
   is_active: boolean;
   created_at: string;
   owner_id: string | null;
+  logo_url: string | null;
   user_count?: number;
 }
 
@@ -62,6 +63,9 @@ export default function GerenciarEmpresas() {
   const [formTelefone, setFormTelefone] = useState("");
   const [formAdminEmail, setFormAdminEmail] = useState("");
   const [formAdminNome, setFormAdminNome] = useState("");
+  const [formLogoFile, setFormLogoFile] = useState<File | null>(null);
+  const [formLogoPreview, setFormLogoPreview] = useState<string | null>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   const isSuperAdmin = session?.user?.email === SUPER_ADMIN_EMAIL;
 
@@ -70,7 +74,7 @@ export default function GerenciarEmpresas() {
     try {
       const { data: companiesData, error } = await (supabase as any)
         .from("companies")
-        .select("id, name, cnpj, endereco, telefone, is_active, created_at, owner_id")
+        .select("id, name, cnpj, endereco, telefone, is_active, created_at, owner_id, logo_url")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -103,6 +107,7 @@ export default function GerenciarEmpresas() {
   const resetForm = () => {
     setFormName(""); setFormCnpj(""); setFormEndereco("");
     setFormTelefone(""); setFormAdminEmail(""); setFormAdminNome("");
+    setFormLogoFile(null); setFormLogoPreview(null);
     setEditing(null);
   };
 
@@ -121,7 +126,51 @@ export default function GerenciarEmpresas() {
     setFormTelefone(company.telefone ? formatTelefone(company.telefone) : "");
     setFormAdminEmail("");
     setFormAdminNome("");
+    setFormLogoFile(null);
+    setFormLogoPreview(company.logo_url || null);
     setDialogOpen(true);
+  };
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: "Logo muito grande", description: "Máximo 2MB.", variant: "destructive" });
+      return;
+    }
+    setFormLogoFile(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => setFormLogoPreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const uploadLogo = async (companyId: string): Promise<string | null> => {
+    if (!formLogoFile) return null;
+    setUploadingLogo(true);
+    try {
+      const ext = formLogoFile.name.split(".").pop();
+      const path = `${companyId}/logo.${ext}`;
+      const { error } = await supabase.storage
+        .from("logos")
+        .upload(path, formLogoFile, { upsert: true });
+      if (error) throw error;
+      const { data } = supabase.storage.from("logos").getPublicUrl(path);
+      return data.publicUrl + `?t=${Date.now()}`;
+    } catch (err: any) {
+      toast({ title: "Erro ao fazer upload da logo", description: err.message, variant: "destructive" });
+      return null;
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleRemoveLogo = async () => {
+    if (!editing) return;
+    await (supabase as any).from("companies").update({ logo_url: null }).eq("id", editing.id);
+    setFormLogoPreview(null);
+    setFormLogoFile(null);
+    toast({ title: "Logo removida" });
+    fetchCompanies();
   };
 
   const handleSave = async () => {
@@ -141,6 +190,11 @@ export default function GerenciarEmpresas() {
     setSaving(true);
     try {
       if (editing) {
+        let logoUrl = editing.logo_url;
+        if (formLogoFile) {
+          logoUrl = await uploadLogo(editing.id);
+        }
+
         const { error } = await (supabase as any)
           .from("companies")
           .update({
@@ -148,6 +202,7 @@ export default function GerenciarEmpresas() {
             cnpj: formCnpj.replace(/\D/g, "") || null,
             endereco: formEndereco.trim() || null,
             telefone: formTelefone.replace(/\D/g, "") || null,
+            logo_url: logoUrl,
           })
           .eq("id", editing.id);
 
@@ -168,6 +223,14 @@ export default function GerenciarEmpresas() {
 
         if (companyError) throw companyError;
 
+        let logoUrl = null;
+        if (formLogoFile) {
+          logoUrl = await uploadLogo(newCompany.id);
+          if (logoUrl) {
+            await (supabase as any).from("companies").update({ logo_url: logoUrl }).eq("id", newCompany.id);
+          }
+        }
+
         const { data, error: fnError } = await supabase.functions.invoke("invite-user", {
           body: {
             nome: formAdminNome.trim(),
@@ -181,21 +244,11 @@ export default function GerenciarEmpresas() {
         if (data?.error) throw new Error(data.error);
 
         if (data?.profile_id) {
-          await (supabase as any)
-            .from("profiles")
-            .update({ company_id: newCompany.id })
-            .eq("id", data.profile_id);
-
-          await (supabase as any)
-            .from("user_roles")
-            .update({ company_id: newCompany.id })
-            .eq("user_id", data.profile_id);
+          await (supabase as any).from("profiles").update({ company_id: newCompany.id }).eq("id", data.profile_id);
+          await (supabase as any).from("user_roles").update({ company_id: newCompany.id }).eq("user_id", data.profile_id);
         }
 
-        await (supabase as any)
-          .from("companies")
-          .update({ owner_id: data?.userId || null })
-          .eq("id", newCompany.id);
+        await (supabase as any).from("companies").update({ owner_id: data?.userId || null }).eq("id", newCompany.id);
 
         toast({
           title: "Empresa criada com sucesso!",
@@ -279,6 +332,7 @@ export default function GerenciarEmpresas() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Logo</TableHead>
                 <TableHead>Empresa</TableHead>
                 <TableHead>CNPJ</TableHead>
                 <TableHead>Telefone</TableHead>
@@ -291,6 +345,15 @@ export default function GerenciarEmpresas() {
             <TableBody>
               {companies.map((company) => (
                 <TableRow key={company.id}>
+                  <TableCell>
+                    {company.logo_url ? (
+                      <img src={company.logo_url} alt={company.name} className="h-8 w-8 rounded object-contain border" />
+                    ) : (
+                      <div className="h-8 w-8 rounded border bg-muted flex items-center justify-center">
+                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <div>
                       <p className="font-medium">{company.name}</p>
@@ -350,6 +413,11 @@ export default function GerenciarEmpresas() {
           </DialogHeader>
           {viewing && (
             <div className="space-y-3 py-2 text-sm">
+              {viewing.logo_url && (
+                <div className="flex justify-center py-2">
+                  <img src={viewing.logo_url} alt={viewing.name} className="h-16 object-contain" />
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
                   <span className="text-muted-foreground">Nome:</span>{" "}
@@ -398,7 +466,7 @@ export default function GerenciarEmpresas() {
 
       {/* Dialog Criar/Editar */}
       <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) { setDialogOpen(false); resetForm(); } }}>
-        <DialogContent className="sm:max-w-[480px]">
+        <DialogContent className="sm:max-w-[480px] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? "Editar Empresa" : "Nova Empresa"}</DialogTitle>
             <DialogDescription className="sr-only">
@@ -422,6 +490,41 @@ export default function GerenciarEmpresas() {
               <label className="text-sm font-medium mb-1 block">Telefone</label>
               <Input value={formTelefone} onChange={(e) => setFormTelefone(formatTelefone(e.target.value))} placeholder="(00) 00000-0000" maxLength={15} />
             </div>
+
+            {/* Logo upload */}
+            <div>
+              <label className="text-sm font-medium mb-1 block">Logo da Empresa</label>
+              {formLogoPreview ? (
+                <div className="flex items-center gap-3 p-3 border rounded-lg">
+                  <img src={formLogoPreview} alt="Preview" className="h-12 object-contain" />
+                  <div className="flex-1">
+                    <p className="text-xs text-muted-foreground">Logo carregada</p>
+                  </div>
+                  <div className="flex gap-1">
+                    <label className="cursor-pointer">
+                      <input type="file" accept="image/*" onChange={handleLogoChange} className="hidden" />
+                      <Button variant="outline" size="sm" type="button" asChild>
+                        <span><Upload className="h-3.5 w-3.5 mr-1" /> Trocar</span>
+                      </Button>
+                    </label>
+                    {editing && (
+                      <Button variant="ghost" size="sm" onClick={handleRemoveLogo} className="text-destructive">
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <label className="cursor-pointer">
+                  <input type="file" accept="image/*" onChange={handleLogoChange} className="hidden" />
+                  <div className="flex items-center gap-2 p-3 border border-dashed rounded-lg hover:bg-muted/30 transition-colors">
+                    <Upload className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Clique para fazer upload da logo (máx. 2MB)</span>
+                  </div>
+                </label>
+              )}
+            </div>
+
             {!editing && (
               <div className="border-t pt-4">
                 <p className="text-sm font-medium mb-3">Administrador Inicial</p>
@@ -443,7 +546,9 @@ export default function GerenciarEmpresas() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setDialogOpen(false); resetForm(); }}>Cancelar</Button>
-            <Button onClick={handleSave} disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button>
+            <Button onClick={handleSave} disabled={saving || uploadingLogo}>
+              {saving || uploadingLogo ? "Salvando..." : "Salvar"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

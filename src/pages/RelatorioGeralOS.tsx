@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { addPdfHeader, getCompanyInfo } from "@/lib/pdfHeader";
 
 type OSRow = {
   id: string;
@@ -198,20 +199,12 @@ export default function RelatorioGeralOS() {
     setExporting(true);
     try {
       const doc = new jsPDF({ orientation: "landscape" });
-      const hoje = format(new Date(), "dd/MM/yyyy HH:mm");
 
-      doc.setFontSize(16);
-      doc.setTextColor(99, 102, 241);
-      doc.text("Atlas Control — Relatório Geral de O.S.", 14, 16);
-      doc.setFontSize(9);
-      doc.setTextColor(120);
-      doc.text(`Gerado em ${hoje} · ${filtered.length} O.S.`, 14, 22);
-      doc.setDrawColor(99, 102, 241);
-      doc.setLineWidth(0.5);
-      doc.line(14, 25, 283, 25);
+      const company = await getCompanyInfo();
+      const startY = await addPdfHeader(doc, "Relatório Geral de O.S.", `${filtered.length} ordens de serviço`, company);
 
       autoTable(doc, {
-        startY: 28,
+        startY,
         head: [["Código", "Título", "Status", "Técnico", "Bloco", "Abertura", "Conclusão", "Custo (R$)"]],
         body: filtered.map(os => [
           os.codigo_os || "—",
