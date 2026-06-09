@@ -10,9 +10,8 @@ import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { addPdfHeader, getCompanyInfo } from "@/lib/pdfHeader";
+import { addPdfHeader, addSectionTitle, getCompanyInfo } from "@/lib/pdfHeader";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-const [filterOS, setFilterOS] = useState("__all__");
 
 type MatOS = {
   id: string;
@@ -62,9 +61,10 @@ export default function RelatorioConsolidadoMateriais() {
   const [exporting, setExporting] = useState(false);
   const [sortBy, setSortBy] = useState<"nome" | "qtd" | "custo" | "os">("custo");
   const [filterStatus, setFilterStatus] = useState("__all__");
-const [filterTecnico, setFilterTecnico] = useState("__all__");
-const [filterDateFrom, setFilterDateFrom] = useState("");
-const [filterDateTo, setFilterDateTo] = useState("");
+  const [filterTecnico, setFilterTecnico] = useState("__all__");
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
+  const [filterOS, setFilterOS] = useState("__all__");
 
   const fetchData = useCallback(async () => {
     if (!companyId) { setLoading(false); return; }
@@ -99,15 +99,7 @@ const [filterDateTo, setFilterDateTo] = useState("");
     materiais.forEach(m => {
       const key = m.nome_material.trim().toLowerCase();
       if (!map[key]) {
-        map[key] = {
-          nome: m.nome_material,
-          unidade: m.unidade,
-          totalQtd: 0,
-          totalCusto: 0,
-          totalOS: 0,
-          ultimaUtilizacao: null,
-          ocorrencias: [],
-        };
+        map[key] = { nome: m.nome_material, unidade: m.unidade, totalQtd: 0, totalCusto: 0, totalOS: 0, ultimaUtilizacao: null, ocorrencias: [] };
       }
       const os = osMap[m.os_id];
       map[key].totalQtd += m.quantidade;
@@ -152,7 +144,7 @@ const [filterDateTo, setFilterDateTo] = useState("");
       if (sortBy === "os") return b.totalOS - a.totalOS;
       return b.totalCusto - a.totalCusto;
     });
-  }, [consolidado, filterSearch, sortBy]);
+  }, [consolidado, filterSearch, sortBy, filterStatus, filterTecnico, filterDateFrom, filterDateTo, filterOS, profilesMap]);
 
   const toggleExpand = (nome: string) => {
     setExpanded(prev => {
@@ -166,98 +158,95 @@ const [filterDateTo, setFilterDateTo] = useState("");
     const rows: any[] = [];
     filtered.forEach(m => {
       rows.push({
-        "Material": m.nome,
-        "Unidade": m.unidade,
-        "Qtd Total": m.totalQtd,
-        "Custo Total (R$)": m.totalCusto.toFixed(2),
-        "Qtd de O.S.": m.totalOS,
+        "Material": m.nome, "Unidade": m.unidade, "Qtd Total": m.totalQtd,
+        "Custo Total (R$)": m.totalCusto.toFixed(2), "Qtd de O.S.": m.totalOS,
         "Última Utilização": fmtDate(m.ultimaUtilizacao),
       });
     });
-    const wsResumo = XLSX.utils.json_to_sheet(rows);
-
     const rowsDetalhe: any[] = [];
     filtered.forEach(m => {
       m.ocorrencias.forEach(o => {
         rowsDetalhe.push({
-          "Material": m.nome,
-          "O.S.": o.codigoOs || "—",
-          "Data": fmtDate(o.data),
-          "Status": o.status || "—",
-          "Técnico": o.tecnico || "—",
-          "Quantidade": o.quantidade,
-          "Unidade": m.unidade,
+          "Material": m.nome, "O.S.": o.codigoOs || "—", "Data": fmtDate(o.data),
+          "Status": o.status || "—", "Técnico": o.tecnico || "—",
+          "Quantidade": o.quantidade, "Unidade": m.unidade,
         });
       });
     });
-    const wsDetalhe = XLSX.utils.json_to_sheet(rowsDetalhe);
-
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, wsResumo, "Resumo");
-    XLSX.utils.book_append_sheet(wb, wsDetalhe, "Detalhamento");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Resumo");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rowsDetalhe), "Detalhamento");
     XLSX.writeFile(wb, `relatorio-consolidado-materiais-${format(new Date(), "yyyyMMdd")}.xlsx`);
     toast({ title: "Excel exportado!" });
   };
 
- const exportPDF = async () => {
+  const exportPDF = async () => {
     setExporting(true);
     try {
       const doc = new jsPDF({ orientation: "landscape" });
+      const pageW = doc.internal.pageSize.getWidth();
       const company = await getCompanyInfo();
-      const startY = await addPdfHeader(doc, "Consolidado de Materiais", `${filtered.length} materiais diferentes`, company);
+      let y = await addPdfHeader(doc, "Consolidado de Materiais", `${filtered.length} materiais diferentes`, company);
 
       // Tabela resumo
       autoTable(doc, {
-        startY,
+        startY: y,
         head: [["Material", "Unidade", "Qtd Total", "Custo Total", "Qtd O.S.", "Última Utilização"]],
-        body: filtered.map(m => [
-          m.nome,
-          m.unidade,
-          m.totalQtd,
-          `R$ ${m.totalCusto.toFixed(2)}`,
-          m.totalOS,
-          fmtDate(m.ultimaUtilizacao),
-        ]),
-        foot: [["TOTAL", "", filtered.reduce((s,m) => s + m.totalQtd, 0), `R$ ${filtered.reduce((s,m) => s + m.totalCusto, 0).toFixed(2)}`, filtered.reduce((s,m) => s + m.totalOS, 0), ""]],
-        headStyles: { fillColor: [99, 102, 241], fontSize: 8 },
-        bodyStyles: { fontSize: 8 },
-        alternateRowStyles: { fillColor: [248, 248, 255] },
-        footStyles: { fillColor: [99, 102, 241], textColor: 255, fontStyle: "bold", fontSize: 8 },
+        body: filtered.map(m => [m.nome, m.unidade, m.totalQtd, `R$ ${m.totalCusto.toFixed(2)}`, m.totalOS, fmtDate(m.ultimaUtilizacao)]),
+        foot: [["TOTAL", "", filtered.reduce((s, m) => s + m.totalQtd, 0), `R$ ${filtered.reduce((s, m) => s + m.totalCusto, 0).toFixed(2)}`, filtered.reduce((s, m) => s + m.totalOS, 0), ""]],
+        headStyles: { fillColor: [210, 213, 235], textColor: [30, 30, 60], fontSize: 8, fontStyle: "bold" },
+        bodyStyles: { fontSize: 8, textColor: [40, 40, 40] },
+        alternateRowStyles: { fillColor: [250, 250, 255] },
+        footStyles: { fillColor: [210, 213, 235], textColor: [30, 30, 60], fontSize: 8, fontStyle: "bold" },
+        margin: { left: 10, right: 10 },
+        tableWidth: pageW - 20,
       });
 
       // Detalhamento por material
-      let y = (doc as any).lastAutoTable.finalY + 10;
-      doc.setFontSize(11);
-      doc.setTextColor(50, 50, 80);
+      y = (doc as any).lastAutoTable.finalY + 10;
       if (y > 170) { doc.addPage(); y = 14; }
-      doc.text("Detalhamento por Material", 14, y);
-      y += 6;
+      y = addSectionTitle(doc, "Detalhamento por Material", y);
 
       for (const m of filtered) {
-        if (y > 175) { doc.addPage(); y = 14; }
-        doc.setFontSize(9);
-        doc.setTextColor(99, 102, 241);
-        doc.text(`${m.nome} — ${m.totalQtd} ${m.unidade} em ${m.totalOS} O.S. — Total: R$ ${m.totalCusto.toFixed(2)}`, 14, y);
-        y += 4;
+        if (y + 30 > 195) { doc.addPage(); y = 14; }
 
+        // Barra do material
+        doc.setFillColor(230, 232, 245);
+        doc.rect(10, y, pageW - 20, 8, "F");
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(30, 30, 40);
+        doc.text(m.nome, 13, y + 5.5);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(70, 70, 90);
+        doc.text(`${m.totalQtd} ${m.unidade} · ${m.totalOS} O.S. · Total: R$ ${m.totalCusto.toFixed(2)}`, pageW - 13, y + 5.5, { align: "right" });
+        y += 10;
+
+        // Tabela de ocorrências
         autoTable(doc, {
           startY: y,
-          head: [["O.S.", "Status", "Técnico", "Data", "Quantidade"]],
+          head: [["O.S.", "Status", "Data", "Quantidade"]],
           body: m.ocorrencias
             .sort((a, b) => (b.data || "").localeCompare(a.data || ""))
-            .map(o => [
-              o.codigoOs || "—",
-              o.status || "—",
-              o.tecnico || "—",
-              fmtDate(o.data),
-              `${o.quantidade} ${m.unidade}`,
-            ]),
-          headStyles: { fillColor: [230, 230, 250], textColor: [50, 50, 100], fontSize: 7 },
-          bodyStyles: { fontSize: 7 },
-          margin: { left: 14 },
+            .map(o => [o.codigoOs || "—", o.status || "—", fmtDate(o.data), `${o.quantidade} ${m.unidade}`]),
+          headStyles: { fillColor: [240, 241, 248], textColor: [30, 30, 60], fontSize: 7.5, fontStyle: "bold" },
+          bodyStyles: { fontSize: 7.5, textColor: [40, 40, 40] },
+          alternateRowStyles: { fillColor: [250, 250, 255] },
+          margin: { left: 10, right: 10 },
+          tableWidth: pageW - 20,
         });
         y = (doc as any).lastAutoTable.finalY + 8;
       }
+
+      // Total geral
+      if (y + 10 > 195) { doc.addPage(); y = 14; }
+      doc.setDrawColor(180, 180, 200);
+      doc.setLineWidth(0.5);
+      doc.line(10, y, pageW - 10, y);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(30, 30, 60);
+      doc.text(`Custo Total Geral: R$ ${filtered.reduce((s, m) => s + m.totalCusto, 0).toFixed(2)}`, pageW - 13, y + 6, { align: "right" });
 
       doc.save(`relatorio-consolidado-materiais-${format(new Date(), "yyyyMMdd")}.pdf`);
       toast({ title: "PDF exportado!" });
@@ -270,6 +259,7 @@ const [filterDateTo, setFilterDateTo] = useState("");
 
   const totalCusto = filtered.reduce((s, m) => s + m.totalCusto, 0);
   const totalItens = filtered.reduce((s, m) => s + m.totalQtd, 0);
+  const hasFilters = filterStatus !== "__all__" || filterTecnico !== "__all__" || filterDateFrom || filterDateTo || filterOS !== "__all__";
 
   return (
     <div className="space-y-6">
@@ -289,8 +279,13 @@ const [filterDateTo, setFilterDateTo] = useState("");
             <Download className="mr-2 h-4 w-4" /> Excel
           </Button>
           <Button variant="outline" onClick={exportPDF} disabled={filtered.length === 0 || exporting}>
-            <FileText className="mr-2 h-4 w-4" /> {exporting ? "Gerando..." : "PDF"}
+            <FileText className="mr-2 h-4 w-4" /> {exporting ? "Gerando..." : "PDF Completo"}
           </Button>
+          {hasFilters && filtered.length > 0 && (
+            <Button onClick={exportPDF} disabled={exporting}>
+              <FileText className="mr-2 h-4 w-4" /> {exporting ? "Gerando..." : "PDF Filtrado"}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -316,8 +311,19 @@ const [filterDateTo, setFilterDateTo] = useState("");
         </div>
       </div>
 
-  {/* Filtros */}
+      {/* Filtros */}
       <div className="flex flex-wrap gap-3 items-center">
+        <Select value={filterOS} onValueChange={setFilterOS}>
+          <SelectTrigger className="w-48"><SelectValue placeholder="Filtrar por O.S." /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__">Todas as O.S.</SelectItem>
+            {osList
+              .filter(os => materiais.some(m => m.os_id === os.id))
+              .sort((a, b) => (a.codigo_os || "").localeCompare(b.codigo_os || ""))
+              .map(os => <SelectItem key={os.id} value={os.id}>{os.codigo_os || os.titulo || os.id}</SelectItem>)
+            }
+          </SelectContent>
+        </Select>
         <Select value={filterStatus} onValueChange={setFilterStatus}>
           <SelectTrigger className="w-44"><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>
@@ -326,17 +332,6 @@ const [filterDateTo, setFilterDateTo] = useState("");
           </SelectContent>
         </Select>
         <Select value={filterTecnico} onValueChange={setFilterTecnico}>
-          <Select value={filterOS} onValueChange={setFilterOS}>
-  <SelectTrigger className="w-48"><SelectValue placeholder="Filtrar por O.S." /></SelectTrigger>
-  <SelectContent>
-    <SelectItem value="__all__">Todas as O.S.</SelectItem>
-    {osList
-      .filter(os => materiais.some(m => m.os_id === os.id))
-      .sort((a, b) => (a.codigo_os || "").localeCompare(b.codigo_os || ""))
-      .map(os => <SelectItem key={os.id} value={os.id}>{os.codigo_os || os.titulo || os.id}</SelectItem>)
-    }
-  </SelectContent>
-</Select>
           <SelectTrigger className="w-44"><SelectValue placeholder="Técnico" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="__all__">Todos</SelectItem>
@@ -349,8 +344,8 @@ const [filterDateTo, setFilterDateTo] = useState("");
           <span className="text-xs text-muted-foreground">até</span>
           <Input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} className="w-36 h-9" />
         </div>
-        {(filterStatus !== "__all__" || filterTecnico !== "__all__" || filterDateFrom || filterDateTo) && (
-          <Button variant="ghost" size="sm" onClick={() => { setFilterStatus("__all__"); setFilterTecnico("__all__"); setFilterDateFrom(""); setFilterDateTo("");setFilterDateTo("") }}>
+        {hasFilters && (
+          <Button variant="ghost" size="sm" onClick={() => { setFilterStatus("__all__"); setFilterTecnico("__all__"); setFilterDateFrom(""); setFilterDateTo(""); setFilterOS("__all__"); }}>
             <X className="h-3 w-3 mr-1" /> Limpar
           </Button>
         )}

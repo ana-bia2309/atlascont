@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { addPdfHeader, getCompanyInfo } from "@/lib/pdfHeader";
+import { addPdfHeader, addSectionTitle, addItemLabel, getCompanyInfo } from "@/lib/pdfHeader";
 
 type MatOS = {
   id: string;
@@ -157,20 +157,45 @@ export default function RelatorioMateriais() {
     setExporting(true);
     try {
       const doc = new jsPDF({ orientation: "landscape" });
+      const pageW = doc.internal.pageSize.getWidth();
       const company = await getCompanyInfo();
       let y = await addPdfHeader(doc, "Relatório de Materiais por O.S.", `${osComMateriais.length} O.S. com materiais`, company);
 
       for (const os of osComMateriais) {
-        if (y > 170) { doc.addPage(); y = 14; }
-        doc.setFontSize(9); doc.setTextColor(99, 102, 241);
-        const tecnico = os.responsible_user_id ? profilesMap[os.responsible_user_id] || "—" : "—";
-        doc.text(`${os.codigo_os || "OS"} — ${(os.titulo || os.equipamentos || "").substring(0, 60)} | ${os.status || "—"} | ${tecnico}`, 14, y);
-        y += 4;
-
         const mats = materiaisByOs[os.id] || [];
+        const totalOS = mats.reduce((s, m) => s + m.custo_total_item, 0);
+        const estimatedHeight = 22 + mats.length * 8;
+
+        if (y + estimatedHeight > 195) { doc.addPage(); y = 14; }
+
+        // ── Cabeçalho da OS ──
+        doc.setFillColor(230, 232, 245);
+        doc.rect(10, y, pageW - 20, 8, "F");
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(30, 30, 40);
+        doc.text(os.codigo_os || "OS", 13, y + 5.5);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(70, 70, 90);
+        doc.text(os.status || "—", 45, y + 5.5);
+        doc.text(os.created_at ? new Date(os.created_at).toLocaleDateString("pt-BR") : "—", pageW - 13, y + 5.5, { align: "right" });
+        y += 9;
+
+        // ── Título da OS ──
+        doc.setFillColor(245, 245, 250);
+        doc.rect(10, y, pageW - 20, 7, "F");
+        doc.setFontSize(7.5);
+        doc.setTextColor(50, 50, 60);
+        doc.setFont("helvetica", "italic");
+        const titulo = (os.titulo || os.equipamentos || "").substring(0, 110);
+        doc.text(titulo, 13, y + 4.5);
+        doc.setFont("helvetica", "normal");
+        y += 9;
+
+        // ── Tabela de materiais ──
         autoTable(doc, {
           startY: y,
-          head: [["Material", "Quantidade", "Unidade", "Valor Unit.", "Subtotal"]],
+          head: [["Material", "Qtd", "Unidade", "Valor Unit.", "Subtotal"]],
           body: mats.map(m => [
             m.nome_material,
             m.quantidade,
@@ -178,17 +203,32 @@ export default function RelatorioMateriais() {
             `R$ ${Number(m.custo_unitario).toFixed(2)}`,
             `R$ ${Number(m.custo_total_item).toFixed(2)}`,
           ]),
-          foot: [[
-            "Total", "", "", "",
-            `R$ ${mats.reduce((s, m) => s + m.custo_total_item, 0).toFixed(2)}`
-          ]],
-          headStyles: { fillColor: [230, 230, 250], textColor: [50, 50, 100], fontSize: 7 },
-          bodyStyles: { fontSize: 7 },
-          footStyles: { fillColor: [240, 240, 255], textColor: [50, 50, 100], fontSize: 7, fontStyle: "bold" },
-          margin: { left: 14 },
+          foot: [["Total da O.S.", "", "", "", `R$ ${totalOS.toFixed(2)}`]],
+          headStyles: { fillColor: [210, 213, 235], textColor: [30, 30, 60], fontSize: 7.5, fontStyle: "bold" },
+          bodyStyles: { fontSize: 7.5, textColor: [40, 40, 40] },
+          alternateRowStyles: { fillColor: [250, 250, 255] },
+          footStyles: { fillColor: [210, 213, 235], textColor: [30, 30, 60], fontSize: 7.5, fontStyle: "bold" },
+          margin: { left: 10, right: 10 },
+          tableWidth: pageW - 20,
         });
-        y = (doc as any).lastAutoTable.finalY + 8;
+
+        y = (doc as any).lastAutoTable.finalY + 10;
       }
+
+      // ── Rodapé com total geral ──
+      const totalGeral = osComMateriais.reduce((s, os) => {
+        return s + (materiaisByOs[os.id] || []).reduce((ss, m) => ss + m.custo_total_item, 0);
+      }, 0);
+
+      if (y + 10 > 195) { doc.addPage(); y = 14; }
+      doc.setDrawColor(180, 180, 200);
+      doc.setLineWidth(0.5);
+      doc.line(10, y, pageW - 10, y);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(30, 30, 60);
+      doc.text(`Total Geral: R$ ${totalGeral.toFixed(2)}`, pageW - 13, y + 6, { align: "right" });
+
       doc.save(`relatorio-materiais-os-${format(new Date(), "yyyyMMdd")}.pdf`);
       toast({ title: "PDF exportado!" });
     } catch (err: any) {

@@ -56,12 +56,10 @@ export async function addPdfHeader(
   company?: PdfCompanyInfo
 ): Promise<number> {
   const pageW = doc.internal.pageSize.getWidth();
-  const isLandscape = pageW > 200;
-  const maxW = isLandscape ? 297 : 210;
 
-  // Fundo do cabeçalho
-  doc.setFillColor(248, 248, 255);
-  doc.rect(0, 0, maxW, 30, "F");
+  // Fundo branco limpo
+  doc.setFillColor(255, 255, 255);
+  doc.rect(0, 0, pageW, 35, "F");
 
   let logoW = 0;
 
@@ -70,10 +68,8 @@ export async function addPdfHeader(
     const base64 = await loadImageAsBase64(company.logoUrl);
     if (base64) {
       try {
-        const logoH = 18;
-        logoW = 18;
-        doc.addImage(base64, "PNG", 10, 6, logoW, logoH);
-        logoW += 14; // margem após logo
+        doc.addImage(base64, "PNG", 10, 5, 20, 20);
+        logoW = 26;
       } catch {
         logoW = 0;
       }
@@ -82,25 +78,26 @@ export async function addPdfHeader(
 
   const textX = 10 + logoW;
 
-  // Nome da empresa
-  if (company?.nome && company.nome !== "Atlas Control") {
+  // Nome da empresa — pequeno, cinza
+  if (company?.nome) {
     doc.setFontSize(8);
-    doc.setTextColor(130, 130, 150);
+    doc.setTextColor(120, 120, 120);
+    doc.setFont("helvetica", "normal");
     doc.text(company.nome.toUpperCase(), textX, 10);
   }
 
-  // Título do relatório
-  doc.setFontSize(14);
-  doc.setTextColor(50, 50, 80);
+  // Título — preto, negrito
+  doc.setFontSize(15);
+  doc.setTextColor(30, 30, 30);
   doc.setFont("helvetica", "bold");
-  doc.text(title, textX, company?.nome && company.nome !== "Atlas Control" ? 18 : 14);
+  doc.text(title, textX, 19);
   doc.setFont("helvetica", "normal");
 
-  // Subtítulo
+  // Subtítulo — cinza
   if (subtitle) {
     doc.setFontSize(8);
-    doc.setTextColor(130, 130, 150);
-    doc.text(subtitle, textX, company?.nome && company.nome !== "Atlas Control" ? 24 : 20);
+    doc.setTextColor(140, 140, 140);
+    doc.text(subtitle, textX, 26);
   }
 
   // Data geração (direita)
@@ -109,18 +106,37 @@ export async function addPdfHeader(
     hour: "2-digit", minute: "2-digit",
   });
   doc.setFontSize(7);
-  doc.setTextColor(160, 160, 175);
-  doc.text(`Gerado em ${hoje}`, maxW - 10, 10, { align: "right" });
+  doc.setTextColor(160, 160, 160);
+  doc.text(`Gerado em ${hoje}`, pageW - 10, 10, { align: "right" });
+  doc.text("Atlas Control", pageW - 10, 16, { align: "right" });
 
-  // Atlas Control (marca d'água discreta)
-  doc.setFontSize(7);
-  doc.setTextColor(190, 190, 210);
-  doc.text("Atlas Control", maxW - 10, 16, { align: "right" });
+  // Linha separadora — cinza claro
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.5);
+  doc.line(10, 32, pageW - 10, 32);
 
-  // Linha separadora
-  doc.setDrawColor(99, 102, 241);
-  doc.setLineWidth(0.8);
-  doc.line(10, 31, maxW - 10, 31);
+  return 38;
+}
 
-  return 36; // y inicial após o cabeçalho
+// Função auxiliar para título de seção dentro do PDF
+export function addSectionTitle(doc: jsPDF, title: string, y: number): number {
+  const pageW = doc.internal.pageSize.getWidth();
+  doc.setFontSize(10);
+  doc.setTextColor(30, 30, 30);
+  doc.setFont("helvetica", "bold");
+  doc.text(title, 10, y);
+  doc.setFont("helvetica", "normal");
+  doc.setDrawColor(220, 220, 220);
+  doc.setLineWidth(0.3);
+  doc.line(10, y + 2, pageW - 10, y + 2);
+  return y + 7;
+}
+
+// Função auxiliar para label de item (ex: nome do material ou código da OS)
+export function addItemLabel(doc: jsPDF, label: string, y: number): void {
+  doc.setFontSize(8);
+  doc.setTextColor(60, 60, 60);
+  doc.setFont("helvetica", "bold");
+  doc.text(label, 10, y);
+  doc.setFont("helvetica", "normal");
 }

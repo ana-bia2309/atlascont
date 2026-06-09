@@ -219,6 +219,8 @@ export default function RelatorioGeralOS() {
         headStyles: { fillColor: [99, 102, 241], fontSize: 8 },
         bodyStyles: { fontSize: 8 },
         alternateRowStyles: { fillColor: [248, 248, 255] },
+        foot: [["", "", "", "", "", "", "", `Total: R$ ${filtered.reduce((s, os) => s + (os.custo_total || 0), 0).toFixed(2)}`]],
+        footStyles: { fillColor: [99, 102, 241], textColor: 255, fontStyle: "bold", fontSize: 8 },
       });
 
       // Detalhamento por OS com materiais
