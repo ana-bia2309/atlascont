@@ -15,7 +15,6 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // Authenticate caller using the Authorization header
     const authHeader = req.headers.get("Authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Não autorizado" }), {
@@ -24,7 +23,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Use adminClient to verify the caller's JWT token directly
     const token = authHeader.replace("Bearer ", "");
     const { data: { user: caller }, error: userError } = await adminClient.auth.getUser(token);
 
@@ -36,11 +34,27 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Verify admin role
+    // Get caller's profile to find their company_id
+    const { data: callerProfile, error: callerProfileError } = await adminClient
+      .from("profiles")
+      .select("id, company_id")
+      .eq("user_id", caller.id)
+      .maybeSingle();
+
+    if (callerProfileError || !callerProfile) {
+      console.error("Caller profile error:", callerProfileError?.message);
+      return new Response(JSON.stringify({ error: "Perfil do administrador não encontrado" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Verify admin role using caller.id (auth UUID) — has_role expects auth.uid
     const { data: isAdmin } = await adminClient.rpc("has_role", {
       _user_id: caller.id,
       _role: "administrador",
     });
+
     if (!isAdmin) {
       return new Response(JSON.stringify({ error: "Apenas administradores podem convidar usuários" }), {
         status: 403,
@@ -57,7 +71,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check duplicate email in profiles
+    // Check duplicate email
     const { data: existingEmail } = await adminClient
       .from("profiles")
       .select("id")
@@ -70,7 +84,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check duplicate CPF in profiles
+    // Check duplicate CPF
     const { data: existingCpf } = await adminClient
       .from("profiles")
       .select("id")
@@ -83,7 +97,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Invite user by email — Supabase sends the invite email automatically
+    // Invite user
     const { data: authData, error: authError } = await adminClient.auth.admin.inviteUserByEmail(email, {
       data: { nome, cpf },
       redirectTo: redirectTo || undefined,
@@ -91,7 +105,6 @@ Deno.serve(async (req) => {
 
     if (authError) {
       console.error("Invite error:", authError.message);
-      // Handle "already registered" from Supabase Auth
       if (authError.message?.includes("already been registered") || authError.message?.includes("already exists")) {
         return new Response(JSON.stringify({ error: "Usuário já cadastrado com este e-mail" }), {
           status: 409,
@@ -106,10 +119,10 @@ Deno.serve(async (req) => {
 
     const authUserId = authData.user.id;
 
-    // Wait for trigger to create/link the profile
+    // Wait for trigger to create profile
     await new Promise((r) => setTimeout(r, 500));
 
-    // Find profile and update CPF + role + perfil_acesso_id
+    // Find and update profile with company_id from caller
     const { data: profile, error: profileError } = await adminClient
       .from("profiles")
       .select("id")
@@ -124,6 +137,7 @@ Deno.serve(async (req) => {
       const { error: updateError } = await adminClient.from("profiles").update({
         cpf,
         nome,
+        company_id: callerProfile.company_id,
         perfil_acesso_id: perfil_acesso_id || null,
       }).eq("id", profile.id);
 
@@ -132,9 +146,11 @@ Deno.serve(async (req) => {
       }
 
       if (role !== "visualizacao") {
-        const { error: roleError } = await adminClient.from("user_roles").update({ role }).eq("user_id", profile.id);
+        const { error: roleError } = await adminClient
+          .from("user_roles")
+          .insert({ user_id: profile.id, role, company_id: callerProfile.company_id });
         if (roleError) {
-          console.error("Role update error:", roleError.message);
+          console.error("Role insert error:", roleError.message);
         }
       }
     }
