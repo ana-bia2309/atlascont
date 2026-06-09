@@ -1,0 +1,347 @@
+import { useCallback, useEffect, useState, useMemo } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useCompany } from "@/hooks/use-company";
+import { toast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { RefreshCw, Search, X, FileText, Download, Filter, Package, ChevronDown, ChevronRight } from "@/lib/icons";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+
+type MatOS = {
+  id: string;
+  os_id: string;
+  nome_material: string;
+  quantidade: number;
+  unidade: string;
+  custo_unitario: number;
+  custo_total_item: number;
+};
+
+type OSRow = {
+  id: string;
+  codigo_os: string | null;
+  status: string | null;
+  created_at: string | null;
+  responsible_user_id: string | null;
+  titulo: string | null;
+  equipamentos: string | null;
+};
+
+type Profile = { id: string; nome: string };
+
+const fmtDate = (d: string | null) => {
+  if (!d) return "—";
+  try { return format(new Date(d), "dd/MM/yyyy"); } catch { return "—"; }
+};
+
+export default function RelatorioMateriais() {
+  const { companyId } = useCompany();
+  const [osList, setOsList] = useState<OSRow[]>([]);
+  const [materiais, setMateriais] = useState<MatOS[]>([]);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedOs, setExpandedOs] = useState<Set<string>>(new Set());
+  const [exporting, setExporting] = useState(false);
+
+  // Filtros
+  const [filterSearch, setFilterSearch] = useState("");
+  const [filterTecnico, setFilterTecnico] = useState("__all__");
+  const [filterStatus, setFilterStatus] = useState("__all__");
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
+
+  const fetchData = useCallback(async () => {
+    if (!companyId) { setLoading(false); return; }
+    setLoading(true);
+    try {
+      const [osRes, matRes, profRes] = await Promise.all([
+        (supabase as any).from("ordens_servico")
+          .select("id, codigo_os, status, created_at, responsible_user_id, titulo, equipamentos")
+          .eq("company_id", companyId)
+          .order("created_at", { ascending: false }),
+        (supabase as any).from("materiais_os")
+          .select("id, os_id, nome_material, quantidade, unidade, custo_unitario, custo_total_item")
+          .eq("company_id", companyId),
+        (supabase as any).from("profiles").select("id, nome").eq("company_id", companyId).order("nome"),
+      ]);
+      setOsList(osRes?.data || []);
+      setMateriais(matRes?.data || []);
+      setProfiles(profRes?.data || []);
+    } catch (err: any) {
+      toast({ title: "Erro ao carregar dados", description: err.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }, [companyId]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const profilesMap = useMemo(() => Object.fromEntries(profiles.map(p => [p.id, p.nome])), [profiles]);
+  const materiaisByOs = useMemo(() => {
+    const map: Record<string, MatOS[]> = {};
+    materiais.forEach(m => {
+      if (!map[m.os_id]) map[m.os_id] = [];
+      map[m.os_id].push(m);
+    });
+    return map;
+  }, [materiais]);
+
+  // Apenas OS que têm materiais
+  const osComMateriais = useMemo(() => {
+    return osList.filter(os => {
+      const mats = materiaisByOs[os.id] || [];
+      if (mats.length === 0) return false;
+      if (filterStatus !== "__all__" && os.status !== filterStatus) return false;
+      if (filterTecnico !== "__all__" && os.responsible_user_id !== filterTecnico) return false;
+      if (filterDateFrom && os.created_at && os.created_at < filterDateFrom) return false;
+      if (filterDateTo && os.created_at && os.created_at.slice(0, 10) > filterDateTo) return false;
+      if (filterSearch.trim()) {
+        const q = filterSearch.toLowerCase();
+        const matchOs = [os.codigo_os, os.titulo, os.equipamentos].some(f => (f || "").toLowerCase().includes(q));
+        const matchMat = mats.some(m => m.nome_material.toLowerCase().includes(q));
+        if (!matchOs && !matchMat) return false;
+      }
+      return true;
+    });
+  }, [osList, materiaisByOs, filterStatus, filterTecnico, filterSearch, filterDateFrom, filterDateTo]);
+
+  const toggleExpand = (id: string) => {
+    setExpandedOs(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const expandAll = () => setExpandedOs(new Set(osComMateriais.map(os => os.id)));
+  const collapseAll = () => setExpandedOs(new Set());
+
+  const hasFilters = filterStatus !== "__all__" || filterTecnico !== "__all__" || filterSearch.trim() || filterDateFrom || filterDateTo;
+
+  const exportExcel = () => {
+    const rows: any[] = [];
+    osComMateriais.forEach(os => {
+      const mats = materiaisByOs[os.id] || [];
+      mats.forEach(m => {
+        rows.push({
+          "Código OS": os.codigo_os || "—",
+          "Título": os.titulo || os.equipamentos || "—",
+          "Status": os.status || "—",
+          "Técnico": os.responsible_user_id ? profilesMap[os.responsible_user_id] || "—" : "—",
+          "Data": fmtDate(os.created_at),
+          "Material": m.nome_material,
+          "Quantidade": m.quantidade,
+          "Unidade": m.unidade,
+          "Valor Unit. (R$)": m.custo_unitario,
+          "Subtotal (R$)": m.custo_total_item,
+        });
+      });
+    });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws["!cols"] = Object.keys(rows[0] || {}).map(() => ({ wch: 20 }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Materiais por OS");
+    XLSX.writeFile(wb, `relatorio-materiais-os-${format(new Date(), "yyyyMMdd")}.xlsx`);
+    toast({ title: "Excel exportado!" });
+  };
+
+  const exportPDF = async () => {
+    setExporting(true);
+    try {
+      const doc = new jsPDF({ orientation: "landscape" });
+      doc.setFontSize(16); doc.setTextColor(99, 102, 241);
+      doc.text("Atlas Control — Relatório de Materiais por O.S.", 14, 16);
+      doc.setFontSize(9); doc.setTextColor(120);
+      doc.text(`Gerado em ${format(new Date(), "dd/MM/yyyy HH:mm")} · ${osComMateriais.length} O.S.`, 14, 22);
+      doc.setDrawColor(99, 102, 241); doc.line(14, 25, 283, 25);
+
+      let y = 28;
+      for (const os of osComMateriais) {
+        if (y > 170) { doc.addPage(); y = 14; }
+        doc.setFontSize(9); doc.setTextColor(99, 102, 241);
+        const tecnico = os.responsible_user_id ? profilesMap[os.responsible_user_id] || "—" : "—";
+        doc.text(`${os.codigo_os || "OS"} — ${(os.titulo || os.equipamentos || "").substring(0, 60)} | ${os.status || "—"} | ${tecnico}`, 14, y);
+        y += 4;
+
+        const mats = materiaisByOs[os.id] || [];
+        autoTable(doc, {
+          startY: y,
+          head: [["Material", "Quantidade", "Unidade", "Valor Unit.", "Subtotal"]],
+          body: mats.map(m => [
+            m.nome_material,
+            m.quantidade,
+            m.unidade,
+            `R$ ${Number(m.custo_unitario).toFixed(2)}`,
+            `R$ ${Number(m.custo_total_item).toFixed(2)}`,
+          ]),
+          foot: [[
+            "Total", "", "", "",
+            `R$ ${mats.reduce((s, m) => s + m.custo_total_item, 0).toFixed(2)}`
+          ]],
+          headStyles: { fillColor: [230, 230, 250], textColor: [50, 50, 100], fontSize: 7 },
+          bodyStyles: { fontSize: 7 },
+          footStyles: { fillColor: [240, 240, 255], textColor: [50, 50, 100], fontSize: 7, fontStyle: "bold" },
+          margin: { left: 14 },
+        });
+        y = (doc as any).lastAutoTable.finalY + 8;
+      }
+      doc.save(`relatorio-materiais-os-${format(new Date(), "yyyyMMdd")}.pdf`);
+      toast({ title: "PDF exportado!" });
+    } catch (err: any) {
+      toast({ title: "Erro ao exportar", description: err.message, variant: "destructive" });
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const totalMateriais = osComMateriais.reduce((s, os) => s + (materiaisByOs[os.id] || []).reduce((ss, m) => ss + m.custo_total_item, 0), 0);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Package className="h-6 w-6 text-primary" />
+          <div>
+            <h1 className="text-2xl font-bold">Relatório de Materiais por O.S.</h1>
+            <p className="text-sm text-muted-foreground">{osComMateriais.length} O.S. com materiais</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" onClick={fetchData}>
+            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+          </Button>
+          <Button variant="outline" onClick={exportExcel} disabled={osComMateriais.length === 0}>
+            <Download className="mr-2 h-4 w-4" /> Excel
+          </Button>
+          <Button variant="outline" onClick={exportPDF} disabled={osComMateriais.length === 0 || exporting}>
+            <FileText className="mr-2 h-4 w-4" /> {exporting ? "Gerando..." : "PDF"}
+          </Button>
+        </div>
+      </div>
+
+      {/* Filtros */}
+      <div className="rounded-lg border bg-card p-4 space-y-3">
+        <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+          <Filter className="h-3.5 w-3.5" /> Filtros
+          {hasFilters && (
+            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs gap-1" onClick={() => { setFilterSearch(""); setFilterStatus("__all__"); setFilterTecnico("__all__"); setFilterDateFrom(""); setFilterDateTo(""); }}>
+              <X className="h-3 w-3" /> Limpar
+            </Button>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input value={filterSearch} onChange={e => setFilterSearch(e.target.value)} placeholder="Buscar OS ou material..." className="pl-9" />
+          </div>
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="w-44"><SelectValue placeholder="Status" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">Todos os status</SelectItem>
+              {["Não Iniciada","Em Execução","Concluída","Cancelada"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={filterTecnico} onValueChange={setFilterTecnico}>
+            <SelectTrigger className="w-44"><SelectValue placeholder="Técnico" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">Todos</SelectItem>
+              {profiles.map(p => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">De</span>
+            <Input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} className="w-36 h-9" />
+            <span className="text-xs text-muted-foreground">até</span>
+            <Input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} className="w-36 h-9" />
+          </div>
+        </div>
+      </div>
+
+      {/* Resumo */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="rounded-lg border bg-card p-4">
+          <p className="text-xs text-muted-foreground">O.S. com materiais</p>
+          <p className="text-2xl font-bold text-primary">{osComMateriais.length}</p>
+        </div>
+        <div className="rounded-lg border bg-card p-4">
+          <p className="text-xs text-muted-foreground">Total de itens</p>
+          <p className="text-2xl font-bold">{osComMateriais.reduce((s, os) => s + (materiaisByOs[os.id] || []).length, 0)}</p>
+        </div>
+        <div className="rounded-lg border bg-card p-4">
+          <p className="text-xs text-muted-foreground">Custo total materiais</p>
+          <p className="text-2xl font-bold text-primary">R$ {totalMateriais.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+        </div>
+      </div>
+
+      {/* Controles */}
+      {osComMateriais.length > 0 && (
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={expandAll}>Expandir tudo</Button>
+          <Button variant="outline" size="sm" onClick={collapseAll}>Recolher tudo</Button>
+        </div>
+      )}
+
+      {/* Lista */}
+      {loading ? (
+        <p className="text-muted-foreground text-center py-12">Carregando...</p>
+      ) : osComMateriais.length === 0 ? (
+        <p className="text-muted-foreground text-center py-12">Nenhuma O.S. com materiais encontrada.</p>
+      ) : (
+        <div className="space-y-3">
+          {osComMateriais.map(os => {
+            const mats = materiaisByOs[os.id] || [];
+            const total = mats.reduce((s, m) => s + m.custo_total_item, 0);
+            const expanded = expandedOs.has(os.id);
+            return (
+              <div key={os.id} className="rounded-xl border bg-card overflow-hidden">
+                <button
+                  className="w-full flex items-center gap-3 p-4 hover:bg-muted/30 transition-colors text-left"
+                  onClick={() => toggleExpand(os.id)}
+                >
+                  {expanded ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-xs font-semibold text-muted-foreground">{os.codigo_os || "—"}</span>
+                      <span className="text-sm font-medium truncate">{os.titulo || os.equipamentos || "—"}</span>
+                    </div>
+                    <div className="flex gap-3 mt-0.5 text-xs text-muted-foreground">
+                      <span>{os.status || "—"}</span>
+                      {os.responsible_user_id && <span>👤 {profilesMap[os.responsible_user_id] || "—"}</span>}
+                      <span>📅 {fmtDate(os.created_at)}</span>
+                      <span>📦 {mats.length} item(ns)</span>
+                    </div>
+                  </div>
+                  <span className="text-sm font-bold text-primary shrink-0">R$ {total.toFixed(2)}</span>
+                </button>
+                {expanded && (
+                  <div className="border-t px-4 pb-4 pt-3 space-y-2">
+                    {mats.map(m => (
+                      <div key={m.id} className="flex items-center justify-between rounded-lg border px-3 py-2 bg-muted/30">
+                        <div>
+                          <p className="text-sm font-medium">{m.nome_material}</p>
+                          <p className="text-xs text-muted-foreground">{m.quantidade} {m.unidade} × R$ {Number(m.custo_unitario).toFixed(2)}</p>
+                        </div>
+                        <span className="text-sm font-semibold text-primary">R$ {Number(m.custo_total_item).toFixed(2)}</span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between px-3 py-2 font-semibold text-sm border-t mt-2">
+                      <span className="text-muted-foreground">Total desta O.S.</span>
+                      <span className="text-primary">R$ {total.toFixed(2)}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}

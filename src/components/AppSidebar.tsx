@@ -2,8 +2,9 @@ import {
   Gauge, ClipboardList, CalendarRange, Wrench, BarChart3, Clock, Activity,
   DollarSign, Timer, ListChecks, Building2, Box, ShieldCheck, KeyRound, LogOut, User, Settings, Settings2, Briefcase, ChevronRight, MessagesSquare, Package,
   CheckCircle2, Bot, BookOpen, ShoppingCart,
-  Users,
+  Users, TrendingUp,
 } from "@/lib/icons";
+
 import { usePendingCounts } from "@/hooks/use-pending-counts";
 import { NotificationsPanel } from "@/components/NotificationsPanel";
 import { NavLink } from "@/components/NavLink";
@@ -100,6 +101,8 @@ const relatoriosGroup: MenuGroup = {
     { title: "Desempenho por Técnico", url: "/relatorio-tecnicos", icon: Users, iconColor: "#8B5CF6" },
     { title: "Saúde dos Ativos", url: "/saude-ativos", icon: Activity, iconColor: "#10B981" },
     { title: "Relatório Geral de O.S.", url: "/relatorio-geral-os", icon: ClipboardList, iconColor: "#6366F1" },
+    { title: "Materiais por O.S.", url: "/relatorio-materiais-os", icon: Package, iconColor: "#8B5CF6" },
+    { title: "Consolidado de Materiais", url: "/relatorio-consolidado-materiais", icon: TrendingUp, iconColor: "#F59E0B" },
   ],
 };
 
