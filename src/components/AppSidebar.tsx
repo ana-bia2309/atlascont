@@ -52,7 +52,6 @@ const osGroup: MenuGroup = {
     { title: "Painel de O.S.", url: "/ordens-servico", icon: ClipboardList, requiredPermission: "painel_os.visualizar" },
     { title: "Minhas Ordens de Serviço", url: "/minhas-ordens-servico", icon: User, requiredPermission: "minhas_os.visualizar" },
     { title: "Cronogramas", url: "/cronogramas", icon: CalendarRange, iconColor: "#64748B", requiredPermission: "cronogramas.visualizar" },
-    { title: "Chamados", url: "/chamados-os", icon: MessagesSquare, iconColor: "#0EA5E9", requiredPermission: "chamados_os.visualizar" },
     { title: "Chamados Externos", url: "/chamados-externos", icon: MessagesSquare, iconColor: "#F97316", requiredPermission: "chamados_externos.visualizar" },
     { title: "Aprovações", url: "/aprovacoes", icon: CheckCircle2, iconColor: "#22C55E" },
     { title: "Diagnóstico de Falhas", url: "/diagnostico", icon: Wrench, iconColor: "#F59E0B" },
