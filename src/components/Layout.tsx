@@ -10,12 +10,14 @@ import { logActivity } from "@/lib/activity-log";
 import { supabase } from "@/integrations/supabase/client";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import AIChat from "@/components/AIChat";
+import { useUserRole } from "@/hooks/use-user-role";
 
 type ProfileStatus = "loading" | "active" | "inactive" | "no_profile" | "error";
 
 export default function Layout() {
   const { session, loading, isRecovery } = useAuth();
   const { can, canMenu, permissions, menuPermissions, loading: permLoading, refetch: refetchPerms } = usePermissions();
+  const { role, loading: roleLoading } = useUserRole();
   const location = useLocation();
   const [profileStatus, setProfileStatus] = useState<ProfileStatus>("loading");
   const profileStatusRef = useRef<ProfileStatus>("loading");
@@ -219,17 +221,15 @@ if (
     />
   );
 }
+console.log("ROLE CHECK:", role, "roleLoading:", roleLoading);
+if (!roleLoading && role === "visualizacao") {
+  return <Navigate to="/portal-cliente" replace />;
+}
 
 if (
   permissions.size === 0 &&
   !permLoading
 ) {
-  return (
-    <Navigate
-      to="/solicitar-acesso"
-      replace
-    />
-  );
 }
 
 const basePath =
@@ -264,7 +264,9 @@ if (
     />
   );
 }
-
+if (!roleLoading && role === "visualizacao" && location.pathname !== "/portal-cliente") {
+  return <Navigate to="/portal-cliente" replace />;
+}
 return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
