@@ -320,6 +320,7 @@ export default function OrdensServico() {
         if (prefill.descricao) setObservacoes(prefill.descricao);
         if (prefill.prioridade) setPrioridade(prefill.prioridade);
         if (prefill.chamado_externo_id) setChamadoExternoId(prefill.chamado_externo_id);
+        if (prefill.numero_os_externo) setNumeroOsExterno(prefill.numero_os_externo);
       }
     } catch { /* ignore */ }
     setDialogOpen(true);
@@ -909,6 +910,10 @@ const labelCampo = (label: string, campo: string) => (
           analisado_por: profileId,
           analisado_por_nome: profilesMap[profileId || ""] || null,
         } as any).eq("id", chamadoExternoId);
+        // Marca origem da OS como Portal do Cliente
+        await (supabase as any).from("ordens_servico").update({
+          origem: "Portal do Cliente",
+        }).eq("id", inserted.id).eq("company_id", companyId);
       }
 
       // Save responsáveis for new OS

@@ -198,17 +198,19 @@ const fetchData = useCallback(async () => {
       return;
     }
     // Pre-fill OS form via sessionStorage and navigate to OS create
-    const prefill = {
-      chamado_externo_id: c.id,
-      chamado_externo_codigo: c.codigo,
-      ativo_id: c.ativo_id || "",
-      bloco_id: c.bloco_id || "",
-      andar: c.andar || "",
-      sala: c.sala || "",
-      descricao: c.descricao_problema || "",
-      titulo: `Chamado ${c.codigo} — ${c.ativo_nome || ""}`.trim(),
-      prioridade: "Média",
-    };
+ const prefill = {
+  chamado_externo_id: c.id,
+  chamado_externo_codigo: c.codigo,
+  ativo_id: c.ativo_id || "",
+  bloco_id: c.bloco_id || "",
+  andar: c.andar || "",
+  sala: c.sala || "",
+  descricao: c.descricao_problema || "",
+  titulo: `Chamado ${c.codigo} — ${c.ativo_nome || ""}`.trim(),
+  prioridade: "Média",
+  numero_os_externo: c.codigo,
+  origem: "Portal do Cliente",
+  };
     sessionStorage.setItem("chamado_externo_prefill", JSON.stringify(prefill));
     setAnalyzing(null);
     navigate("/ordens-servico?criar=true&origem=chamado_externo");

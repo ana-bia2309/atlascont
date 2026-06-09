@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { addPdfHeader, addSectionTitle, addItemLabel, getCompanyInfo } from "@/lib/pdfHeader";
+import { addPdfHeader, getCompanyInfo } from "@/lib/pdfHeader";
 
 type MatOS = {
   id: string;
@@ -29,10 +29,15 @@ type OSRow = {
   id: string;
   codigo_os: string | null;
   status: string | null;
+  origem: string | null;
+  numero_os_externo: string | null;
   created_at: string | null;
   responsible_user_id: string | null;
   titulo: string | null;
   equipamentos: string | null;
+  bloco_id: string | null;
+  andar: string | null;
+  sala: string | null;
 };
 
 type Profile = { id: string; nome: string };
@@ -47,6 +52,7 @@ export default function RelatorioMateriais() {
   const [osList, setOsList] = useState<OSRow[]>([]);
   const [materiais, setMateriais] = useState<MatOS[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [blocos, setBlocos] = useState<{id: string; nome: string | null}[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedOs, setExpandedOs] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
@@ -62,19 +68,21 @@ export default function RelatorioMateriais() {
     if (!companyId) { setLoading(false); return; }
     setLoading(true);
     try {
-      const [osRes, matRes, profRes] = await Promise.all([
+      const [osRes, matRes, profRes, blocoRes] = await Promise.all([
         (supabase as any).from("ordens_servico")
-          .select("id, codigo_os, status, created_at, responsible_user_id, titulo, equipamentos")
+          .select("id, codigo_os, status, origem, numero_os_externo, created_at, responsible_user_id, titulo, equipamentos, bloco_id, andar, sala")
           .eq("company_id", companyId)
           .order("created_at", { ascending: false }),
         (supabase as any).from("materiais_os")
           .select("id, os_id, nome_material, quantidade, unidade, custo_unitario, custo_total_item")
           .eq("company_id", companyId),
         (supabase as any).from("profiles").select("id, nome").eq("company_id", companyId).order("nome"),
+        (supabase as any).from("blocos").select("id, nome").eq("company_id", companyId),
       ]);
       setOsList(osRes?.data || []);
       setMateriais(matRes?.data || []);
       setProfiles(profRes?.data || []);
+      setBlocos(blocoRes?.data || []);
     } catch (err: any) {
       toast({ title: "Erro ao carregar dados", description: err.message, variant: "destructive" });
     } finally {
@@ -85,6 +93,7 @@ export default function RelatorioMateriais() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const profilesMap = useMemo(() => Object.fromEntries(profiles.map(p => [p.id, p.nome])), [profiles]);
+  const blocosMap = useMemo(() => Object.fromEntries(blocos.map(b => [b.id, b.nome || "—"])), [blocos]);
   const materiaisByOs = useMemo(() => {
     const map: Record<string, MatOS[]> = {};
     materiais.forEach(m => {
@@ -135,6 +144,8 @@ export default function RelatorioMateriais() {
           "Código OS": os.codigo_os || "—",
           "Título": os.titulo || os.equipamentos || "—",
           "Status": os.status || "—",
+          "Origem": os.origem || "—",
+          "Portal do Cliente": os.origem === "Portal do Cliente" ? "Sim" : "Não",
           "Técnico": os.responsible_user_id ? profilesMap[os.responsible_user_id] || "—" : "—",
           "Data": fmtDate(os.created_at),
           "Material": m.nome_material,
@@ -153,7 +164,7 @@ export default function RelatorioMateriais() {
     toast({ title: "Excel exportado!" });
   };
 
- const exportPDF = async () => {
+  const exportPDF = async () => {
     setExporting(true);
     try {
       const doc = new jsPDF({ orientation: "landscape" });
@@ -169,28 +180,74 @@ export default function RelatorioMateriais() {
         if (y + estimatedHeight > 195) { doc.addPage(); y = 14; }
 
         // ── Cabeçalho da OS ──
-        doc.setFillColor(230, 232, 245);
-        doc.rect(10, y, pageW - 20, 8, "F");
+        const pageW2 = doc.internal.pageSize.getWidth();
+
+        // Linha 1 — fundo escuro com código, status e data
+        doc.setFillColor(50, 55, 80);
+        doc.rect(10, y, pageW2 - 20, 9, "F");
         doc.setFontSize(9);
         doc.setFont("helvetica", "bold");
-        doc.setTextColor(30, 30, 40);
-        doc.text(os.codigo_os || "OS", 13, y + 5.5);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(70, 70, 90);
-        doc.text(os.status || "—", 45, y + 5.5);
-        doc.text(os.created_at ? new Date(os.created_at).toLocaleDateString("pt-BR") : "—", pageW - 13, y + 5.5, { align: "right" });
-        y += 9;
+        doc.setTextColor(255, 255, 255);
+        doc.text(os.codigo_os || "OS", 13, y + 6);
 
-        // ── Título da OS ──
-        doc.setFillColor(245, 245, 250);
-        doc.rect(10, y, pageW - 20, 7, "F");
-        doc.setFontSize(7.5);
-        doc.setTextColor(50, 50, 60);
-        doc.setFont("helvetica", "italic");
-        const titulo = (os.titulo || os.equipamentos || "").substring(0, 110);
-        doc.text(titulo, 13, y + 4.5);
+        // Badge status colorido
+        const statusColors: Record<string, [number, number, number]> = {
+          "Concluída": [34, 197, 94],
+          "Em Execução": [59, 130, 246],
+          "Em execução": [59, 130, 246],
+          "Não Iniciada": [156, 163, 175],
+          "Cancelada": [239, 68, 68],
+        };
+        const sc = statusColors[os.status || ""] || [156, 163, 175];
+        const statusText = os.status || "—";
+        doc.setFillColor(sc[0], sc[1], sc[2]);
+        doc.roundedRect(45, y + 1.5, 36, 6, 1, 1, "F");
+        doc.setFontSize(7);
+        doc.setTextColor(255, 255, 255);
+        doc.text(statusText, 63, y + 5.8, { align: "center" });
+
+        // Badge Portal do Cliente
+        if (os.origem === "Portal do Cliente") {
+          doc.setFillColor(139, 92, 246);
+          doc.roundedRect(84, y + 1.5, 32, 6, 1, 1, "F");
+          doc.setFontSize(6.5);
+          doc.setTextColor(255, 255, 255);
+          doc.text("Portal do Cliente", 100, y + 5.8, { align: "center" });
+        }
+
+        doc.setFontSize(8);
         doc.setFont("helvetica", "normal");
-        y += 9;
+        doc.setTextColor(200, 200, 220);
+        doc.text(os.created_at ? new Date(os.created_at).toLocaleDateString("pt-BR") : "—", pageW2 - 13, y + 6, { align: "right" });
+        y += 10;
+
+        // Linha 2 — título
+        doc.setFillColor(240, 241, 248);
+        doc.rect(10, y, pageW2 - 20, 7, "F");
+        doc.setFontSize(7.5);
+        doc.setTextColor(40, 40, 60);
+        doc.setFont("helvetica", "italic");
+        doc.text((os.titulo || os.equipamentos || "").substring(0, 110), 13, y + 4.8);
+        doc.setFont("helvetica", "normal");
+        y += 8;
+
+        // Linha 3 — localização
+        const locParts2 = [
+          os.bloco_id ? `Bloco: ${blocosMap[os.bloco_id]}` : null,
+          os.andar ? `Andar: ${os.andar}` : null,
+          os.sala ? `Sala: ${os.sala}` : null,
+        ].filter(Boolean);
+
+        if (locParts2.length > 0) {
+          doc.setFillColor(220, 222, 240);
+          doc.rect(10, y, pageW2 - 20, 6, "F");
+          doc.setFontSize(7.5);
+          doc.setTextColor(30, 30, 60);
+          doc.setFont("helvetica", "normal");
+          doc.text(locParts2.join("   |   "), 13, y + 4.2);
+          y += 7;
+        }
+        y += 3;
 
         // ── Tabela de materiais ──
         autoTable(doc, {
@@ -352,6 +409,11 @@ export default function RelatorioMateriais() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-mono text-xs font-semibold text-muted-foreground">{os.codigo_os || "—"}</span>
                       <span className="text-sm font-medium truncate">{os.titulo || os.equipamentos || "—"}</span>
+                      {os.origem === "Portal do Cliente" && (
+                        <span className="inline-flex items-center rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700">
+                          🌐 Portal do Cliente
+                        </span>
+                      )}
                     </div>
                     <div className="flex gap-3 mt-0.5 text-xs text-muted-foreground">
                       <span>{os.status || "—"}</span>

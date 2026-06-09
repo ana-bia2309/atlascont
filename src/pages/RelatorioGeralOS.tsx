@@ -38,6 +38,7 @@ type OSRow = {
   ativo_id: string | null;
   custo_total: number | null;
   equipamentos: string | null;
+  numero_os_externo: string | null;
 };
 
 type Material = {
@@ -106,7 +107,7 @@ export default function RelatorioGeralOS() {
     try {
       const [osRes, matRes, profRes, blocoRes, ativoRes] = await Promise.all([
         (supabase as any).from("ordens_servico")
-          .select("id, codigo_os, titulo, descricao, status, prioridade, origem, created_at, data_inicio, data_termino, finalizado_em, observacoes, responsible_user_id, criado_por, bloco_id, ativo_id, custo_total, equipamentos")
+          .select("id, codigo_os, titulo, descricao, status, prioridade, origem, created_at, data_inicio, data_termino, finalizado_em, observacoes, responsible_user_id, criado_por, bloco_id, ativo_id, custo_total, equipamentos, numero_os_externo")
           .eq("company_id", companyId)
           .order("created_at", { ascending: false }),
         (supabase as any).from("materiais_os").select("id, os_id, nome_material, quantidade, unidade, custo_unitario, custo_total_item").eq("company_id", companyId),
@@ -175,6 +176,7 @@ export default function RelatorioGeralOS() {
       "Status": os.status || "—",
       "Prioridade": os.prioridade || "—",
       "Origem": os.origem || "—",
+      "Portal do Cliente": os.origem === "Portal do Cliente" ? `Sim (${os.numero_os_externo || ""})` : "Não",
       "Técnico": os.responsible_user_id ? profilesMap[os.responsible_user_id] || "—" : "—",
       "Bloco": os.bloco_id ? blocosMap[os.bloco_id] || "—" : "—",
       "Ativo": os.ativo_id ? ativosMap[os.ativo_id] || "—" : "—",
@@ -205,13 +207,14 @@ export default function RelatorioGeralOS() {
 
       autoTable(doc, {
         startY,
-        head: [["Código", "Título", "Status", "Técnico", "Bloco", "Abertura", "Conclusão", "Custo (R$)"]],
+        head: [["Código", "Título", "Status", "Técnico", "Bloco", "Origem", "Abertura", "Conclusão", "Custo (R$)"]],
         body: filtered.map(os => [
           os.codigo_os || "—",
-          (os.titulo || os.equipamentos || "—").substring(0, 40),
+          (os.titulo || os.equipamentos || "—").substring(0, 35),
           os.status || "—",
-          os.responsible_user_id ? (profilesMap[os.responsible_user_id] || "—").substring(0, 20) : "—",
-          os.bloco_id ? (blocosMap[os.bloco_id] || "—").substring(0, 20) : "—",
+          os.responsible_user_id ? (profilesMap[os.responsible_user_id] || "—").substring(0, 18) : "—",
+          os.bloco_id ? (blocosMap[os.bloco_id] || "—").substring(0, 18) : "—",
+          os.origem === "Portal do Cliente" ? `Portal (${os.numero_os_externo || ""})` : (os.origem || "—"),
           fmtDate(os.created_at),
           fmtDate(os.finalizado_em || os.data_termino),
           os.custo_total ? `R$ ${Number(os.custo_total).toFixed(2)}` : "—",
@@ -219,7 +222,7 @@ export default function RelatorioGeralOS() {
         headStyles: { fillColor: [99, 102, 241], fontSize: 8 },
         bodyStyles: { fontSize: 8 },
         alternateRowStyles: { fillColor: [248, 248, 255] },
-        foot: [["", "", "", "", "", "", "", `Total: R$ ${filtered.reduce((s, os) => s + (os.custo_total || 0), 0).toFixed(2)}`]],
+        foot: [["", "", "", "", "", "", "", "", `Total: R$ ${filtered.reduce((s, os) => s + (os.custo_total || 0), 0).toFixed(2)}`]],
         footStyles: { fillColor: [99, 102, 241], textColor: 255, fontStyle: "bold", fontSize: 8 },
       });
 
@@ -338,6 +341,7 @@ export default function RelatorioGeralOS() {
               <SelectItem value="Corretiva">Corretiva</SelectItem>
               <SelectItem value="Preventiva">Preventiva</SelectItem>
               <SelectItem value="Chamado">Chamado</SelectItem>
+              <SelectItem value="Portal do Cliente">Portal do Cliente</SelectItem>
             </SelectContent>
           </Select>
           <div className="flex items-center gap-2">
@@ -387,9 +391,14 @@ export default function RelatorioGeralOS() {
                           {os.prioridade}
                         </Badge>
                       )}
-                      {os.origem && (
+                      {os.origem && os.origem !== "Portal do Cliente" && (
                         <Badge variant="outline" className="text-xs border bg-muted text-muted-foreground">
                           {os.origem}
+                        </Badge>
+                      )}
+                      {os.origem === "Portal do Cliente" && (
+                        <Badge variant="outline" className="text-xs border bg-violet-50 text-violet-700 border-violet-200">
+                          🌐 Portal do Cliente
                         </Badge>
                       )}
                     </div>
@@ -423,6 +432,11 @@ export default function RelatorioGeralOS() {
             <DialogTitle className="flex items-center gap-2 flex-wrap">
               <span className="font-mono">{viewing?.codigo_os}</span>
               {viewing && <Badge variant="outline" className={cn("text-xs border", statusColor(viewing.status))}>{viewing.status}</Badge>}
+              {viewing?.origem === "Portal do Cliente" && (
+                <Badge variant="outline" className="text-xs border bg-violet-50 text-violet-700 border-violet-200">
+                  🌐 Portal do Cliente
+                </Badge>
+              )}
             </DialogTitle>
             <DialogDescription>{viewing?.titulo || viewing?.equipamentos || "Detalhes da O.S."}</DialogDescription>
           </DialogHeader>
