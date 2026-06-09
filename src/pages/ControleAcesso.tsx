@@ -560,11 +560,7 @@ const {
             : true,
 
       })
-      .eq("id", editing.id)
-      .eq(
-        "company_id",
-        currentCompanyId
-      );
+      .eq("id", editing.id);
 
   if (pErr) {
 
