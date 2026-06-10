@@ -220,6 +220,7 @@ export default function OrdensServico() {
   const [filterPrioridade, setFilterPrioridade] = useState<string>(searchParams.get("prioridade") || "__all__");
   const [filterAtrasada, setFilterAtrasada] = useState<boolean>(searchParams.get("atrasada") === "true");
   const [filterCodigo, setFilterCodigo] = useState("");
+  const [sortAsc, setSortAsc] = useState(false);
   const [filterAndar, setFilterAndar] = useState("__all__");
   const [filterSala, setFilterSala] = useState("__all__");
   const [filterTipoServico, setFilterTipoServico] = useState("__all__");
@@ -339,7 +340,7 @@ export default function OrdensServico() {
         .select("*")
         .eq("company_id", companyId)
         .not("origem", "in", "(Preventiva,Chamado)")
-        .order("created_at", { ascending: true }),
+        .order("created_at", { ascending: sortAsc }),
 
       (supabase as any)
         .from("blocos")
@@ -481,7 +482,7 @@ const { data: colabData } = await (supabase as any)
       setCamposObrigatorios((camposConfig || []).map((c: any) => c.campo));
     }
     setLoading(false);
- }, [companyId]);
+ }, [companyId, sortAsc]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useRealtime(
@@ -1278,6 +1279,9 @@ fetchData();
               </SelectContent>
             </Select>
           </div>
+          <Button variant="outline" size="sm" onClick={() => setSortAsc(prev => !prev)} className="gap-1.5" title="Ordenar por data">
+            {sortAsc ? <span>↑ Mais antigas</span> : <span>↓ Mais recentes</span>}
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setAdvancedOpen(!advancedOpen)} className="gap-1.5">
             <SlidersHorizontal className="h-4 w-4" />
             Avançados
