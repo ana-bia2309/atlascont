@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
-const MAX_PHOTOS = 2;
+const MAX_PHOTOS = Infinity;
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -138,11 +138,6 @@ const FotosOSSection = forwardRef<FotosOSSectionHandle, FotosOSSectionProps>(
         e.target.value = "";
         return;
       }
-      if (totalCount >= MAX_PHOTOS) {
-        toast({ title: "Limite de 2 fotos atingido", variant: "destructive" });
-        e.target.value = "";
-        return;
-      }
 
       // Buffer mode: O.S. ainda não existe
       if (!osId) {
@@ -226,12 +221,10 @@ const FotosOSSection = forwardRef<FotosOSSectionHandle, FotosOSSectionProps>(
           <div>
             <h3 className="text-sm font-semibold">Fotos</h3>
             <p className="text-xs text-muted-foreground">
-              {totalCount >= MAX_PHOTOS
-                ? "Limite de 2 fotos atingido"
-                : `${totalCount}/${MAX_PHOTOS} fotos${!osId ? " · serão enviadas ao salvar" : ""}`}
+              {totalCount} foto{totalCount !== 1 ? "s" : ""}{!osId ? " · serão enviadas ao salvar" : ""}
             </p>
           </div>
-          {!readOnly && totalCount < MAX_PHOTOS && (
+          {!readOnly && (
             <label>
               <input
                 type="file"
