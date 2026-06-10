@@ -12,6 +12,7 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/comp
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
+import MemorialMateriaisSection from "@/components/os/MemorialMateriaisSection";
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from "@/components/ui/table";
@@ -1950,6 +1951,9 @@ fetchData();
                             <CheckCircle2 className="h-4 w-4" /> Atividades
                           </button>
                         )}
+                        <button onClick={() => setOsTab("memorial")} className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${osTab === "memorial" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+                          <FileText className="h-4 w-4" /> Memorial de Materiais
+                        </button>
                       </div>
                       {osTab === "materiais" && !(isTecnico && editing) && (
                         <MateriaisSection ref={materiaisRef} osId={editing?.id || null} readOnly={!can("painel_os.editar") && !can("painel_os.criar")} />
@@ -1962,6 +1966,9 @@ fetchData();
                       )}
                       {osTab === "atividades" && !editing && can("painel_os.criar") && (
                         <AtividadesNovaOSSection ref={atividadesNovaRef} />
+                      )}
+                      {osTab === "memorial" && (
+                        <MemorialMateriaisSection osId={editing?.id || null} readOnly={isTecnico && !!editing && !can("painel_os.editar")} />
                       )}
                     </div>
                   </div>
