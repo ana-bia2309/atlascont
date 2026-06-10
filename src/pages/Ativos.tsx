@@ -89,7 +89,33 @@ const emptyForm = {
   grupo_areas: "", area_pavimento: "", identificacao_ambiente: "", tipo_atividade: "",
   area_climatizada: "", ocupantes_fixos: "", ocupantes_flutuantes: "", carga_termica: "",
 };
+const SectionTitle = ({ children }: { children: React.ReactNode }) => (
+  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">{children}</h3>
+);
 
+const FormSelect = ({ label, value, onChange, options, placeholder = "Selecione" }: {
+  label: string; value: string; onChange: (v: string) => void; options: string[]; placeholder?: string;
+}) => (
+  <div>
+    <label className="text-sm font-medium">{label}</label>
+    <Select value={value} onValueChange={v => onChange(v === "__none__" ? "" : v)}>
+      <SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger>
+      <SelectContent>
+        <SelectItem value="__none__">— Nenhum —</SelectItem>
+        {options.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+      </SelectContent>
+    </Select>
+  </div>
+);
+
+const NumericInput = ({ label, value, onChange, placeholder, unit }: {
+  label: string; value: string; onChange: (v: string) => void; placeholder?: string; unit?: string;
+}) => (
+  <div>
+    <label className="text-sm font-medium">{label}{unit && <span className="text-muted-foreground text-xs ml-1">({unit})</span>}</label>
+    <Input type="number" inputMode="decimal" value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} />
+  </div>
+);
 export default function Ativos() {
   const { can } = usePermissions();
   const [list, setList] = useState<Ativo[]>([]);
@@ -349,34 +375,6 @@ export default function Ativos() {
       setImporting(false);
     }
   };
-
-  const SectionTitle = ({ children }: { children: React.ReactNode }) => (
-    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">{children}</h3>
-  );
-
-  const FormSelect = ({ label, value, onChange, options, placeholder = "Selecione" }: {
-    label: string; value: string; onChange: (v: string) => void; options: string[]; placeholder?: string;
-  }) => (
-    <div>
-      <label className="text-sm font-medium">{label}</label>
-      <Select value={value} onValueChange={v => onChange(v === "__none__" ? "" : v)}>
-        <SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger>
-        <SelectContent>
-          <SelectItem value="__none__">— Nenhum —</SelectItem>
-          {options.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-        </SelectContent>
-      </Select>
-    </div>
-  );
-
-  const NumericInput = ({ label, value, onChange, placeholder, unit }: {
-    label: string; value: string; onChange: (v: string) => void; placeholder?: string; unit?: string;
-  }) => (
-    <div>
-      <label className="text-sm font-medium">{label}{unit && <span className="text-muted-foreground text-xs ml-1">({unit})</span>}</label>
-      <Input type="number" inputMode="decimal" value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} />
-    </div>
-  );
 
   return (
     <div className="space-y-6">

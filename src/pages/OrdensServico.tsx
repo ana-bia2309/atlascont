@@ -2195,6 +2195,9 @@ fetchData();
                 <MateriaisSection osId={viewing.id} readOnly />
               </div>
               <div className="border-t pt-3">
+                <MemorialMateriaisSection osId={viewing.id} readOnly />
+              </div>
+              <div className="border-t pt-3">
                 <AnexosSection osId={viewing.id} readOnly canDownload={can("painel_os.baixar")} />
               </div>
               <div className="border-t pt-3">
