@@ -15,9 +15,6 @@ import { RefreshCw, Search, X, FileText, Download, Eye, Filter, ClipboardList } 
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import { addPdfHeader, getCompanyInfo } from "@/lib/pdfHeader";
 
 type OSRow = {
   id: string;
@@ -39,6 +36,8 @@ type OSRow = {
   custo_total: number | null;
   equipamentos: string | null;
   numero_os_externo: string | null;
+  andar: string | null;
+  sala: string | null;
 };
 
 type Material = {
@@ -91,7 +90,6 @@ export default function RelatorioGeralOS() {
   const [viewing, setViewing] = useState<OSRow | null>(null);
   const [exporting, setExporting] = useState(false);
 
-  // Filtros
   const [filterStatus, setFilterStatus] = useState("__all__");
   const [filterTecnico, setFilterTecnico] = useState("__all__");
   const [filterBloco, setFilterBloco] = useState("__all__");
@@ -107,7 +105,7 @@ export default function RelatorioGeralOS() {
     try {
       const [osRes, matRes, profRes, blocoRes, ativoRes] = await Promise.all([
         (supabase as any).from("ordens_servico")
-          .select("id, codigo_os, titulo, descricao, status, prioridade, origem, created_at, data_inicio, data_termino, finalizado_em, observacoes, responsible_user_id, criado_por, bloco_id, ativo_id, custo_total, equipamentos, numero_os_externo")
+          .select("id, codigo_os, titulo, descricao, status, prioridade, origem, created_at, data_inicio, data_termino, finalizado_em, observacoes, responsible_user_id, criado_por, bloco_id, ativo_id, custo_total, equipamentos, numero_os_externo, andar, sala")
           .eq("company_id", companyId)
           .order("created_at", { ascending: false }),
         (supabase as any).from("materiais_os").select("id, os_id, nome_material, quantidade, unidade, custo_unitario, custo_total_item").eq("company_id", companyId),
@@ -188,7 +186,6 @@ export default function RelatorioGeralOS() {
       "Observações": os.observacoes || "—",
       "Materiais": (materiaisByOs[os.id] || []).map(m => `${m.nome_material} (${m.quantidade} ${m.unidade})`).join("; ") || "—",
     }));
-
     const ws = XLSX.utils.json_to_sheet(rows);
     ws["!cols"] = Object.keys(rows[0] || {}).map(k => ({ wch: Math.min(Math.max(k.length + 4, 12), 40) }));
     const wb = XLSX.utils.book_new();
@@ -200,70 +197,17 @@ export default function RelatorioGeralOS() {
   const exportPDF = async () => {
     setExporting(true);
     try {
-      const doc = new jsPDF({ orientation: "landscape" });
-
-      const company = await getCompanyInfo();
-      const startY = await addPdfHeader(doc, "Relatório Geral de O.S.", `${filtered.length} ordens de serviço`, company);
-
-      autoTable(doc, {
-        startY,
-        head: [["Código", "Título", "Status", "Técnico", "Bloco", "Origem", "Abertura", "Conclusão", "Custo (R$)"]],
-        body: filtered.map(os => [
-          os.codigo_os || "—",
-          (os.titulo || os.equipamentos || "—").substring(0, 35),
-          os.status || "—",
-          os.responsible_user_id ? (profilesMap[os.responsible_user_id] || "—").substring(0, 18) : "—",
-          os.bloco_id ? (blocosMap[os.bloco_id] || "—").substring(0, 18) : "—",
-          os.origem === "Portal do Cliente" ? `Portal (${os.numero_os_externo || ""})` : (os.origem || "—"),
-          fmtDate(os.created_at),
-          fmtDate(os.finalizado_em || os.data_termino),
-          os.custo_total ? `R$ ${Number(os.custo_total).toFixed(2)}` : "—",
-        ]),
-        headStyles: { fillColor: [99, 102, 241], fontSize: 8 },
-        bodyStyles: { fontSize: 8 },
-        alternateRowStyles: { fillColor: [248, 248, 255] },
-        foot: [["", "", "", "", "", "", "", "", `Total: R$ ${filtered.reduce((s, os) => s + (os.custo_total || 0), 0).toFixed(2)}`]],
-        footStyles: { fillColor: [99, 102, 241], textColor: 255, fontStyle: "bold", fontSize: 8 },
+      const { generateRelatorioGeralPDF } = await import("@/lib/generateRelatorioGeralPDF");
+      await generateRelatorioGeralPDF({
+        osList: filtered,
+        materiaisByOs,
+        blocosMap,
+        profilesMap,
+        companyId: companyId || "",
+        filterDateFrom,
+        filterDateTo,
+        companyName: "Atlas Control",
       });
-
-      // Detalhamento por OS com materiais
-      let yPos = (doc as any).lastAutoTable.finalY + 10;
-      const osComMateriais = filtered.filter(os => (materiaisByOs[os.id] || []).length > 0);
-
-      if (osComMateriais.length > 0) {
-        if (yPos > 160) { doc.addPage(); yPos = 14; }
-        doc.setFontSize(12);
-        doc.setTextColor(30);
-        doc.text("Materiais por O.S.", 14, yPos);
-        yPos += 6;
-
-        for (const os of osComMateriais.slice(0, 30)) {
-          if (yPos > 180) { doc.addPage(); yPos = 14; }
-          doc.setFontSize(9);
-          doc.setTextColor(99, 102, 241);
-          doc.text(`${os.codigo_os || "OS"} — ${(os.titulo || os.equipamentos || "").substring(0, 60)}`, 14, yPos);
-          yPos += 4;
-
-          autoTable(doc, {
-            startY: yPos,
-            head: [["Material", "Qtd", "Unidade", "Valor Unit.", "Subtotal"]],
-            body: (materiaisByOs[os.id] || []).map(m => [
-              m.nome_material,
-              m.quantidade,
-              m.unidade,
-              `R$ ${Number(m.custo_unitario).toFixed(2)}`,
-              `R$ ${Number(m.custo_total_item).toFixed(2)}`,
-            ]),
-            headStyles: { fillColor: [230, 230, 250], textColor: [50, 50, 100], fontSize: 7 },
-            bodyStyles: { fontSize: 7 },
-            margin: { left: 14 },
-          });
-
-          yPos = (doc as any).lastAutoTable.finalY + 6;
-        }
-      }
-
-      doc.save(`relatorio-os-${format(new Date(), "yyyyMMdd")}.pdf`);
       toast({ title: "PDF exportado com sucesso!" });
     } catch (err: any) {
       toast({ title: "Erro ao exportar PDF", description: err.message, variant: "destructive" });
@@ -293,7 +237,7 @@ export default function RelatorioGeralOS() {
             <Download className="mr-2 h-4 w-4" /> Excel
           </Button>
           <Button variant="outline" onClick={exportPDF} disabled={filtered.length === 0 || exporting}>
-            <FileText className="mr-2 h-4 w-4" /> {exporting ? "Gerando..." : "PDF"}
+            <FileText className="mr-2 h-4 w-4" /> {exporting ? "Gerando..." : "PDF Completo"}
           </Button>
         </div>
       </div>
