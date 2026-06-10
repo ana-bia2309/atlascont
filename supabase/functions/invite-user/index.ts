@@ -145,13 +145,19 @@ Deno.serve(async (req) => {
         console.error("Profile update error:", updateError.message);
       }
 
-      if (role !== "visualizacao") {
-        const { error: roleError } = await adminClient
-          .from("user_roles")
-          .insert({ user_id: profile.id, role, company_id: callerProfile.company_id });
-        if (roleError) {
-          console.error("Role insert error:", roleError.message);
-        }
+      // Remove any orphan 'visualizacao' role created by trigger (no company_id)
+      await adminClient
+        .from("user_roles")
+        .delete()
+        .eq("user_id", profile.id)
+        .is("company_id", null);
+
+      // Insert the correct role with company_id
+      const { error: roleError } = await adminClient
+        .from("user_roles")
+        .insert({ user_id: profile.id, role, company_id: callerProfile.company_id });
+      if (roleError) {
+        console.error("Role insert error:", roleError.message);
       }
     }
 
