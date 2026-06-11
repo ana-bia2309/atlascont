@@ -34,6 +34,7 @@ type OSRow = {
   numero_os_externo: string | null;
   andar: string | null;
   sala: string | null;
+  natureza_servico?: string | null;
 };
 
 type Material = {
@@ -74,7 +75,19 @@ type AnexoRender = {
 
 type FotoRender = { date: string | null; img: PageImg | null };
 
-type OsAssets = { anexos: AnexoRender[]; fotos: FotoRender[] };
+type MemorialItemRow = {
+  material_nome: string;
+  material_unidade: string;
+  custo_unitario: number;
+  quantidades: Record<string, number>; // ativo_id -> quantidade
+};
+
+type MemorialData = {
+  rows: MemorialItemRow[];
+  ativoNames: Record<string, string>; // ativo_id -> nome
+};
+
+type OsAssets = { anexos: AnexoRender[]; fotos: FotoRender[]; memorial: MemorialData };
 
 // ─── Constantes de layout ─────────────────────────────────────────────────────
 
@@ -355,10 +368,10 @@ async function processFoto(f: OsPhotoRow): Promise<FotoRender> {
 
 async function preloadAssets(osIds: string[]): Promise<Record<string, OsAssets>> {
   const map: Record<string, OsAssets> = {};
-  osIds.forEach(id => { map[id] = { anexos: [], fotos: [] }; });
+  osIds.forEach(id => { map[id] = { anexos: [], fotos: [], memorial: { rows: [], ativoNames: {} } }; });
   if (!osIds.length) return map;
 
-  const [anexosRes, fotosRes] = await Promise.all([
+  const [anexosRes, fotosRes, memorialRes, memQtdRes] = await Promise.all([
     (supabase as any)
       .from("anexos_os")
       .select("id, os_id, nome_arquivo, tipo_arquivo, url_arquivo, file_path, bucket_name")
@@ -369,6 +382,14 @@ async function preloadAssets(osIds: string[]): Promise<Record<string, OsAssets>>
       .select("id, os_id, photo_url, created_at")
       .in("os_id", osIds)
       .order("created_at"),
+    (supabase as any)
+      .from("memorial_materiais")
+      .select("id, os_id, material_nome, material_unidade, custo_unitario")
+      .in("os_id", osIds)
+      .order("created_at"),
+    (supabase as any)
+      .from("memorial_materiais_quantidades")
+      .select("memorial_id, ativo_id, quantidade"),
   ]);
 
   const anexoRows: AnexoRow[] = anexosRes?.data || [];
@@ -384,6 +405,54 @@ async function preloadAssets(osIds: string[]): Promise<Record<string, OsAssets>>
   fotoRows.forEach((f, i) => {
     const r = fotoRenders[i];
     if (r && map[f.os_id]) map[f.os_id].fotos.push(r);
+  });
+
+  // Memorial de Cálculo
+  const memRows: any[] = memorialRes?.data || [];
+  const memQtdRows: any[] = memQtdRes?.data || [];
+
+  // Coletar todos os ativo_ids usados para buscar nomes
+  const allAtivoIds = new Set<string>(memQtdRows.map((q: any) => q.ativo_id).filter(Boolean));
+  const ativoNamesGlobal: Record<string, string> = {};
+  if (allAtivoIds.size > 0) {
+    try {
+      const { data: ativosData } = await (supabase as any)
+        .from("ativos")
+        .select("id, nome")
+        .in("id", Array.from(allAtivoIds));
+      (ativosData || []).forEach((a: any) => { ativoNamesGlobal[a.id] = a.nome; });
+    } catch { /* silencioso */ }
+  }
+
+  // Agrupar linhas do memorial por os_id
+  const memByOsId: Record<string, any[]> = {};
+  memRows.forEach((m: any) => {
+    if (!memByOsId[m.os_id]) memByOsId[m.os_id] = [];
+    memByOsId[m.os_id].push(m);
+  });
+
+  // Construir MemorialData por OS
+  osIds.forEach(osId => {
+    const rows = memByOsId[osId] || [];
+    const usedAtivoIds = new Set<string>();
+    const builtRows: MemorialItemRow[] = rows.map((m: any) => {
+      const qtds: Record<string, number> = {};
+      memQtdRows
+        .filter((q: any) => q.memorial_id === m.id)
+        .forEach((q: any) => {
+          qtds[q.ativo_id] = q.quantidade;
+          usedAtivoIds.add(q.ativo_id);
+        });
+      return {
+        material_nome: m.material_nome || "",
+        material_unidade: m.material_unidade || "",
+        custo_unitario: m.custo_unitario || 0,
+        quantidades: qtds,
+      };
+    });
+    const ativoNames: Record<string, string> = {};
+    usedAtivoIds.forEach(id => { ativoNames[id] = ativoNamesGlobal[id] || id; });
+    map[osId].memorial = { rows: builtRows, ativoNames };
   });
 
   return map;
@@ -402,12 +471,12 @@ async function loadLogo(url: string | null | undefined): Promise<PageImg | null>
   } catch { return null; }
 }
 
-// ─── Gerador de texto técnico (local, sem IA) ─────────────────────────────────
-
-const isDescricaoGenerica = (d: string | null): boolean => {
-  const n = norm(d);
-  return !n || n.length < 20 || n.startsWith("servico executado conforme");
-};
+// ─── Texto padrão oficial do Relatório Geral ──────────────────────────────────
+// TEXTO PADRÃO OFICIAL do sistema — redação, pontuação, ordem dos parágrafos e
+// normas citadas são FIXAS e não devem ser alteradas. Apenas os campos dinâmicos
+// são substituídos com os dados reais da O.S.:
+// (NÚMERO DA OS), (NATUREZA DO SERVIÇO), (LOCAL DA EXECUÇÃO), (QUANTIDADE),
+// (TIPO DO EQUIPAMENTO), (CAPACIDADES BTU/H), (DATA DE CONCLUSÃO).
 
 function parseEquipamentos(equip: string | null) {
   const lines = (equip || "").split(/\r?\n/).map(l => l.trim()).filter(Boolean);
@@ -434,134 +503,56 @@ function parseEquipamentos(equip: string | null) {
   return { lines, total, tipos: Array.from(tipos), caps: Array.from(caps) };
 }
 
-function gerarDescricaoTecnica(
-  os: OSRow,
-  mats: Material[],
-  blocoNome: string,
-): string[] {
-  const sNorm = norm(os.status);
-  const kind: "concluida" | "execucao" | "reprovado" | "cancelada" | "aguardando" | "prevista" =
-    sNorm.includes("conclu") ? "concluida" :
-    sNorm.includes("reprov") ? "reprovado" :
-    sNorm.includes("cancel") ? "cancelada" :
-    (sNorm.includes("execu") || sNorm.includes("andamento")) ? "execucao" :
-    (sNorm.includes("aguard") || sNorm.includes("triagem")) ? "aguardando" : "prevista";
+function gerarDescricaoTecnica(os: OSRow, blocoNome: string): string[] {
+  // (NATUREZA DO SERVIÇO) — usa exclusivamente o valor do campo da O.S.
+  // Nunca combina "instalação e manutenção".
+  const natureza = (os.natureza_servico || "Instalação").trim().toLowerCase();
 
-  const oNorm = norm(os.origem);
-  const origemDesc =
-    oNorm.includes("prevent") ? "de manutenção preventiva" :
-    oNorm.includes("portal") ? "de manutenção corretiva, originados de solicitação registrada no Portal do Cliente" :
-    oNorm.includes("chamado") ? "de manutenção corretiva, originados de chamado" :
-    "de manutenção corretiva";
-
-  const eq = parseEquipamentos(os.equipamentos);
+  // (LOCAL DA EXECUÇÃO)
   const ambiente = getAmbiente(os);
   const locParts: string[] = [];
   if (blocoNome && blocoNome !== "—") locParts.push(blocoNome);
   if (ambiente) locParts.push(ambiente);
-  const loc = locParts.join(" — ");
+  const loc = locParts.join(" — ") || "—";
 
+  // (QUANTIDADE), (TIPO DO EQUIPAMENTO), (CAPACIDADES BTU/H)
+  const eq = parseEquipamentos(os.equipamentos);
   let equipPart = "";
   if (eq.total > 0) {
     const qtd = String(eq.total).padStart(2, "0");
     const plural = eq.total > 1 ? "equipamentos" : "equipamento";
     const capTxt = eq.caps.length
-      ? ` (${eq.caps.length > 1 ? "capacidades" : "capacidade"} de ${listJoin(eq.caps)} BTU/h)`
+      ? `, com ${eq.caps.length > 1 ? "capacidades" : "capacidade"} de ${listJoin(eq.caps)} BTU/h`
       : "";
     equipPart = `, contemplando o fornecimento e a instalação de ${qtd} ${plural} do tipo ${listJoin(eq.tipos)}${capTxt}`;
   }
 
+  // ── Parágrafo 1 (campos dinâmicos)
   const p1 =
-    `A presente Ordem de Serviço${os.codigo_os ? ` (${os.codigo_os})` : ""} tem por objeto a execução de ` +
-    `serviços ${origemDesc} em sistema de climatização` +
-    `${loc ? `, executados em ${loc}` : ""}${equipPart}.`;
+    `A presente Ordem de Serviço (${os.codigo_os || "—"}) tem por objeto a execução de serviços de ${natureza} ` +
+    `de sistema de climatização, executados em ${loc}${equipPart}.`;
 
-  // Escopo derivado dos materiais aplicados
-  const t = mats.map(m => norm(m.nome_material));
-  const has = (...terms: string[]) => t.some(x => terms.every(term => x.includes(term)));
+  // ── Parágrafo 2 (FIXO)
+  const p2 =
+    "O escopo dos trabalhos compreendeu o lançamento das linhas frigorígenas em tubulação de cobre flexível, " +
+    "com isolamento térmico em polipex blindado, a execução das interligações elétricas e de comando entre as " +
+    "unidades evaporadora e condensadora, em cabo multipolar, a instalação da rede de drenagem de condensado, " +
+    "com bomba de dreno, a fixação das unidades condensadoras sobre suportes metálicos e o acabamento e a " +
+    "identificação das linhas com fita de PVC.";
 
-  const fCobre = has("tubo", "cobre");
-  const fIsol = has("isolamento") || has("polipex");
-  const fMulti = has("multipolar");
-  const fCabo = t.some(x => x.includes("cabo"));
-  const fMang = has("mangueira");
-  const fBomba = has("bomba");
-  const fSuporte = has("suporte");
-  const fFita = has("fita");
+  // ── Parágrafo 3 (FIXO)
+  const p3 =
+    "Concluída a montagem, foram realizados os testes de estanqueidade do circuito frigorígeno, o processo de " +
+    "desidratação (vácuo), a liberação da carga de fluido refrigerante e a partida assistida dos equipamentos, " +
+    "com verificação dos parâmetros operacionais de pressão, corrente e temperatura.";
 
-  const frags: string[] = [];
-  if (fCobre) frags.push(`o lançamento das linhas frigorígenas em tubulação de cobre flexível${fIsol ? ", com isolamento térmico em polietileno expandido" : ""}`);
-  if (fCabo) frags.push(`a execução das interligações elétricas e de comando entre as unidades evaporadora e condensadora${fMulti ? ", em cabo multipolar" : ""}`);
-  if (fMang || fBomba) frags.push(`a instalação da rede de drenagem de condensado${fBomba ? ", com bomba de dreno para recalque" : ""}`);
-  if (fSuporte) frags.push("a fixação das unidades condensadoras sobre suportes metálicos");
-  if (fFita) frags.push("o acabamento e a identificação das linhas com fita de PVC");
+  // ── Parágrafo 4 (campo dinâmico: data de conclusão)
+  const p4 =
+    `Os serviços foram finalizados em ${fmtDate(os.finalizado_em || os.data_termino)}, em conformidade com as ` +
+    "especificações técnicas da O.S., as recomendações dos fabricantes e as normas ABNT NBR 16401 e ABNT NBR 5410, " +
+    "encontrando-se o sistema em plenas condições de operação.";
 
-  if (!frags.length && eq.total > 0) {
-    frags.push(
-      "o lançamento das linhas frigorígenas",
-      "as interligações elétricas entre as unidades",
-      "a execução da rede de drenagem de condensado",
-      "a fixação e o acabamento das instalações, conforme projeto executivo",
-    );
-  }
-
-  const verboEscopo =
-    kind === "concluida" ? "compreendeu" :
-    kind === "execucao" ? "compreende" : "compreenderá";
-
-  const p2 = frags.length
-    ? `O escopo dos trabalhos ${verboEscopo}: ${listJoin(frags)}.`
-    : "";
-
-  // Fechamento conforme o status
-  let p3 = "";
-  const dataConcl = fmtDate(os.finalizado_em || os.data_termino);
-  switch (kind) {
-    case "concluida":
-      p3 =
-        "Concluída a montagem, foram realizados os testes de estanqueidade do circuito frigorígeno, o processo de " +
-        "evacuação (vácuo), a liberação da carga de fluido refrigerante e a partida assistida dos equipamentos, com " +
-        "verificação dos parâmetros operacionais de pressão, corrente e temperatura. " +
-        `Os serviços foram finalizados em ${dataConcl}, em conformidade com as especificações técnicas da O.S., as ` +
-        "recomendações dos fabricantes e as normas ABNT NBR 16401 e ABNT NBR 5410, encontrando-se o sistema em " +
-        "plenas condições de operação.";
-      break;
-    case "execucao":
-      p3 =
-        "Os serviços encontram-se em execução. Após a conclusão da montagem serão realizados os testes de " +
-        "estanqueidade, o processo de evacuação (vácuo), a liberação da carga de fluido refrigerante e a partida " +
-        "assistida dos equipamentos, em conformidade com as especificações técnicas da O.S., as recomendações dos " +
-        "fabricantes e as normas ABNT NBR 16401 e ABNT NBR 5410.";
-      break;
-    case "reprovado":
-      p3 =
-        "O orçamento correspondente aos serviços foi submetido à análise e reprovado pelo contratante, permanecendo " +
-        "a presente Ordem de Serviço registrada para fins de histórico, rastreabilidade e controle.";
-      break;
-    case "cancelada":
-      p3 =
-        "A presente Ordem de Serviço foi cancelada, permanecendo registrada para fins de histórico, rastreabilidade " +
-        "e controle.";
-      break;
-    case "aguardando":
-      p3 =
-        "Os serviços encontram-se aguardando liberação para prosseguimento. Após a montagem serão realizados os " +
-        "testes de estanqueidade, vácuo, carga de fluido refrigerante e partida assistida, em conformidade com as " +
-        "normas ABNT NBR 16401 e ABNT NBR 5410.";
-      break;
-    default:
-      p3 =
-        "Os serviços encontram-se programados, aguardando a mobilização da equipe técnica. Após a montagem serão " +
-        "realizados os testes de estanqueidade, o processo de evacuação (vácuo), a carga de fluido refrigerante e a " +
-        "partida assistida dos equipamentos, em conformidade com as normas ABNT NBR 16401 e ABNT NBR 5410.";
-  }
-
-  const out: string[] = [];
-  if (!isDescricaoGenerica(os.descricao)) out.push((os.descricao || "").trim());
-  out.push(p1);
-  if (p2) out.push(p2);
-  out.push(p3);
-  return out;
+  return [p1, p2, p3, p4];
 }
 
 // ─── Elementos de desenho ─────────────────────────────────────────────────────
@@ -759,6 +750,121 @@ function drawMateriaisTable(doc: jsPDF, mats: Material[], y: number): number {
   });
 
   return (doc as any).lastAutoTable.finalY + 8;
+}
+
+function drawMemorialCalculo(doc: jsPDF, memorial: MemorialData, y: number): number {
+  const { rows, ativoNames } = memorial;
+
+  y = ensureSpace(doc, y, 28);
+  y = drawSectionTitle(doc, "MEMORIAL DE CÁLCULO", y);
+
+  if (!rows.length) {
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(FS_SMALL);
+    doc.setTextColor(...C.gray);
+    doc.text("Não informado.", ML + 1, y);
+    return y + 8;
+  }
+
+  const ativoIds = Array.from(
+    new Set(rows.flatMap(r => Object.keys(r.quantidades)))
+  );
+
+  // Cabeçalho: Material | Unid. | (ativo A) | (ativo B) | ... | Total Qtd | Valor Total
+  const head: string[][] = [[
+    "Material", "Unid.",
+    ...ativoIds.map((id, i) => String.fromCharCode(65 + i)),
+    "Total", "Valor (R$)",
+  ]];
+
+  const body: string[][] = rows.map(r => {
+    const totalQtd = ativoIds.reduce((s, id) => s + (r.quantidades[id] || 0), 0);
+    const totalValor = totalQtd * r.custo_unitario;
+    return [
+      r.material_nome,
+      r.material_unidade || "—",
+      ...ativoIds.map(id => {
+        const q = r.quantidades[id] || 0;
+        return q > 0 ? fmtQtd(q) : "0";
+      }),
+      fmtQtd(totalQtd),
+      fmtMoney(totalValor),
+    ];
+  });
+
+  // Rodapé com totais de colunas
+  const colTotals = ativoIds.map(id =>
+    rows.reduce((s, r) => s + (r.quantidades[id] || 0), 0)
+  );
+  const grandQtd = colTotals.reduce((a, b) => a + b, 0);
+  const grandValor = rows.reduce((s, r) => {
+    const q = ativoIds.reduce((sq, id) => sq + (r.quantidades[id] || 0), 0);
+    return s + q * r.custo_unitario;
+  }, 0);
+
+  const foot: string[][] = [[
+    "TOTAL", "",
+    ...colTotals.map(t => fmtQtd(t)),
+    fmtQtd(grandQtd),
+    fmtMoney(grandValor),
+  ]];
+
+  // Legendas dos ativos (abaixo da tabela)
+  const legendas = ativoIds.map((id, i) =>
+    `${String.fromCharCode(65 + i)} = ${ativoNames[id] || id}`
+  );
+
+  // Larguras dinâmicas
+  const fixedW = 56 + 12; // Material + Unid
+  const endW = 16 + 26;   // Total + Valor
+  const remaining = CW - fixedW - endW;
+  const ativoColW = ativoIds.length > 0
+    ? Math.max(Math.floor(remaining / ativoIds.length), 12)
+    : 20;
+
+  const columnStyles: Record<number, object> = {
+    0: { cellWidth: 56, halign: "left" },
+    1: { cellWidth: 12, halign: "center" },
+  };
+  ativoIds.forEach((_, i) => {
+    columnStyles[i + 2] = { cellWidth: ativoColW, halign: "center" };
+  });
+  columnStyles[ativoIds.length + 2] = { cellWidth: 16, halign: "center", fontStyle: "bold" };
+  columnStyles[ativoIds.length + 3] = { cellWidth: 26, halign: "right", fontStyle: "bold" };
+
+  autoTable(doc, {
+    startY: y,
+    head,
+    body,
+    foot,
+    headStyles: {
+      fillColor: C.navy, textColor: C.white,
+      fontSize: 7.5, fontStyle: "bold", halign: "center", cellPadding: 1.8,
+    },
+    bodyStyles: { fontSize: 7.5, textColor: C.dark, cellPadding: 1.6 },
+    alternateRowStyles: { fillColor: C.navyLight },
+    footStyles: {
+      fillColor: C.navyMid, textColor: C.white, fontStyle: "bold", fontSize: 7.5, halign: "center",
+    },
+    columnStyles,
+    margin: { top: MT, bottom: MB, left: ML, right: MR },
+    tableWidth: CW,
+    rowPageBreak: "avoid",
+  });
+
+  let finalY = (doc as any).lastAutoTable.finalY + 3;
+
+  // Legendas dos ativos
+  if (legendas.length > 0) {
+    finalY = ensureSpace(doc, finalY, 5);
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7);
+    doc.setTextColor(...C.gray);
+    doc.text(legendas.join("   "), ML + 1, finalY);
+    finalY += 5;
+  }
+
+  return finalY + 3;
 }
 
 function drawAnexosSection(doc: jsPDF, renders: AnexoRender[], y: number): number {
@@ -1103,9 +1209,12 @@ function drawResumoConsolidado(
     });
   });
 
-  const footRow: string[] = ["TOTAL GERAL", ""];
-  colTotals.forEach(t => footRow.push(fmtQtd(t)));
-  footRow.push(fmtQtd(grandTotal));
+  // Linha de total: apenas o texto "TOTAL GERAL" (abrangendo todas as colunas exceto a última) + valor final
+  const totalCols = 2 + osComMat.length; // Material + Unid + colunas OS
+  const footRow: (string | object)[] = [
+    { content: "TOTAL GERAL", colSpan: totalCols, styles: { halign: "right", fontStyle: "bold" } } as any,
+    fmtQtd(grandTotal),
+  ];
 
   const fixedW = 58 + 13;
   const totalColW = 18;
@@ -1212,7 +1321,7 @@ export async function generateRelatorioGeralPDF(params: {
     const blocoNome = os.bloco_id ? (blocosMap[os.bloco_id] || "—") : "—";
     const tecnicoNome = os.responsible_user_id ? (profilesMap[os.responsible_user_id] || "—") : "—";
     const mats = materiaisByOs[os.id] || [];
-    const osAssets = assets[os.id] || { anexos: [], fotos: [] };
+    const osAssets = assets[os.id] || { anexos: [], fotos: [], memorial: { rows: [], ativoNames: {} } };
 
     // Cabeçalho da O.S.
     y = drawOsHeader(doc, os, y, blocoNome, tecnicoNome);
@@ -1220,7 +1329,7 @@ export async function generateRelatorioGeralPDF(params: {
     // Descrição técnica elaborada
     y = ensureSpace(doc, y, 28);
     y = drawSectionTitle(doc, "DESCRIÇÃO DOS SERVIÇOS EXECUTADOS", y);
-    y = drawParagraphs(doc, gerarDescricaoTecnica(os, mats, blocoNome), y);
+    y = drawParagraphs(doc, gerarDescricaoTecnica(os, blocoNome), y);
 
     // Equipamentos
     const equipLines = (os.equipamentos || "").split(/\r?\n/).map(l => l.trim()).filter(Boolean);
@@ -1233,6 +1342,11 @@ export async function generateRelatorioGeralPDF(params: {
     // Materiais
     if (mats.length) {
       y = drawMateriaisTable(doc, mats, y);
+    }
+
+    // Memorial de Cálculo
+    if (osAssets.memorial.rows.length > 0 || true) {
+      y = drawMemorialCalculo(doc, osAssets.memorial, y);
     }
 
     // Observações

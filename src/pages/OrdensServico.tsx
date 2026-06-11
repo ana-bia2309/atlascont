@@ -102,6 +102,7 @@ type AnexoOS = AttachmentRecord;
 // STATUS_OPTIONS imported from os-status.ts
 const PRIORIDADE_OPTIONS = ["Baixa", "Média", "Alta", "Crítica"];
 const TIPO_SERVICO_OPTIONS = ["Elétrica", "Hidráulica", "Civil", "Climatização", "Outros"];
+const NATUREZA_SERVICO_OPTIONS = ["Instalação", "Manutenção"];
 const PRIORIDADE_COLORS: Record<string, string> = {
   "Baixa": "bg-zinc-100 text-zinc-600 border-zinc-200",
   "Média": "bg-blue-50 text-blue-700 border-blue-200",
@@ -605,6 +606,7 @@ const { data: colabData } = await (supabase as any)
   const [ativoId, setAtivoId] = useState("");
   const [ativoModalOpen, setAtivoModalOpen] = useState(false);
   const [tipoServico, setTipoServico] = useState("");
+  const [naturezaServico, setNaturezaServico] = useState("");
   const [slaDefinicoes, setSlaDefinicoes] = useState<any[]>([]);
   const [camposObrigatorios, setCamposObrigatorios] = useState<string[]>([]);
   const [formResponsaveis, setFormResponsaveis] = useState<string[]>([]);
@@ -626,7 +628,7 @@ const labelCampo = (label: string, campo: string) => (
 
   const resetForm = () => {
     setCodigoOs(""); setStatus("Não Iniciada"); setPrioridade("Média"); setBlocoId("");
-    setAndar(""); setSala(""); setCronogramaId(""); setAtivoId(""); setTipoServico("");
+    setAndar(""); setSala(""); setCronogramaId(""); setAtivoId(""); setTipoServico(""); setNaturezaServico("");
     setPrazo(undefined); setDataInicio(undefined); setDataTermino(undefined);
     setObservacoes(""); setEquipamentos(""); setFormResponsaveis([]); setFormColaboradores([]); setFormFiscais([]); setEditing(null);
     setChamadoOrigemId(null);
@@ -646,6 +648,7 @@ const labelCampo = (label: string, campo: string) => (
     setCronogramaId((os as any).cronograma_id || "");
     setAtivoId((os as any).ativo_id || "");
     setTipoServico((os as any).tipo_servico || "");
+    setNaturezaServico((os as any).natureza_servico || "");
     // Load responsáveis and colaboradores for this OS
     setNumeroOsExterno((os as any).numero_os_externo || "");
    Promise.all([
@@ -786,6 +789,7 @@ const labelCampo = (label: string, campo: string) => (
       cronograma_id: (cronogramaId && cronogramaId !== "__none__") ? cronogramaId : null,
       ativo_id: (ativoId && ativoId !== "__none__") ? ativoId : null,
       tipo_servico: tipoServico || null,
+      natureza_servico: naturezaServico || null,
       responsible_user_id: formResponsaveis.length > 0 ? formResponsaveis[0] : null,
       numero_os_externo: numeroOsExterno.trim() || null,
     };
@@ -1774,56 +1778,65 @@ fetchData();
                 </div>
               </div>
 
-              {/* Seção 3: Classificação */}
-              <div className="rounded-xl border bg-card overflow-hidden">
-                <div className="flex items-center gap-3 px-5 py-3.5 border-b bg-muted/30">
-                  <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">3</span>
-                  <span className="font-semibold text-sm">Classificação</span>
-                </div>
-                <div className="p-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
-                      <label className="text-sm font-medium mb-1 block">{labelCampo("Tipo de Serviço", "tipo_servico")}</label>
-                      <Select value={tipoServico || "__none__"} onValueChange={(v) => setTipoServico(v === "__none__" ? "" : v)} disabled={isTecnico && !!editing}>
-                        <SelectTrigger><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none__">Nenhum</SelectItem>
-                          {TIPO_SERVICO_OPTIONS.map((t) => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
-                        </SelectContent>
-                      </Select>
-                      {tipoServico && prioridade && (() => {
-                        const slaDef = slaDefinicoes.find((s: any) => s.tipo_servico === tipoServico && s.prioridade === prioridade);
-                        return slaDef ? (
-                          <p className="text-xs text-muted-foreground mt-1">⏱ SLA automático: {slaDef.prazo_horas}h</p>
-                        ) : null;
-                      })()}
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium mb-1 block">{labelCampo("Prioridade", "prioridade")}</label>
-                      {!(isTecnico && editing) ? (
-                        <Select value={prioridade} onValueChange={handlePrioridadeChange}>
-                          <SelectTrigger><SelectValue placeholder="Selecione a prioridade" /></SelectTrigger>
-                          <SelectContent>
-                            {PRIORIDADE_OPTIONS.map((p) => (<SelectItem key={p} value={p}>{p}</SelectItem>))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <Input value={prioridade} disabled />
-                      )}
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium mb-1 block">Status</label>
-                      <Select value={status} onValueChange={setStatus}>
-                        <SelectTrigger><SelectValue placeholder="Selecione o status" /></SelectTrigger>
-                        <SelectContent>
-                          {STATUS_OPTIONS.map((s) => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
+             {/* Seção 3: Classificação */}
+<div className="rounded-xl border bg-card overflow-hidden">
+  <div className="flex items-center gap-3 px-5 py-3.5 border-b bg-muted/30">
+    <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">3</span>
+    <span className="font-semibold text-sm">Classificação</span>
+  </div>
+  <div className="p-5">
+    <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      <div>
+        <label className="text-sm font-medium mb-1 block">{labelCampo("Tipo de Serviço", "tipo_servico")}</label>
+        <Select value={tipoServico || "__none__"} onValueChange={(v) => setTipoServico(v === "__none__" ? "" : v)} disabled={isTecnico && !!editing}>
+          <SelectTrigger><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">Nenhum</SelectItem>
+            {TIPO_SERVICO_OPTIONS.map((t) => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
+          </SelectContent>
+        </Select>
+        {tipoServico && prioridade && (() => {
+          const slaDef = slaDefinicoes.find((s: any) => s.tipo_servico === tipoServico && s.prioridade === prioridade);
+          return slaDef ? (
+            <p className="text-xs text-muted-foreground mt-1">⏱ SLA automático: {slaDef.prazo_horas}h</p>
+          ) : null;
+        })()}
+      </div>
+      <div>
+        <label className="text-sm font-medium mb-1 block">Natureza do Serviço</label>
+        <Select value={naturezaServico || "__none__"} onValueChange={(v) => setNaturezaServico(v === "__none__" ? "" : v)} disabled={isTecnico && !!editing}>
+          <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">Nenhuma</SelectItem>
+            {NATUREZA_SERVICO_OPTIONS.map((n) => (<SelectItem key={n} value={n}>{n}</SelectItem>))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <label className="text-sm font-medium mb-1 block">{labelCampo("Prioridade", "prioridade")}</label>
+        {!(isTecnico && editing) ? (
+          <Select value={prioridade} onValueChange={handlePrioridadeChange}>
+            <SelectTrigger><SelectValue placeholder="Selecione a prioridade" /></SelectTrigger>
+            <SelectContent>
+              {PRIORIDADE_OPTIONS.map((p) => (<SelectItem key={p} value={p}>{p}</SelectItem>))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <Input value={prioridade} disabled />
+        )}
+      </div>
+      <div>
+        <label className="text-sm font-medium mb-1 block">Status</label>
+        <Select value={status} onValueChange={setStatus}>
+          <SelectTrigger><SelectValue placeholder="Selecione o status" /></SelectTrigger>
+          <SelectContent>
+            {STATUS_OPTIONS.map((s) => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  </div>
+</div>
               {/* Seção 4: Equipe Responsável */}
               <div className="rounded-xl border bg-card overflow-hidden">
                 <div className="flex items-center gap-3 px-5 py-3.5 border-b bg-muted/30">
@@ -1956,7 +1969,7 @@ fetchData();
                           </button>
                         )}
                         <button onClick={() => setOsTab("memorial")} className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${osTab === "memorial" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
-                          <FileText className="h-4 w-4" /> Memorial de Materiais
+                          <FileText className="h-4 w-4" /> Memorial de Cálculo
                         </button>
                       </div>
                       {osTab === "materiais" && !(isTecnico && editing) && (
@@ -2019,6 +2032,10 @@ fetchData();
                 <div className="flex items-start gap-2">
                   <Wrench className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
                   <div><div className="text-xs text-muted-foreground">Tipo de Serviço</div><div className="font-medium">{tipoServico || "—"}</div></div>
+                  <div className="flex items-start gap-2">
+                 <Wrench className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                 <div><div className="text-xs text-muted-foreground">Natureza do Serviço</div><div className="font-medium">{naturezaServico || "—"}</div></div>
+                </div>
                 </div>
                 <div className="flex items-start gap-2">
                   <Package className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
@@ -2103,6 +2120,7 @@ fetchData();
                 <div><span className="text-muted-foreground">Andar:</span> <span className="font-medium">{viewing.andar || "—"}</span></div>
                 <div><span className="text-muted-foreground">Sala:</span> <span className="font-medium">{viewing.sala || "—"}</span></div>
                 <div><span className="text-muted-foreground">Tipo Serviço:</span> <span className="font-medium">{(viewing as any).tipo_servico || "—"}</span></div>
+                <div><span className="text-muted-foreground">Natureza:</span> <span className="font-medium">{(viewing as any).natureza_servico || "—"}</span></div>
                 <div>
                   <span className="text-muted-foreground">SLA:</span>{" "}
                   {(() => {

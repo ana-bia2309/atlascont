@@ -179,9 +179,9 @@ const MemorialMateriaisSection = forwardRef<MemorialHandle, Props>(
             await (supabase as any).from("memorial_materiais_quantidades").insert(qtdRows);
           }
         }
-        toast({ title: "Memorial salvo!" });
+        toast({ title: "Memorial de Cálculo salvo!" });
       } catch (err: any) {
-        toast({ title: "Erro ao salvar memorial", description: err.message, variant: "destructive" });
+        toast({ title: "Erro ao salvar Memorial de Cálculo", description: err.message, variant: "destructive" });
       } finally {
         setSaving(false);
       }
@@ -249,20 +249,20 @@ const MemorialMateriaisSection = forwardRef<MemorialHandle, Props>(
     const availableAtivos = ativos.filter(a => !selectedAtivos.find(s => s.id === a.id));
 
     // ── Render ────────────────────────────────────────────────────────────────
-    if (loading) return <p className="text-sm text-muted-foreground py-4 text-center">Carregando memorial...</p>;
+    if (loading) return <p className="text-sm text-muted-foreground py-4 text-center">Carregando Memorial de Cálculo...</p>;
 
     return (
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-semibold">Memorial de Materiais</p>
+            <p className="text-sm font-semibold">Memorial de Cálculo</p>
             <p className="text-xs text-muted-foreground">Grade de materiais × equipamentos</p>
           </div>
           {!readOnly && (
             <Button size="sm" onClick={() => osId && saveMemorial(osId)} disabled={saving || !osId}>
               <Save className="h-3.5 w-3.5 mr-1.5" />
-              {saving ? "Salvando..." : "Salvar Memorial"}
+              {saving ? "Salvando..." : "Salvar Memorial de Cálculo"}
             </Button>
           )}
         </div>
@@ -455,7 +455,7 @@ const MemorialMateriaisSection = forwardRef<MemorialHandle, Props>(
                 {rows.length === 0 && (
                   <tr>
                     <td colSpan={5 + selectedAtivos.length} className="text-center py-8 text-muted-foreground text-xs">
-                      Nenhum material adicionado ao memorial.
+                      Nenhum material adicionado ao Memorial de Cálculo.
                     </td>
                   </tr>
                 )}
@@ -498,7 +498,7 @@ const MemorialMateriaisSection = forwardRef<MemorialHandle, Props>(
         {grandTotalValor > 0 && (
           <div className="rounded-lg border bg-primary/5 p-3 flex items-center justify-between">
             <div>
-              <p className="text-xs text-muted-foreground">Custo total do memorial</p>
+              <p className="text-xs text-muted-foreground">Custo total do Memorial de Cálculo</p>
               <p className="text-xs text-muted-foreground mt-0.5">
                 {rows.length} material(is) · {grandTotalQtd} {rows[0]?.material_unidade || "itens"} no total
               </p>
@@ -511,5 +511,5 @@ const MemorialMateriaisSection = forwardRef<MemorialHandle, Props>(
   }
 );
 
-MemorialMateriaisSection.displayName = "MemorialMateriaisSection";
+MemorialMateriaisSection.displayName = "MemorialCalculoSection";
 export default MemorialMateriaisSection;
