@@ -104,12 +104,16 @@ function DetailItem({ label, value }: { label: string; value: string }) {
 export default function AtivoPublico() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { companyId } = useCompany();
-  const [ativo, setAtivo] = useState<AtivoPublicoData | null>(null);
+    const [ativo, setAtivo] = useState<AtivoPublicoData | null>(null);
   const [blocoNome, setBlocoNome] = useState("—");
   const [osList, setOsList] = useState<OSResumo[]>([]);
   const [opList, setOpList] = useState<OPResumo[]>([]);
   const [loading, setLoading] = useState(true);
+
+  console.log("=== DEBUG ATIVO ===");
+console.log("ID vindo da rota:", id);
+console.log("URL:", window.location.href);
+console.log("===================");
 
   const fetchData = useCallback(async () => {
     if (!id) {
@@ -120,15 +124,22 @@ export default function AtivoPublico() {
 
     setLoading(true);
 
+    setLoading(true);
+
+  console.log("URL COMPLETA:", window.location.href);
+  console.log("ID PURO:", id);
+  console.log("ID JSON:", JSON.stringify(id));
+
     const { data: ativoData } =
   await ((supabase as any)
     .from("ativos")
     .select(
       "id,nome,codigo_identificacao,sistema,tipo,grupo_equipamentos,marca,modelo,numero_serie,patrimonio,responsavel_tecnico,data_instalacao,observacoes,bloco_id,andar,sala,grupo_areas,area_pavimento,identificacao_ambiente,status"
     ))
-    .eq("id", id)
+    .eq("id", id?.trim())
     .maybeSingle();
-    console.log("[AtivoPublico] ativoData:", ativoData, "id:", id);
+    console.log("[DEBUG ID RAW]:", JSON.stringify(id));
+    console.log("[DEBUG LENGTH]:", id?.length);
 
     if (!ativoData) {
       setAtivo(null);
@@ -148,8 +159,7 @@ export default function AtivoPublico() {
     .from("blocos")
     .select("nome")
     .eq("id", ativoData.bloco_id)
-    .eq("company_id", companyId)
-    .maybeSingle();
+        .maybeSingle();
   blocoData = data;
 }
 
@@ -161,8 +171,7 @@ export default function AtivoPublico() {
         "id,codigo_os,status,prazo"
       ))
       .eq("ativo_id", id)
-      .eq("company_id", companyId)
-      .not(
+            .not(
         "status",
         "eq",
         "Cancelada"
@@ -178,8 +187,7 @@ export default function AtivoPublico() {
         "id,codigo_op,status,prazo,data_inicio,finalizado_em"
       ))
       .eq("ativo_id", id)
-      .eq("company_id", companyId)
-      .not(
+            .not(
         "status",
         "eq",
         "Cancelada"
@@ -194,7 +202,7 @@ export default function AtivoPublico() {
     setOsList((osData as OSResumo[]) || []);
     setOpList((opData as OPResumo[]) || []);
     setLoading(false);
-}, [id, companyId]);
+}, [id]);
 
   useEffect(() => {
     fetchData();
