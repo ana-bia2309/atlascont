@@ -45,15 +45,33 @@ export interface MateriaisSectionHandle {
 interface MateriaisSectionProps {
   osId: string | null;
   readOnly?: boolean;
+  /** Fiscais pré-selecionados durante a criação (antes de salvar a OS) */
+  preSelectedFiscais?: string[];
+  /** Opções de perfis para seleção de fiscal durante criação */
+  fiscaisOptions?: { id: string; nome: string }[];
+  /** Callback para quando fiscais são alterados durante criação */
+  onFiscaisChange?: (ids: string[]) => void;
 }
 
 // ── FiscaisSelector ──────────────────────────────────────────────────────────
-function FiscaisSelector({ osId }: { osId: string }) {
+function FiscaisSelector({
+  osId,
+  preSelectedFiscais,
+  fiscaisOptions,
+  onFiscaisChange,
+}: {
+  osId: string | null;
+  preSelectedFiscais?: string[];
+  fiscaisOptions?: { id: string; nome: string }[];
+  onFiscaisChange?: (ids: string[]) => void;
+}) {
+  // Modo persistido (OS já existe)
   const [fiscais, setFiscais] = useState<{ id: string; profile_id: string; nome: string }[]>([]);
   const [profiles, setProfiles] = useState<{ id: string; nome: string }[]>([]);
   const [showSelect, setShowSelect] = useState(false);
 
   const fetchFiscais = useCallback(async () => {
+    if (!osId) return;
     const { data } = await (supabase as any)
       .from("os_fiscais").select("id, profile_id, profiles(nome)").eq("os_id", osId);
     if (data) setFiscais(data.map((d: any) => ({
@@ -62,22 +80,75 @@ function FiscaisSelector({ osId }: { osId: string }) {
   }, [osId]);
 
   useEffect(() => {
-    fetchFiscais();
-    supabase.from("profiles").select("id, nome, company_id").eq("status", "ativo").order("nome")
-      .then(({ data }) => {
-        if (data) {
-          supabase.from("ordens_servico").select("company_id").eq("id", osId).single()
-            .then(({ data: osData }) => {
-              if (osData?.company_id) {
-                setProfiles((data as any[]).filter((p: any) => p.company_id === osData.company_id));
-              } else {
-                setProfiles(data as any);
-              }
-            });
-        }
-      });
-  }, [fetchFiscais]);
+    if (osId) {
+      fetchFiscais();
+      supabase.from("profiles").select("id, nome, company_id").eq("status", "ativo").order("nome")
+        .then(({ data }) => {
+          if (data) {
+            supabase.from("ordens_servico").select("company_id").eq("id", osId).single()
+              .then(({ data: osData }) => {
+                if (osData?.company_id) {
+                  setProfiles((data as any[]).filter((p: any) => p.company_id === osData.company_id));
+                } else {
+                  setProfiles(data as any);
+                }
+              });
+          }
+        });
+    }
+  }, [fetchFiscais, osId]);
 
+  // Modo buffer (OS ainda não existe) — usa props externas
+  if (!osId) {
+    const selected = preSelectedFiscais || [];
+    const options = fiscaisOptions || [];
+    const available = options.filter(p => !selected.includes(p.id));
+
+    return (
+      <div className="px-4 py-3 border-t border-amber-100 bg-amber-50/60 space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold text-amber-700">Fiscais para Aprovação</span>
+          <Button variant="ghost" size="sm" className="h-6 text-xs gap-1 text-amber-700 hover:bg-amber-100"
+            onClick={() => setShowSelect(s => !s)}>
+            <Plus className="h-3 w-3" /> Adicionar fiscal
+          </Button>
+        </div>
+        {showSelect && available.length > 0 && (
+          <div className="rounded-md border bg-popover shadow-md max-h-[160px] overflow-y-auto">
+            {available.map(p => (
+              <button key={p.id} type="button"
+                className="w-full text-left px-3 py-2 text-sm hover:bg-accent border-b last:border-0"
+                onClick={() => {
+                  onFiscaisChange?.([...selected, p.id]);
+                  setShowSelect(false);
+                }}>{p.nome}
+              </button>
+            ))}
+          </div>
+        )}
+        {selected.length === 0
+          ? <p className="text-xs text-muted-foreground italic">Nenhum fiscal vinculado. Será salvo ao criar a O.S.</p>
+          : (
+            <div className="flex flex-wrap gap-1.5">
+              {selected.map(id => {
+                const profile = options.find(p => p.id === id);
+                return (
+                  <div key={id} className="flex items-center gap-1 bg-amber-50 border border-amber-200 text-amber-800 rounded-full px-2.5 py-1 text-xs font-medium">
+                    {profile?.nome || id}
+                    <button onClick={() => onFiscaisChange?.(selected.filter(s => s !== id))} className="ml-0.5 hover:text-destructive">
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )
+        }
+      </div>
+    );
+  }
+
+  // Modo persistido
   const add = async (profileId: string) => {
     if (fiscais.find(f => f.profile_id === profileId)) { setShowSelect(false); return; }
     await (supabase as any).from("os_fiscais").insert({ os_id: osId, profile_id: profileId });
@@ -197,7 +268,6 @@ function MaterialForm({
     setMaterialId(m.id);
     onMaterialSelect?.(m.id);
 
-    // Busca estoque disponível
     const { data } = await (supabase as any)
       .from("estoque")
       .select("quantidade_disponivel")
@@ -257,7 +327,6 @@ function MaterialForm({
         </div>
       )}
 
-      {/* Indicador de estoque */}
       {estoqueInfo !== null && (
         <div className={cn(
           "flex items-center gap-2 rounded-md px-3 py-2 text-xs font-medium border",
@@ -283,7 +352,7 @@ function MaterialForm({
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-       <div>
+        <div>
           <label className="text-xs text-muted-foreground">Qtd</label>
           <Input type="number" min="0.01" step="0.01"
             value={draft.quantidade}
@@ -321,7 +390,7 @@ function MaterialForm({
 
 // ── MateriaisSection ─────────────────────────────────────────────────────────
 const MateriaisSection = forwardRef<MateriaisSectionHandle, MateriaisSectionProps>(
-  ({ osId, readOnly = false }, ref) => {
+  ({ osId, readOnly = false, preSelectedFiscais, fiscaisOptions, onFiscaisChange }, ref) => {
     const [persisted, setPersisted] = useState<PersistedMaterial[]>([]);
     const [local, setLocal] = useState<LocalMaterial[]>([]);
     const [loading, setLoading] = useState(false);
@@ -452,7 +521,8 @@ const MateriaisSection = forwardRef<MateriaisSectionHandle, MateriaisSectionProp
 
     return (
       <div className="rounded-xl border-2 border-primary/20 bg-card shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 bg-primary/5 border-b border-primary/10">
+        {/* Header com botão "Adicionar material" sempre visível */}
+        <div className="flex items-center justify-between px-4 py-3 bg-primary/5 border-b border-primary/10 sticky top-0 z-10">
           <div className="flex items-center gap-2">
             <ShoppingCart className="h-4 w-4 text-primary" />
             <h3 className="text-sm font-semibold">Materiais Utilizados</h3>
@@ -523,20 +593,26 @@ const MateriaisSection = forwardRef<MateriaisSectionHandle, MateriaisSectionProp
               )}
             </div>
           )}
+
+          {/* Form de adição — sticky no bottom quando há muitos itens */}
           {adding && (
-            <MaterialForm draft={draft} setDraft={setDraft}
-              onSave={handleSaveForm} onCancel={cancelEdit}
-              calcTotal={calcTotal} saveLabel="Adicionar" companyId={companyId}
-              onMaterialSelect={setCurrentMaterialId} />
+            <div className="sticky bottom-0 bg-card pt-2 pb-1 z-10">
+              <MaterialForm draft={draft} setDraft={setDraft}
+                onSave={handleSaveForm} onCancel={cancelEdit}
+                calcTotal={calcTotal} saveLabel="Adicionar" companyId={companyId}
+                onMaterialSelect={setCurrentMaterialId} />
+            </div>
           )}
         </div>
 
+        {/* Fiscal: funciona tanto na criação (buffer) quanto na edição (persistido) */}
         {!readOnly && (
-          osId
-            ? <FiscaisSelector osId={osId} />
-            : <div className="px-4 py-3 border-t border-amber-100 bg-amber-50/60">
-                <p className="text-xs text-amber-700 italic">💡 Salve a O.S. para adicionar fiscais e enviar para aprovação.</p>
-              </div>
+          <FiscaisSelector
+            osId={osId}
+            preSelectedFiscais={preSelectedFiscais}
+            fiscaisOptions={fiscaisOptions}
+            onFiscaisChange={onFiscaisChange}
+          />
         )}
 
         {items.length > 0 && (

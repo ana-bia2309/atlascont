@@ -1182,43 +1182,41 @@ function drawResumoConsolidado(
   });
 
   const osLabels = osComMat.map(os => (os.codigo_os || "OS").replace(/^OS-0*/, "OS-"));
-  const head = [["Material", "Unid.", ...osLabels, "TOTAL"]];
+  const head = [["Material", "Unid.", ...osLabels, "Total Qtd.", "Total R$"]];
 
   const body: string[][] = [];
-  let grandTotal = 0;
+  let grandTotal = 0; // acumula em R$
 
   allMats.forEach((info, matNome) => {
     const row: string[] = [matNome, info.unidade];
-    let rowTotal = 0;
+    let rowTotalQtd = 0;
     osComMat.forEach(os => {
       const mat = (materiaisByOs[os.id] || []).find(m => m.nome_material === matNome);
       const qtd = mat ? mat.quantidade : 0;
-      rowTotal += qtd;
+      rowTotalQtd += qtd;
       row.push(qtd > 0 ? fmtQtd(qtd) : "0");
     });
-    row.push(rowTotal > 0 ? fmtQtd(rowTotal) : "0");
-    grandTotal += rowTotal;
+    row.push(rowTotalQtd > 0 ? fmtQtd(rowTotalQtd) : "0");
+    // Valor total da linha em R$
+    const rowValor = osComMat.reduce((s, os) => {
+      const mat = (materiaisByOs[os.id] || []).find(m => m.nome_material === matNome);
+      return s + (mat ? (mat.custo_total_item || 0) : 0);
+    }, 0);
+    row.push(fmtMoney(rowValor));
+    grandTotal += rowValor;
     body.push(row);
   });
 
-  const colTotals: number[] = new Array(osComMat.length).fill(0);
-  allMats.forEach((_, matNome) => {
-    osComMat.forEach((os, i) => {
-      const mat = (materiaisByOs[os.id] || []).find(m => m.nome_material === matNome);
-      colTotals[i] += mat ? mat.quantidade : 0;
-    });
-  });
-
-  // Linha de total: apenas o texto "TOTAL GERAL" (abrangendo todas as colunas exceto a última) + valor final
-  const totalCols = 2 + osComMat.length; // Material + Unid + colunas OS
+  // Linha de total: "TOTAL GERAL" abrangendo todas as colunas exceto a última + valor em R$
+  const totalCols = 2 + osComMat.length + 1; // Material + Unid + colunas OS + Total Qtd
   const footRow: (string | object)[] = [
-    { content: "TOTAL GERAL", colSpan: totalCols, styles: { halign: "right", fontStyle: "bold" } } as any,
-    fmtQtd(grandTotal),
-  ];
+  { content: `TOTAL GERAL          ${fmtMoney(grandTotal)}`, colSpan: totalCols + 1, styles: { halign: "center", fontStyle: "bold" } } as any,
+];
 
   const fixedW = 58 + 13;
   const totalColW = 18;
-  const remaining = CW - fixedW - totalColW;
+  const valorColW = 26;
+  const remaining = CW - fixedW - totalColW - valorColW;
   const osColW = Math.max(Math.floor(remaining / Math.max(osComMat.length, 1)), 13);
 
   const columnStyles: Record<number, object> = {
@@ -1229,6 +1227,9 @@ function drawResumoConsolidado(
     columnStyles[i + 2] = { cellWidth: osColW, halign: "center" };
   });
   columnStyles[osComMat.length + 2] = { cellWidth: totalColW, halign: "center", fontStyle: "bold" };
+  columnStyles[osComMat.length + 3] = { cellWidth: valorColW, halign: "right", fontStyle: "bold" };
+// alinhamento do footer sobreposto via didParseCell
+// ↑ O alinhamento do footer é controlado via didParseCell abaixo
 
   autoTable(doc, {
     startY: y,
@@ -1247,6 +1248,11 @@ function drawResumoConsolidado(
     columnStyles,
     margin: { top: MT, bottom: MB, left: ML, right: MR },
     tableWidth: CW,
+    didParseCell: (d: any) => {
+      if (d.section === "foot") {
+        d.cell.styles.halign = "center";
+      }
+    },
   });
 
   const finalY = (doc as any).lastAutoTable.finalY + 8;
