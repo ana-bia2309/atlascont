@@ -201,16 +201,34 @@ export default function OrdensServico() {
   const [assinaturaOpen, setAssinaturaOpen] = useState(false);
   const sigCanvasRef = useRef<any>(null);
   const [salvandoAssinatura, setSalvandoAssinatura] = useState(false);
-  useEffect(() => {
-    if (!viewing) return;
-    console.log("[clima] viewing status:", viewing.status, "temp:", (viewing as any).clima_temperatura);
-    if ((viewing.status || "").toLowerCase().includes("em execu") && !(viewing as any).clima_temperatura) {
-      console.log("[clima] Registrando clima para:", viewing.id);
-      import("@/lib/registrarClima").then(({ registrarClimaOS }) => {
-        registrarClimaOS(viewing.id).then(() => fetchData());
-      });
-    }
-  }, [viewing?.id]);
+  
+useEffect(() => {
+  if (!viewing) return;
+  // Registra clima para qualquer OS ao abrir, independente de status
+  // A função só atualiza se ainda não tiver clima registrado
+  (supabase as any)
+    .from("ordens_servico")
+    .select("clima_temperatura")
+    .eq("id", viewing.id)
+    .single()
+    .then(({ data }: any) => {
+      if (!data?.clima_temperatura) {
+        import("@/lib/registrarClima").then(({ registrarClimaOS }) => {
+          registrarClimaOS(viewing.id).then(async () => {
+            await fetchData();
+            const { data } = await (supabase as any)
+              .from("ordens_servico")
+              .select("clima_temperatura, clima_condicao")
+              .eq("id", viewing.id)
+              .single();
+            if (data?.clima_temperatura) {
+              setViewing(prev => prev ? { ...prev, ...data } : prev);
+            }
+          });
+        });
+      }
+    });
+}, [viewing?.id]);
   const [pendingEdit, setPendingEdit] = useState<OrdemServico | null>(null);
 
   // Filter state
@@ -1973,8 +1991,15 @@ fetchData();
                         </button>
                       </div>
                       {osTab === "materiais" && !(isTecnico && editing) && (
-                        <MateriaisSection ref={materiaisRef} osId={editing?.id || null} readOnly={!can("painel_os.editar") && !can("painel_os.criar")} />
-                      )}
+                     <MateriaisSection
+                     ref={materiaisRef}
+                     osId={editing?.id || null}
+                     readOnly={!can("painel_os.editar") && !can("painel_os.criar")}
+                    preSelectedFiscais={!editing ? formFiscais : undefined}
+                  fiscaisOptions={!editing ? tecnicosOptions : undefined}
+                 onFiscaisChange={!editing ? setFormFiscais : undefined}
+                 />
+                )}
                       {osTab === "evidencias" && (
                         <div className="space-y-4">
                           <AnexosSection ref={anexosRef} osId={editing?.id || null} readOnly={(isTecnico && !!editing) || !can("painel_os.anexar")} canAttach={can("painel_os.anexar")} canDownload={can("painel_os.baixar")} />

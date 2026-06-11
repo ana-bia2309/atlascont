@@ -2,11 +2,17 @@ import { supabase } from "@/integrations/supabase/client";
 
 export async function registrarClimaOS(osId: string): Promise<void> {
   try {
-    console.log("[registrarClima] Iniciando para OS:", osId);
-    // Brasília coordenadas
+    // Não sobrescreve clima já registrado (preserva o momento real da execução)
+    const { data: existing } = await (supabase as any)
+      .from("ordens_servico")
+      .select("clima_temperatura")
+      .eq("id", osId)
+      .single();
+
+    if (existing?.clima_temperatura) return;
+
     const lat = -15.7801;
     const lon = -47.9292;
-
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weathercode&timezone=America/Sao_Paulo`;
 
     const res = await fetch(url);
@@ -15,9 +21,7 @@ export async function registrarClimaOS(osId: string): Promise<void> {
     const data = await res.json();
     const temp = data.current?.temperature_2m;
     const code = data.current?.weathercode;
-
     const condicao = interpretarClima(code);
-    console.log("[registrarClima] Temp:", temp, "Condição:", condicao);
 
     await (supabase as any)
       .from("ordens_servico")
