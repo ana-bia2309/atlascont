@@ -1,19 +1,7 @@
-const PUBLISHED_APP_URL = "https://atlascont.lovable.app";
+const PUBLISHED_APP_URL = "https://atlascontrol.systems";
 
-function normalizeUrl(url: string) {
-  return url.replace(/\/+$/, "");
+export function buildPublicAppUrl(path: string): string {
+  return `${PUBLISHED_APP_URL}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
-export function getPublicAppUrl() {
-  return normalizeUrl(PUBLISHED_APP_URL);
-}
-
-export function buildPublicAppUrl(path = "") {
-  const baseUrl = getPublicAppUrl();
-
-  if (!path) {
-    return baseUrl;
-  }
-
-  return `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
-}
+export default PUBLISHED_APP_URL;

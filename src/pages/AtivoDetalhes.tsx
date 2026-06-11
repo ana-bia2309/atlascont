@@ -30,7 +30,7 @@ type HistoricoAtivo = { id: string; acao: string; detalhes: string | null; creat
 
 const STATUS_OPTIONS: Record<string, string> = { ativo: "Ativo", inativo: "Inativo", "manutenção": "Manutenção" };
 const fmtDate = (d: string | null) => { if (!d) return "—"; try { return format(new Date(d + "T12:00:00"), "dd/MM/yyyy"); } catch { return "—"; } };
-const PUBLISHED_URL = "https://atlascont.lovable.app";
+const PUBLISHED_URL = "https://atlascontrol.systems";
 
 export default function AtivoDetalhes() {
   const { id } = useParams<{ id: string }>();

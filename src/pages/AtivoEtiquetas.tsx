@@ -9,7 +9,7 @@ import { Printer, Tags, CheckSquare, LayoutGrid, Filter, X } from "@/lib/icons";
 import { QRCodeSVG } from "qrcode.react";
 import { cn } from "@/lib/utils";
 
-const PUBLISHED_URL = "https://atlascont.lovable.app";
+const PUBLISHED_URL = "https://atlascontrol.systems";
 
 type Bloco = { id: string; nome: string | null };
 

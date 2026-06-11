@@ -127,9 +127,8 @@ export default function AtivoPublico() {
       "id,nome,codigo_identificacao,sistema,tipo,grupo_equipamentos,marca,modelo,numero_serie,patrimonio,responsavel_tecnico,data_instalacao,observacoes,bloco_id,andar,sala,grupo_areas,area_pavimento,identificacao_ambiente,status"
     ))
     .eq("id", id)
-.eq("company_id", companyId)
-.eq("status", "Ativo")
     .maybeSingle();
+    console.log("[AtivoPublico] ativoData:", ativoData, "id:", id);
 
     if (!ativoData) {
       setAtivo(null);
@@ -144,14 +143,15 @@ export default function AtivoPublico() {
 
     let blocoData: { nome?: string | null } | null = null;
 
-    if (ativoData.bloco_id) {
-      const { data } = await (supabase as any)
-  .from("blocos")
-  .select("nome")
-  .eq("id", ativoData.bloco_id)
-  .eq("company_id", companyId)
-  .maybeSingle();
-    }
+   if (ativoData.bloco_id) {
+  const { data } = await (supabase as any)
+    .from("blocos")
+    .select("nome")
+    .eq("id", ativoData.bloco_id)
+    .eq("company_id", companyId)
+    .maybeSingle();
+  blocoData = data;
+}
 
   const [{ data: osData }, { data: opData }] =
   await Promise.all([
