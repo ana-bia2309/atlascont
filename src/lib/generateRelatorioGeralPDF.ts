@@ -814,17 +814,23 @@ function drawMemorialCalculo(doc: jsPDF, memorial: MemorialData, y: number): num
     `${String.fromCharCode(65 + i)} = ${ativoNames[id] || id}`
   );
 
-  // Larguras dinâmicas
-  const fixedW = 56 + 12; // Material + Unid
-  const endW = 16 + 26;   // Total + Valor
-  const remaining = CW - fixedW - endW;
-  const ativoColW = ativoIds.length > 0
-    ? Math.max(Math.floor(remaining / ativoIds.length), 12)
-    : 20;
+  // Larguras calculadas para a soma dar EXATAMENTE a largura útil (CW)
+  const nAt = Math.max(ativoIds.length, 1);
+  const unidW = 12;
+  const totW = 16;
+  const valW = 26;
+  const fixed = unidW + totW + valW;
+  let ativoColW = Math.floor((CW - fixed - 56) / nAt);
+  if (ativoColW < 12) ativoColW = 12;
+  let materialW = CW - fixed - nAt * ativoColW;
+  if (materialW < 30) {
+    ativoColW = Math.max(6, Math.floor((CW - fixed - 30) / nAt));
+    materialW = CW - fixed - nAt * ativoColW;
+  }
 
   const columnStyles: Record<number, object> = {
-    0: { cellWidth: 56, halign: "left" },
-    1: { cellWidth: 12, halign: "center" },
+    0: { cellWidth: materialW, halign: "left" },
+    1: { cellWidth: unidW, halign: "center" },
   };
   ativoIds.forEach((_, i) => {
     columnStyles[i + 2] = { cellWidth: ativoColW, halign: "center" };
@@ -1207,55 +1213,61 @@ function drawResumoConsolidado(
     body.push(row);
   });
 
-  // Linha de total: "TOTAL GERAL" abrangendo todas as colunas exceto a última + valor em R$
-  const totalCols = 2 + osComMat.length + 1; // Material + Unid + colunas OS + Total Qtd
-  const footRow: (string | object)[] = [
-  { content: `TOTAL GERAL          ${fmtMoney(grandTotal)}`, colSpan: totalCols + 1, styles: { halign: "center", fontStyle: "bold" } } as any,
-];
-
-  const fixedW = 58 + 13;
-  const totalColW = 18;
-  const valorColW = 26;
-  const remaining = CW - fixedW - totalColW - valorColW;
-  const osColW = Math.max(Math.floor(remaining / Math.max(osComMat.length, 1)), 13);
+  // Larguras calculadas para a soma dar EXATAMENTE a largura útil (CW)
+  const nOS = Math.max(osComMat.length, 1);
+  const unidW = 12;
+  const totalColW = 17;
+  const valorColW = 25;
+  const fixed = unidW + totalColW + valorColW;
+  let osColW = Math.floor((CW - fixed - 58) / nOS);
+  if (osColW < 11) osColW = 11;
+  let materialW = CW - fixed - nOS * osColW;
+  if (materialW < 30) {
+    osColW = Math.max(5, Math.floor((CW - fixed - 30) / nOS));
+    materialW = CW - fixed - nOS * osColW;
+  }
 
   const columnStyles: Record<number, object> = {
-    0: { cellWidth: 58, halign: "left" },
-    1: { cellWidth: 13, halign: "center" },
+    0: { cellWidth: materialW, halign: "left" },
+    1: { cellWidth: unidW, halign: "center" },
   };
   osComMat.forEach((_, i) => {
     columnStyles[i + 2] = { cellWidth: osColW, halign: "center" };
   });
   columnStyles[osComMat.length + 2] = { cellWidth: totalColW, halign: "center", fontStyle: "bold" };
   columnStyles[osComMat.length + 3] = { cellWidth: valorColW, halign: "right", fontStyle: "bold" };
-// alinhamento do footer sobreposto via didParseCell
-// ↑ O alinhamento do footer é controlado via didParseCell abaixo
 
   autoTable(doc, {
     startY: y,
     head,
     body,
-    foot: [footRow],
     headStyles: {
       fillColor: C.navy, textColor: C.white,
       fontSize: 7.5, fontStyle: "bold", halign: "center", cellPadding: 1.6,
     },
     bodyStyles: { fontSize: 7.5, textColor: C.dark, cellPadding: 1.5 },
     alternateRowStyles: { fillColor: C.navyLight },
-    footStyles: {
-      fillColor: C.dark, textColor: C.white, fontStyle: "bold", fontSize: 8, halign: "center",
-    },
     columnStyles,
     margin: { top: MT, bottom: MB, left: ML, right: MR },
     tableWidth: CW,
-    didParseCell: (d: any) => {
-      if (d.section === "foot") {
-        d.cell.styles.halign = "center";
-      }
-    },
   });
 
-  const finalY = (doc as any).lastAutoTable.finalY + 8;
+  // ── Barra TOTAL GERAL desenhada manualmente (centralização garantida) ──
+  let totalY = (doc as any).lastAutoTable.finalY;
+  if (totalY + 12 > PH - MB) { doc.addPage(); totalY = MT; }
+  doc.setFillColor(...C.dark);
+  doc.rect(ML, totalY, CW, 9, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8.5);
+  doc.setTextColor(...C.white);
+  doc.text(
+    `TOTAL GERAL:  ${fmtMoney(grandTotal)}`,
+    ML + CW / 2,
+    totalY + 6,
+    { align: "center" },
+  );
+
+  const finalY = totalY + 9 + 8;
   doc.setFont("helvetica", "italic");
   doc.setFontSize(7.5);
   doc.setTextColor(...C.gray);
