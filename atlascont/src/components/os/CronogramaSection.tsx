@@ -93,7 +93,7 @@ export default function CronogramaSection({ osId, readOnly = false, currentProfi
   const isBlockedByGeral = false;
 
   const fetchAtividades = useCallback(async () => {
-    if (!osId) { setAtividades([]); return; }
+    if (!osId || !companyId) { setAtividades([]); return; }
     setLoading(true);
     const { data, error } = await supabase
       .from("atividades_os")
@@ -103,21 +103,24 @@ export default function CronogramaSection({ osId, readOnly = false, currentProfi
       .order("data_inicio", { ascending: true });
     if (!error && data) setAtividades(data as Atividade[]);
     setLoading(false);
-  }, [osId]);
+  }, [osId, companyId]);
+
 
   useEffect(() => { fetchAtividades(); }, [fetchAtividades]);
 
   // Fetch all active profiles for the multi-select
   useEffect(() => {
-    supabase
+    if (!companyId) return;
+    (supabase as any)
       .from("profiles")
       .select("id, nome, job_title")
+      .eq("company_id", companyId)
       .eq("status", "ativo")
       .order("nome")
-      .then(({ data }) => {
+      .then(({ data }: any) => {
         if (data) setProfiles(data.map((p: any) => ({ id: p.id, nome: p.nome, job_title: p.job_title })));
       });
-  }, []);
+  }, [companyId]);
 
   // Fetch tipos de atividade
   useEffect(() => {
@@ -198,71 +201,71 @@ export default function CronogramaSection({ osId, readOnly = false, currentProfi
       unidade_medicao: tipoAtividade === "Medição" ? (unidadeMedicao || null) : null,
     };
 
-   if (editingId) {
+    if (editingId) {
 
-  const { error } = await (supabase as any)
-    .from("atividades_os")
-    .update(payload)
-    .eq("id", editingId)
-    .eq("company_id", companyId);
+      const { error } = await (supabase as any)
+        .from("atividades_os")
+        .update(payload)
+        .eq("id", editingId)
+        .eq("company_id", companyId);
 
-  if (error) {
+      if (error) {
 
-    toast({
-      title: "Erro ao atualizar atividade",
-      variant: "destructive"
-    });
+        toast({
+          title: "Erro ao atualizar atividade",
+          variant: "destructive"
+        });
 
-    return;
-  }
+        return;
+      }
 
-  toast({
-    title: "Atividade atualizada"
-  });
+      toast({
+        title: "Atividade atualizada"
+      });
 
-} else {
+    } else {
 
-  const { error } = await (supabase as any)
-    .from("atividades_os")
-    .insert({
-      os_id: osId,
-      company_id: companyId,
-      ...payload
-    });
+      const { error } = await (supabase as any)
+        .from("atividades_os")
+        .insert({
+          os_id: osId,
+          company_id: companyId,
+          ...payload
+        });
 
-  if (error) {
+      if (error) {
 
-    toast({
-      title: "Erro ao adicionar atividade",
-      variant: "destructive"
-    });
+        toast({
+          title: "Erro ao adicionar atividade",
+          variant: "destructive"
+        });
 
-    return;
-  }
+        return;
+      }
 
-  toast({
-    title: "Atividade adicionada"
-  });
-}
+      toast({
+        title: "Atividade adicionada"
+      });
+    }
 
-// Auto-sync: add activity responsáveis to os_responsaveis
-if (selectedResponsaveis.length > 0) {
-  await syncResponsaveisToOs(
-    osId,
-    selectedResponsaveis
-  );
-}
+    // Auto-sync: add activity responsáveis to os_responsaveis
+    if (selectedResponsaveis.length > 0) {
+      await syncResponsaveisToOs(
+        osId,
+        selectedResponsaveis
+      );
+    }
 
-resetForm();
-fetchAtividades();
-};
+    resetForm();
+    fetchAtividades();
+  };
 
-const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string) => {
     const { error } = await (supabase as any)
-  .from("atividades_os")
-  .delete()
-  .eq("id", id)
-  .eq("company_id", companyId);
+      .from("atividades_os")
+      .delete()
+      .eq("id", id)
+      .eq("company_id", companyId);
     if (error) { toast({ title: "Erro ao excluir atividade", variant: "destructive" }); return; }
     toast({ title: "Atividade excluída" });
     fetchAtividades();
