@@ -43,6 +43,10 @@ const dashboardItem: MenuItem = {
   title: "Dashboard", url: "/dashboard", icon: Gauge, iconColor: "#3B82F6", requiredPermission: "dashboard.visualizar",
 };
 
+const ativosItem: MenuItem = {
+  title: "Ativos", url: "/ativos", icon: Box, iconColor: "#8B5CF6", requiredPermission: "ativos.visualizar",
+};
+
 /* ── Section: Operacional ── */
 const osGroup: MenuGroup = {
   id: "os", title: "Ordens de Serviço", icon: ClipboardList, iconColor: "#6366F1", menuKey: "menu.os",
@@ -111,7 +115,6 @@ const configGroup: MenuGroup = {
   items: [
     { title: "Definições de SLA", url: "/sla", icon: Timer, requiredPermission: "sla.visualizar" },
     { title: "Checklist Templates", url: "/checklist-templates", icon: ListChecks, requiredPermission: "checklist_templates.visualizar" },
-    { title: "Tipos de Atividade", url: "/tipos-atividade", icon: ClipboardList, requiredPermission: "sla.visualizar" },
   ],
 };
 
@@ -119,7 +122,6 @@ const cadastrosGroup: MenuGroup = {
   id: "cadastros", title: "Cadastros", icon: Briefcase, iconColor: "#2563EB", menuKey: "menu.cadastros",
   items: [
     { title: "Unidades de Manutenção", url: "/blocos", icon: Building2, requiredPermission: "blocos.visualizar" },
-    { title: "Ativos", url: "/ativos", icon: Box, requiredPermission: "ativos.visualizar" },
     { title: "Controle de Acesso", url: "/controle-acesso", icon: ShieldCheck, requiredPermission: "controle_acesso.visualizar" },
     { title: "Perfis de Acesso", url: "/perfis-acesso", icon: KeyRound, requiredPermission: "perfis_acesso.visualizar" },
   ],
@@ -364,6 +366,9 @@ const filterItems = useCallback(
           <SidebarGroupContent>
             <SidebarMenu>
               <CollapsibleGroup {...groupProps(relatoriosGroup)} />
+              {filterItems([ativosItem]).map((item) => (
+                <SidebarTopItem key={item.url} item={item} collapsed={collapsed} />
+              ))}
               <CollapsibleGroup {...groupProps(custosGroup)} />
             </SidebarMenu>
           </SidebarGroupContent>

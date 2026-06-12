@@ -89,6 +89,7 @@ export default function RelatorioGeralOS() {
   const [loading, setLoading] = useState(true);
   const [viewing, setViewing] = useState<OSRow | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [exportingWord, setExportingWord] = useState(false);
 
   const [filterStatus, setFilterStatus] = useState("__all__");
   const [filterTecnico, setFilterTecnico] = useState("__all__");
@@ -105,7 +106,7 @@ export default function RelatorioGeralOS() {
     try {
       const [osRes, matRes, profRes, blocoRes, ativoRes] = await Promise.all([
         (supabase as any).from("ordens_servico")
-          .select("id, codigo_os, titulo, descricao, status, prioridade, origem, created_at, data_inicio, data_termino, finalizado_em, observacoes, responsible_user_id, criado_por, bloco_id, ativo_id, custo_total, equipamentos, numero_os_externo, andar, sala")
+          .select("id, codigo_os, titulo, descricao, status, prioridade, origem, created_at, data_inicio, data_termino, finalizado_em, observacoes, responsible_user_id, criado_por, bloco_id, ativo_id, custo_total, equipamentos, numero_os_externo, andar, sala, natureza_servico")
           .eq("company_id", companyId)
           .order("created_at", { ascending: false }),
         (supabase as any).from("materiais_os").select("id, os_id, nome_material, quantidade, unidade, custo_unitario, custo_total_item").eq("company_id", companyId),
@@ -216,6 +217,28 @@ export default function RelatorioGeralOS() {
     }
   };
 
+  const exportWord = async () => {
+    setExportingWord(true);
+    try {
+      const { generateRelatorioGeralWord } = await import("@/lib/generateRelatorioGeralWord");
+      await generateRelatorioGeralWord({
+        osList: filtered,
+        materiaisByOs,
+        blocosMap,
+        profilesMap,
+        companyId: companyId || "",
+        filterDateFrom,
+        filterDateTo,
+        companyName: "Atlas Control",
+      });
+      toast({ title: "Word exportado com sucesso!" });
+    } catch (err: any) {
+      toast({ title: "Erro ao exportar Word", description: err.message, variant: "destructive" });
+    } finally {
+      setExportingWord(false);
+    }
+  };
+
   const viewingMateriais = viewing ? (materiaisByOs[viewing.id] || []) : [];
   const totalGeral = filtered.reduce((s, os) => s + (os.custo_total || 0), 0);
 
@@ -238,6 +261,9 @@ export default function RelatorioGeralOS() {
           </Button>
           <Button variant="outline" onClick={exportPDF} disabled={filtered.length === 0 || exporting}>
             <FileText className="mr-2 h-4 w-4" /> {exporting ? "Gerando..." : "PDF Completo"}
+          </Button>
+          <Button variant="outline" onClick={exportWord} disabled={filtered.length === 0 || exportingWord}>
+            <FileText className="mr-2 h-4 w-4" /> {exportingWord ? "Gerando..." : "Word"}
           </Button>
         </div>
       </div>

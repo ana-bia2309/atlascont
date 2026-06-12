@@ -9,7 +9,6 @@ import { ROUTE_TO_MENU_KEY } from "@/lib/menu-permissions";
 import { logActivity } from "@/lib/activity-log";
 import { supabase } from "@/integrations/supabase/client";
 import { GlobalSearch } from "@/components/GlobalSearch";
-import AIChat from "@/components/AIChat";
 import { useUserRole } from "@/hooks/use-user-role";
 
 type ProfileStatus = "loading" | "active" | "inactive" | "no_profile" | "error";
@@ -289,7 +288,6 @@ return (
           </main>
         </div>
       </div>
-      <AIChat />
     </SidebarProvider>
   );
 }

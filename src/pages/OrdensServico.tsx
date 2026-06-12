@@ -31,7 +31,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Plus, Pencil, Trash2, CalendarIcon, RefreshCw, Search, X, Eye, CheckCircle2, Paperclip, Download as DownloadIcon, SlidersHorizontal, Star, StarOff, Wrench, Package, FileText } from "@/lib/icons";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { generateOsPdf } from "@/lib/generateOsPdf";
 import MateriaisSection, { MateriaisSectionHandle } from "@/components/os/MateriaisSection";
 import AnexosSection, { AnexosSectionHandle } from "@/components/os/AnexosSection";
 import FotosOSSection, { FotosOSSectionHandle } from "@/components/os/FotosOSSection";
@@ -1218,22 +1217,22 @@ fetchData();
     try { return format(new Date(d + "T00:00:00"), "dd/MM/yyyy"); } catch { return "—"; }
   };
 
-  const downloadPdf = (os: OrdemServico) => {
-    generateOsPdf({
-      codigo_os: os.codigo_os,
-      status: os.status,
-      bloco: os.bloco_id ? blocosMap[os.bloco_id] || "—" : "—",
-      andar: os.andar,
-      sala: os.sala,
-      prazo: os.prazo,
-      data_inicio: os.data_inicio,
-      data_termino: os.data_termino,
-      equipamentos: os.equipamentos,
-      observacoes: os.observacoes,
-      custo_total: os.custo_total,
-      materiais: materiaisMap[os.id] || [],
-      anexos: anexosMap[os.id] || [],
-    });
+  const downloadPdf = async (os: OrdemServico) => {
+    toast({ title: "Gerando PDF...", description: "Carregando anexos, fotos e memorial." });
+    try {
+      const { generateRelatorioGeralPDF } = await import("@/lib/generateRelatorioGeralPDF");
+      await generateRelatorioGeralPDF({
+        osList: [os as any],
+        materiaisByOs: { [os.id]: (materiaisMap[os.id] || []) as any },
+        blocosMap,
+        profilesMap,
+        companyId: companyId || "",
+        companyName: "Atlas Control",
+      });
+      toast({ title: "PDF gerado!" });
+    } catch (err: any) {
+      toast({ title: "Erro ao gerar PDF", description: err.message, variant: "destructive" });
+    }
   };
 
   return (
