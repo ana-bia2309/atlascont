@@ -26,18 +26,21 @@ export async function logActivity(params: LogParams) {
     const userId = session?.user?.id ?? null;
 
     let userName: string | null = null;
+    let companyId: string | null = null;
     if (userId) {
       const { data } = await supabase
         .from("profiles")
-        .select("nome")
+        .select("nome, company_id")
         .eq("user_id", userId)
         .maybeSingle();
       userName = (data as any)?.nome ?? session?.user?.email ?? null;
+      companyId = (data as any)?.company_id ?? null;
     }
 
     await supabase.from("activity_logs" as any).insert({
       user_id: userId,
       user_name: userName,
+      company_id: companyId,
       action_type: params.actionType,
       module: params.module,
       description: params.description,
