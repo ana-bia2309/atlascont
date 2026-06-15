@@ -1,2 +1,0 @@
-ALTER TABLE public.manutencao_preventiva ADD COLUMN IF NOT EXISTS plano_id uuid REFERENCES public.planos_manutencao(id) ON DELETE SET NULL;
-CREATE INDEX IF NOT EXISTS idx_manutencao_preventiva_plano_id ON public.manutencao_preventiva(plano_id);

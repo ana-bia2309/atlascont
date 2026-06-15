@@ -42,6 +42,10 @@ type MenuGroup = {
 };
 
 /* ── Section: Dashboard (standalone) ── */
+const ativosItem: MenuItem = {
+  title: "Ativos", url: "/ativos", icon: Box, iconColor: "#8B5CF6", requiredPermission: "ativos.visualizar",
+};
+
 const dashboardItem: MenuItem = {
   title: "Dashboard", url: "/dashboard", icon: Gauge, iconColor: "#3B82F6", requiredPermission: "dashboard.visualizar",
 };
@@ -130,7 +134,6 @@ const configGroup: MenuGroup = {
   id: "config", title: "Configurações", icon: Settings, iconColor: "#374151", menuKey: "menu.os",
   items: [
     { title: "Definições de SLA", url: "/sla", icon: Timer, requiredPermission: "sla.visualizar" },
-    { title: "Tipos de Atividade", url: "/tipos-atividade", icon: ClipboardList, requiredPermission: "sla.visualizar" },
     { title: "Tipos de Sistema", url: "/tipos-sistema", icon: Settings2, requiredPermission: "sla.visualizar" },
     { title: "Campos Obrigatórios O.S.", url: "/os-campos-config", icon: Settings2 },
     { title: "Regras de Prioridade", url: "/regras-prioridade", icon: Timer },
@@ -141,7 +144,6 @@ const cadastrosGroup: MenuGroup = {
   id: "cadastros", title: "Cadastros", icon: Briefcase, iconColor: "#2563EB", menuKey: "menu.cadastros",
   items: [
     { title: "Unidades de Manutenção", url: "/blocos", icon: Building2, requiredPermission: "blocos.visualizar" },
-    { title: "Ativos", url: "/ativos", icon: Box, requiredPermission: "ativos.visualizar" },
     { title: "Controle de Acesso", url: "/controle-acesso", icon: ShieldCheck, requiredPermission: "controle_acesso.visualizar" },
     { title: "Perfis de Acesso", url: "/perfis-acesso", icon: KeyRound, requiredPermission: "perfis_acesso.visualizar" },
     { title: "Mapa dos Ativos", url: "/mapa-ativos", icon: Building2, iconColor: "#3B82F6" },
@@ -397,6 +399,9 @@ const filterItems = useCallback(
               <CollapsibleGroup {...groupProps(relatoriosGroup)} />
               <CollapsibleGroup {...groupProps(custosGroup)} />
               <CollapsibleGroup {...groupProps(almoxarifadoGroup)} />
+              {filterItems([ativosItem]).map((item) => (
+                <SidebarTopItem key={item.url} item={item} collapsed={collapsed} />
+              ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

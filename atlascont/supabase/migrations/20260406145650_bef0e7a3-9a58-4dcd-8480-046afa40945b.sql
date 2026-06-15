@@ -1,1 +1,0 @@
-ALTER TABLE public.gastos ADD COLUMN tipo_gasto text;

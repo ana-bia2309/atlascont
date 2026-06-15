@@ -1,1 +1,0 @@
-UPDATE ordens_servico SET status = 'Não Iniciada' WHERE lower(trim(status)) = 'aberta';
