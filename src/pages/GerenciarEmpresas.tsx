@@ -11,7 +11,11 @@ import {
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from "@/components/ui/table";
-import { Plus, Pencil, RefreshCw, Building2, Users, Eye, Upload, X } from "@/lib/icons";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Plus, Pencil, RefreshCw, Building2, Users, Eye, Upload, X, Trash2 } from "@/lib/icons";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -234,19 +238,15 @@ export default function GerenciarEmpresas() {
         const { data, error: fnError } = await supabase.functions.invoke("invite-user", {
           body: {
             nome: formAdminNome.trim(),
-            cpf: "00000000000",
             email: formAdminEmail.trim(),
             role: "administrador",
+            company_id: newCompany.id,
+            redirectTo: `${window.location.origin}/auth/callback`,
           },
         });
 
         if (fnError) throw fnError;
         if (data?.error) throw new Error(data.error);
-
-        if (data?.profile_id) {
-          await (supabase as any).from("profiles").update({ company_id: newCompany.id }).eq("id", data.profile_id);
-          await (supabase as any).from("user_roles").update({ company_id: newCompany.id }).eq("user_id", data.profile_id);
-        }
 
         await (supabase as any).from("companies").update({ owner_id: data?.userId || null }).eq("id", newCompany.id);
 
@@ -264,6 +264,24 @@ export default function GerenciarEmpresas() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const [deleting, setDeleting] = useState<Company | null>(null);
+
+  const handleDelete = async () => {
+    if (!deleting) return;
+    try {
+      const { data, error } = await supabase.functions.invoke("delete-company", {
+        body: { company_id: deleting.id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast({ title: "Empresa excluída", description: `"${deleting.name}" e todos os dados vinculados foram removidos.` });
+      fetchCompanies();
+    } catch (err: any) {
+      toast({ title: "Erro ao excluir empresa", description: err.message, variant: "destructive" });
+    }
+    setDeleting(null);
   };
 
   const handleToggleActive = async (company: Company) => {
@@ -395,6 +413,15 @@ export default function GerenciarEmpresas() {
                       <Button variant="ghost" size="icon" onClick={() => openEdit(company)} title="Editar">
                         <Pencil className="h-4 w-4" />
                       </Button>
+                      {company.id !== "6a0001d2-7c27-4659-ad1f-e8d5aa7cad7f" ? (
+                        <Button variant="ghost" size="icon" onClick={() => setDeleting(company)} title="Excluir empresa">
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      ) : (
+                        <Button variant="ghost" size="icon" disabled title="Empresa principal — protegida">
+                          <Trash2 className="h-4 w-4 text-muted-foreground/40" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -463,6 +490,24 @@ export default function GerenciarEmpresas() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Confirmação de exclusão */}
+      <AlertDialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir empresa "{deleting?.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. A empresa será removida permanentemente do sistema.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Dialog Criar/Editar */}
       <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) { setDialogOpen(false); resetForm(); } }}>

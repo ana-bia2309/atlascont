@@ -62,10 +62,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { nome, cpf, email, role, perfil_acesso_id, redirectTo } = await req.json();
+    const { nome, cpf, email, role, perfil_acesso_id, redirectTo, company_id: targetCompanyId } = await req.json();
 
-    if (!nome || !cpf || !email || !role) {
-      return new Response(JSON.stringify({ error: "Campos obrigatórios: nome, cpf, email, role" }), {
+    if (!nome || !email || !role) {
+      return new Response(JSON.stringify({ error: "Campos obrigatórios: nome, email, role" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -84,17 +84,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check duplicate CPF
-    const { data: existingCpf } = await adminClient
-      .from("profiles")
-      .select("id")
-      .eq("cpf", cpf)
-      .maybeSingle();
-    if (existingCpf) {
-      return new Response(JSON.stringify({ error: "CPF já cadastrado" }), {
-        status: 409,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // Check duplicate CPF (somente se um CPF foi informado)
+    if (cpf) {
+      const { data: existingCpf } = await adminClient
+        .from("profiles")
+        .select("id")
+        .eq("cpf", cpf)
+        .maybeSingle();
+      if (existingCpf) {
+        return new Response(JSON.stringify({ error: "CPF já cadastrado" }), {
+          status: 409,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     // Invite user
@@ -133,11 +135,13 @@ Deno.serve(async (req) => {
       console.error("Profile lookup error:", profileError.message);
     }
 
+    const finalCompanyId = targetCompanyId || callerProfile.company_id;
+
     if (profile) {
       const { error: updateError } = await adminClient.from("profiles").update({
-        cpf,
+        ...(cpf ? { cpf } : {}),
         nome,
-        company_id: callerProfile.company_id,
+        company_id: finalCompanyId,
         perfil_acesso_id: perfil_acesso_id || null,
       }).eq("id", profile.id);
 
@@ -155,7 +159,7 @@ Deno.serve(async (req) => {
       // Insert the correct role with company_id
       const { error: roleError } = await adminClient
         .from("user_roles")
-        .insert({ user_id: profile.id, role, company_id: callerProfile.company_id });
+        .insert({ user_id: profile.id, role, company_id: finalCompanyId });
       if (roleError) {
         console.error("Role insert error:", roleError.message);
       }
