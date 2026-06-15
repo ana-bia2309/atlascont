@@ -245,8 +245,10 @@ export default function GerenciarEmpresas() {
           },
         });
 
-        if (fnError) throw fnError;
-        if (data?.error) throw new Error(data.error);
+        if (fnError || data?.error) {
+          await (supabase as any).from("companies").delete().eq("id", newCompany.id);
+          throw new Error(data?.error || fnError?.message || "Falha ao enviar o convite");
+        }
 
         await (supabase as any).from("companies").update({ owner_id: data?.userId || null }).eq("id", newCompany.id);
 
