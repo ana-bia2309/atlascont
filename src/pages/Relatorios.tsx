@@ -44,14 +44,39 @@ type MatOS = { id: string; os_id: string; nome_material: string; quantidade: num
 
 const STATUS_COLORS_CHART: Record<string, string> = {
   "Não Iniciada": "hsl(0, 0%, 55%)",
-  "Em triagem": "hsl(270, 60%, 55%)",
-  "Aguardando material": "hsl(30, 80%, 55%)",
-  "Aguardando acesso": "hsl(45, 80%, 55%)",
-  "Em execução": "hsl(200, 80%, 55%)",
+  "Em Triagem": "hsl(270, 60%, 55%)",
+  "Aguardando Material": "hsl(30, 80%, 55%)",
+  "Aguardando Acesso": "hsl(45, 80%, 55%)",
+  "Em Execução": "hsl(200, 80%, 55%)",
+  "Suspenso": "hsl(280, 50%, 55%)",
+  "Interrompido": "hsl(15, 75%, 55%)",
   "Concluída": "hsl(150, 65%, 45%)",
   "Cancelada": "hsl(0, 70%, 55%)",
+  "Sem status": "hsl(220, 10%, 70%)",
 };
 const FALLBACK_COLOR = "hsl(220, 15%, 45%)";
+
+// Normaliza variações de status (maiúsculas, grafias antigas) para um nome canônico
+const normalizeStatus = (raw: string | null): string => {
+  if (!raw || !raw.trim()) return "Sem status";
+  const s = raw.trim().toLowerCase();
+  const map: Record<string, string> = {
+    "não iniciada": "Não Iniciada",
+    "nao iniciada": "Não Iniciada",
+    "em triagem": "Em Triagem",
+    "aguardando material": "Aguardando Material",
+    "aguardando acesso": "Aguardando Acesso",
+    "em execução": "Em Execução",
+    "em execucao": "Em Execução",
+    "em andamento": "Em Execução",
+    "concluída": "Concluída",
+    "concluida": "Concluída",
+    "cancelada": "Cancelada",
+    "suspenso": "Suspenso",
+    "interrompido": "Interrompido",
+  };
+  return map[s] || raw.trim();
+};
 
 const fmtDate = (d: string | null) => {
   if (!d) return "—";
@@ -175,7 +200,7 @@ const fetchData = useCallback(async () => {
   // Status count
   const statusCount = useMemo(() => {
     const m: Record<string, number> = {};
-    filtered.forEach(o => { const s = o.status || "Sem status"; m[s] = (m[s] || 0) + 1; });
+    filtered.forEach(o => { const s = normalizeStatus(o.status); m[s] = (m[s] || 0) + 1; });
     return m;
   }, [filtered]);
   const pieData = Object.entries(statusCount).map(([name, value]) => ({ name, value }));

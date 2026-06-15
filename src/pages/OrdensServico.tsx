@@ -185,6 +185,7 @@ export default function OrdensServico() {
   const [tecnicosOptions, setTecnicosOptions] = useState<TecnicoOption[]>([]);
   const [blocosMap, setBlocosMap] = useState<Record<string, string>>({});
   const [profilesMap, setProfilesMap] = useState<Record<string, string>>({});
+  const [responsaveisByOs, setResponsaveisByOs] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
   const [materiaisMap, setMateriaisMap] = useState<Record<string, MaterialOS[]>>({});
   const [anexosMap, setAnexosMap] = useState<Record<string, AttachmentRecord[]>>({});

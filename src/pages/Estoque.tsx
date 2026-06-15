@@ -72,16 +72,22 @@ export default function Estoque() {
   const [entradaObs, setEntradaObs] = useState("");
   const [entradaSaving, setEntradaSaving] = useState(false);
 
-  // Saída
+  // Saída — múltiplos materiais
   const [saidaOpen, setSaidaOpen] = useState(false);
-  const [saidaMaterialId, setSaidaMaterialId] = useState("");
-  const [saidaQtd, setSaidaQtd] = useState("");
+  const [saidaItens, setSaidaItens] = useState<EntradaItem[]>([]);
+  const [saidaMatPopover, setSaidaMatPopover] = useState<Record<number, boolean>>({});
+  const [saidaData, setSaidaData] = useState(format(new Date(), "yyyy-MM-dd"));
   const [saidaMotivo, setSaidaMotivo] = useState("");
   const [saidaResponsavel, setSaidaResponsavel] = useState("");
   const [saidaDestino, setSaidaDestino] = useState("");
-  const [saidaData, setSaidaData] = useState(format(new Date(), "yyyy-MM-dd"));
   const [saidaSaving, setSaidaSaving] = useState(false);
-  const [saidaMatPopover, setSaidaMatPopover] = useState(false);
+
+  const resetSaida = () => {
+    setSaidaItens([]);
+    setSaidaData(format(new Date(), "yyyy-MM-dd"));
+    setSaidaMotivo(""); setSaidaResponsavel(""); setSaidaDestino("");
+    setSaidaMatPopover({});
+  };
 
   const [materiais, setMateriais] = useState<Material[]>([]);
   const [configOpen, setConfigOpen] = useState(false);
@@ -227,33 +233,40 @@ export default function Estoque() {
   };
 
   const handleSaida = async () => {
-    if (!saidaMaterialId || !saidaQtd || Number(saidaQtd) <= 0) {
-      toast({ title: "Preencha material e quantidade", variant: "destructive" }); return;
+    const itensValidos = saidaItens.filter(i => i.material_id && Number(i.quantidade) > 0);
+    if (itensValidos.length === 0) {
+      toast({ title: "Adicione ao menos um material com quantidade", variant: "destructive" }); return;
+    }
+    // Valida estoque suficiente para todos antes de gravar
+    for (const item of itensValidos) {
+      const existing = items.find(i => i.material_id === item.material_id);
+      if (existing && Number(item.quantidade) > existing.quantidade_disponivel) {
+        toast({ title: "Quantidade insuficiente", description: `${existing.material.descricao}: disponível ${existing.quantidade_disponivel} ${existing.material.unidade || ""}`, variant: "destructive" });
+        return;
+      }
     }
     setSaidaSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const qtd = Number(saidaQtd);
-      const existing = items.find(i => i.material_id === saidaMaterialId);
-      if (existing && qtd > existing.quantidade_disponivel) {
-        toast({ title: "Quantidade insuficiente", description: `Disponível: ${existing.quantidade_disponivel} ${existing.material.unidade || ""}`, variant: "destructive" });
-        setSaidaSaving(false); return;
+      const obs = [saidaMotivo, saidaResponsavel, saidaDestino].filter(Boolean).join(" | ") || null;
+      for (const item of itensValidos) {
+        const qtd = Number(item.quantidade);
+        await (supabase as any).from("estoque_movimentacoes").insert({
+          material_id: item.material_id, company_id: companyId, tipo: "saida",
+          quantidade: qtd, data_movimentacao: saidaData,
+          observacoes: obs, created_by: user?.id,
+        });
+        const existing = items.find(i => i.material_id === item.material_id);
+        if (existing?.id) {
+          await (supabase as any).from("estoque").update({
+            quantidade_disponivel: Math.max(existing.quantidade_total - qtd, 0),
+            updated_at: new Date().toISOString(),
+          }).eq("id", existing.id);
+        }
       }
-      await (supabase as any).from("estoque_movimentacoes").insert({
-        material_id: saidaMaterialId, company_id: companyId, tipo: "saida",
-        quantidade: qtd, data_movimentacao: saidaData,
-        observacoes: [saidaMotivo, saidaResponsavel, saidaDestino].filter(Boolean).join(" | ") || null,
-        created_by: user?.id,
-      });
-      if (existing?.id) {
-        await (supabase as any).from("estoque").update({
-          quantidade_disponivel: Math.max(existing.quantidade_total - qtd, 0),
-          updated_at: new Date().toISOString(),
-        }).eq("id", existing.id);
-      }
-      toast({ title: "Saída registrada com sucesso!" });
+      toast({ title: `${itensValidos.length} saída(s) registrada(s) com sucesso!` });
       setSaidaOpen(false);
-      setSaidaMaterialId(""); setSaidaQtd(""); setSaidaMotivo(""); setSaidaResponsavel(""); setSaidaDestino("");
+      resetSaida();
       fetchData();
     } catch (e: any) {
       toast({ title: "Erro ao registrar saída", description: e.message, variant: "destructive" });
@@ -261,7 +274,6 @@ export default function Estoque() {
       setSaidaSaving(false);
     }
   };
-
   const handleConfig = async () => {
     if (!configItem) return;
     try {
@@ -320,8 +332,11 @@ export default function Estoque() {
             <Download className="h-4 w-4 mr-2" /> Excel
           </Button>
           <Button variant="outline" size="icon" onClick={fetchData}><RefreshCw className="h-4 w-4" /></Button>
-          <Button onClick={() => { resetEntrada(); setEntradaOpen(true); }}>
-            <Plus className="h-4 w-4 mr-2" /> Registrar Entrada
+          <Button variant="destructive" onClick={() => { resetSaida(); setSaidaOpen(true); }}>
+            <TrendingDown className="h-4 w-4 mr-2" /> Registrar Saída
+          </Button>
+          <Button onClick={() => { resetEntrada(); setEntradaOpen(true); }} className="!bg-emerald-600 hover:!bg-emerald-700 !bg-none">
+            <TrendingUp className="h-4 w-4 mr-2" /> Registrar Entrada
           </Button>
         </div>
       </div>
@@ -433,7 +448,11 @@ export default function Estoque() {
                           <TrendingUp className="h-3.5 w-3.5 mr-1 text-emerald-600" /> Entrada
                         </Button>
                         <Button variant="ghost" size="sm" className="h-7 text-xs"
-                          onClick={() => { setSaidaMaterialId(item.material_id); setSaidaOpen(true); }}>
+                          onClick={() => {
+                            resetSaida();
+                            setSaidaItens([{ material_id: item.material_id, quantidade: "", unidade: item.material.unidade || "" }]);
+                            setSaidaOpen(true);
+                          }}>
                           <TrendingDown className="h-3.5 w-3.5 mr-1 text-red-600" /> Saída
                         </Button>
                         <Button variant="ghost" size="sm" className="h-7 text-xs"
@@ -641,7 +660,7 @@ export default function Estoque() {
             <Button
               onClick={handleEntrada}
               disabled={entradaSaving || itensValidos.length === 0}
-              className="bg-emerald-600 hover:bg-emerald-700"
+              className="!bg-emerald-600 hover:!bg-emerald-700 !bg-none"
             >
               {entradaSaving ? "Registrando..." : `Registrar ${itensValidos.length} entrada(s)`}
             </Button>
@@ -649,83 +668,153 @@ export default function Estoque() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog Saída */}
-      <Dialog open={saidaOpen} onOpenChange={o => { if (!o) { setSaidaOpen(false); setSaidaMaterialId(""); setSaidaQtd(""); setSaidaMotivo(""); setSaidaResponsavel(""); setSaidaDestino(""); } }}>
-        <DialogContent className="sm:max-w-[500px]">
+      {/* Dialog Saída — múltiplos materiais */}
+      <Dialog open={saidaOpen} onOpenChange={o => { if (!o) { setSaidaOpen(false); resetSaida(); } }}>
+        <DialogContent className="sm:max-w-[640px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <TrendingDown className="h-5 w-5 text-red-600" /> Registrar Saída de Material
+              <TrendingDown className="h-5 w-5 text-red-600" /> Registrar Saída de Materiais
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div>
-              <label className="text-sm font-medium mb-1 block">Material *</label>
-              <Popover open={saidaMatPopover} onOpenChange={setSaidaMatPopover}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between font-normal">
-                    {saidaMaterialId
-                      ? (() => { const m = materiais.find(m => m.id === saidaMaterialId); return m ? `${m.codigo ? `[${m.codigo}] ` : ""}${m.descricao}` : "Selecione o material"; })()
-                      : <span className="text-muted-foreground">Selecione o material</span>
-                    }
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[460px] p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="Buscar por código ou descrição..." className="h-9" />
-                    <CommandList className="max-h-64">
-                      <CommandEmpty>Nenhum material encontrado.</CommandEmpty>
-                      <CommandGroup>
-                        {materiais.map(m => (
-                          <CommandItem key={m.id} onSelect={() => { setSaidaMaterialId(m.id); setSaidaMatPopover(false); }} className="flex items-center gap-3 py-2">
-                            <Check className={cn("h-4 w-4 shrink-0", saidaMaterialId === m.id ? "opacity-100 text-primary" : "opacity-0")} />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium truncate">{m.descricao}</p>
-                              <p className="text-xs text-muted-foreground">{m.codigo || "—"} · {m.unidade || "—"} · R$ {m.valor_unitario?.toFixed(2) || "0,00"}</p>
-                            </div>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-              {saidaMaterialId && (() => {
-                const item = items.find(i => i.material_id === saidaMaterialId);
-                return item ? (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Disponível: <strong>{item.quantidade_disponivel} {item.material.unidade || ""}</strong>
-                  </p>
-                ) : null;
-              })()}
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium mb-1 block">Quantidade *</label>
-                <Input type="number" min="0.01" step="0.01" value={saidaQtd} onChange={e => setSaidaQtd(e.target.value)} placeholder="0" />
-              </div>
+
+            {/* Data, Responsável, Destino */}
+            <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className="text-sm font-medium mb-1 block">Data da Saída</label>
                 <Input type="date" value={saidaData} onChange={e => setSaidaData(e.target.value)} />
               </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Responsável</label>
+                <Input value={saidaResponsavel} onChange={e => setSaidaResponsavel(e.target.value)} placeholder="Nome do responsável" />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Destino</label>
+                <Input value={saidaDestino} onChange={e => setSaidaDestino(e.target.value)} placeholder="Ex: Bloco A" />
+              </div>
             </div>
+
+            {/* Tabela de itens */}
+            <div className="rounded-lg border overflow-hidden">
+              <div className="bg-muted/40 px-4 py-2.5 flex items-center justify-between border-b">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Itens da Saída</p>
+                <span className="text-xs text-muted-foreground">{saidaItens.length} item(s)</span>
+              </div>
+
+              {saidaItens.length > 0 && (
+                <div className="grid grid-cols-[1fr_90px_60px_32px] gap-2 px-4 py-2 bg-muted/20 border-b text-xs font-medium text-muted-foreground">
+                  <span>Material</span>
+                  <span className="text-center">Quantidade</span>
+                  <span className="text-center">Unid.</span>
+                  <span />
+                </div>
+              )}
+
+              <div className="divide-y">
+                {saidaItens.map((item, idx) => {
+                  const mat = materiais.find(m => m.id === item.material_id);
+                  const estoqueItem = items.find(i => i.material_id === item.material_id);
+                  return (
+                    <div key={idx} className="grid grid-cols-[1fr_90px_60px_32px] gap-2 px-4 py-2.5 items-center">
+                      <Popover
+                        open={!!saidaMatPopover[idx]}
+                        onOpenChange={o => setSaidaMatPopover(prev => ({ ...prev, [idx]: o }))}
+                      >
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="w-full justify-between font-normal h-8 text-xs">
+                            {item.material_id
+                              ? <span className="truncate">{mat ? `${mat.codigo ? `[${mat.codigo}] ` : ""}${mat.descricao}` : "—"}</span>
+                              : <span className="text-muted-foreground">Buscar material...</span>
+                            }
+                            <Search className="h-3 w-3 text-muted-foreground shrink-0 ml-1" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[500px] p-0" align="start">
+                          <Command>
+                            <CommandInput placeholder="Buscar por código ou descrição..." className="h-9" />
+                            <CommandList className="max-h-56">
+                              <CommandEmpty>Nenhum material encontrado.</CommandEmpty>
+                              <CommandGroup>
+                                {materiais.map(m => (
+                                  <CommandItem
+                                    key={m.id}
+                                    onSelect={() => {
+                                      setSaidaItens(prev => prev.map((it, i) => i !== idx ? it : {
+                                        ...it, material_id: m.id, unidade: m.unidade || "",
+                                      }));
+                                      setSaidaMatPopover(prev => ({ ...prev, [idx]: false }));
+                                    }}
+                                    className="flex items-center gap-3 py-2"
+                                  >
+                                    <Check className={cn("h-3.5 w-3.5 shrink-0", item.material_id === m.id ? "opacity-100 text-primary" : "opacity-0")} />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium truncate">{m.descricao}</p>
+                                      <p className="text-xs text-muted-foreground">{m.codigo || "—"} · {m.unidade || "—"}</p>
+                                    </div>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+
+                      <div>
+                        <Input
+                          type="number" min="0.01" step="0.01"
+                          value={item.quantidade}
+                          onChange={e => setSaidaItens(prev => prev.map((it, i) => i !== idx ? it : { ...it, quantidade: e.target.value }))}
+                          className="h-8 text-center text-xs"
+                          placeholder="0"
+                        />
+                        {estoqueItem && (
+                          <p className="text-[10px] text-muted-foreground text-center mt-0.5">
+                            Disp: {estoqueItem.quantidade_disponivel}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="text-center text-xs text-muted-foreground font-medium">
+                        {item.unidade || "—"}
+                      </div>
+
+                      <button
+                        onClick={() => setSaidaItens(prev => prev.filter((_, i) => i !== idx))}
+                        className="text-muted-foreground hover:text-destructive transition-colors flex items-center justify-center"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="px-4 py-3 border-t bg-muted/10">
+                <Button
+                  variant="ghost" size="sm"
+                  className="gap-1.5 text-xs text-primary hover:text-primary"
+                  onClick={() => setSaidaItens(prev => [...prev, { material_id: "", quantidade: "", unidade: "" }])}
+                >
+                  <Plus className="h-3.5 w-3.5" /> Adicionar material
+                </Button>
+              </div>
+            </div>
+
+            {/* Motivo */}
             <div>
               <label className="text-sm font-medium mb-1 block">Motivo</label>
-              <Input value={saidaMotivo} onChange={e => setSaidaMotivo(e.target.value)} placeholder="Ex: Uso em OS-001" />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-1 block">Responsável</label>
-              <Input value={saidaResponsavel} onChange={e => setSaidaResponsavel(e.target.value)} placeholder="Nome do responsável" />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-1 block">Destino</label>
-              <Input value={saidaDestino} onChange={e => setSaidaDestino(e.target.value)} placeholder="Ex: Bloco A, Sala 101" />
+              <Textarea value={saidaMotivo} onChange={e => setSaidaMotivo(e.target.value)} placeholder="Ex: Uso em OS-001, manutenção preventiva..." rows={2} />
             </div>
           </div>
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSaidaOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSaida} disabled={saidaSaving || !saidaMaterialId || !saidaQtd} className="bg-red-600 hover:bg-red-700">
-              {saidaSaving ? "Salvando..." : "Registrar Saída"}
+            <Button  variant="outline" onClick={() => { setSaidaOpen(false); resetSaida(); }}>Cancelar</Button>
+            <Button
+              onClick={handleSaida}
+              disabled={saidaSaving || saidaItens.filter(i => i.material_id && Number(i.quantidade) > 0).length === 0}
+              variant="destructive"
+            >
+              {saidaSaving ? "Registrando..." : `Registrar ${saidaItens.filter(i => i.material_id && Number(i.quantidade) > 0).length} saída(s)`}
             </Button>
           </DialogFooter>
         </DialogContent>
