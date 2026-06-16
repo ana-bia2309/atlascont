@@ -439,11 +439,29 @@ async function loadLogo(url: string | null | undefined): Promise<PageImg | null>
     const r = await fetch(url);
     if (!r.ok) return null;
     const blob = await r.blob();
-    const b64 = await blobToDataURL(blob);
+    // Mantém PNG original (preserva transparência — não converte pra JPEG)
+    const pngBlob = blob.type.includes("png") ? blob : await convertToPng(blob);
+    const b64 = await blobToDataURL(pngBlob);
     if (!b64) return null;
     const d = await imgDims(b64);
     return { b64, w: d?.w || 1, h: d?.h || 1 };
   } catch { return null; }
+}
+
+async function convertToPng(blob: Blob): Promise<Blob> {
+  return new Promise(async (res) => {
+    try {
+      const bmp = await createImageBitmap(blob);
+      const canvas = document.createElement("canvas");
+      canvas.width = bmp.width;
+      canvas.height = bmp.height;
+      const ctx = canvas.getContext("2d")!;
+      // NÃO preenche fundo — mantém transparência
+      ctx.drawImage(bmp, 0, 0);
+      bmp.close();
+      canvas.toBlob(b => res(b || blob), "image/png");
+    } catch { res(blob); }
+  });
 }
 
 // ─── Texto padrão oficial (idêntico ao PDF — NÃO alterar) ────────────────────
@@ -805,18 +823,22 @@ function assinaturasHtml(tecnicoNome: string): string {
 function capaHtml(
   companyNome: string,
   logoLoc: string | null,
+  logoW: number,
+  logoH: number,
   periodo: string,
   stats: { total: number; concluidas: number; abertas: number; custo: string },
   osList: OSRow[],
   blocosMap: Record<string, string>,
   profilesMap: Record<string, string>,
 ): string {
+  const logoDispW = 76;
+  const logoDispH = logoW > 0 ? Math.round((logoH / logoW) * logoDispW) : logoDispW;
   const logoCell = logoLoc
     ? `<td width="120" style="padding:10pt;text-align:center;vertical-align:middle;">
-      <table cellpadding="0" cellspacing="0" style="background:#FFFFFF;border-collapse:collapse;">
+      <table cellpadding="0" cellspacing="0" style="background:transparent;border-collapse:collapse;">
         <tr>
           <td style="padding:6pt;text-align:center;">
-            <img src="${logoLoc}" width="76" style="width:76px;height:auto;display:block;">
+            <img src="${logoLoc}" width="${logoDispW}" height="${logoDispH}" style="width:${logoDispW}px;height:${logoDispH}px;display:block;">
           </td>
         </tr>
       </table>
@@ -1068,7 +1090,7 @@ export async function generateRelatorioGeralWord(params: {
   };
 
   // ── Corpo do documento ──
-  let body = capaHtml(companyNome, logoLoc, periodo, stats, osList, blocosMap, profilesMap);
+  let body = capaHtml(companyNome, logoLoc, logo?.w || 0, logo?.h || 0, periodo, stats, osList, blocosMap, profilesMap);
 
   for (const os of osList) {
     const blocoNome = os.bloco_id ? (blocosMap[os.bloco_id] || "—") : "—";

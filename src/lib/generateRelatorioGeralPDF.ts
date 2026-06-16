@@ -1039,18 +1039,19 @@ function drawCapa(
   // Logo em "chip" branco (contraste garantido sobre o fundo escuro)
   let tx = ML;
   if (logo) {
-    doc.setFillColor(255, 255, 255);
-    doc.roundedRect(ML, 9, 32, 32, 2.5, 2.5, "F");
-    const ratio = Math.min(26 / logo.w, 26 / logo.h);
+    const maxH = 28;
+    const maxW = 34;
+    const ratio = Math.min(maxW / logo.w, maxH / logo.h);
     const lw = logo.w * ratio;
     const lh = logo.h * ratio;
-    const fmt = logo.b64.includes("image/png") ? "PNG" : "JPEG";
+    const fmt = logo.b64.startsWith("data:image/png") ? "PNG" : "JPEG";
     try {
-      doc.addImage(logo.b64, fmt, ML + (32 - lw) / 2, 9 + (32 - lh) / 2, lw, lh);
+      // Logo direto sobre o fundo navy, sem chip branco — transparência preservada
+      doc.addImage(logo.b64, fmt, ML, 11 + (maxH - lh) / 2, lw, lh);
     } catch { /* ignora logo inválido */ }
-    tx = ML + 40;
+    tx = ML + lw + 8;
   }
-
+  
   doc.setFont("helvetica", "bold");
   doc.setFontSize(15);
   doc.setTextColor(...C.white);
