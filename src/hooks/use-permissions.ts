@@ -90,11 +90,7 @@ export const PERMISSION_SCREENS = [
     label: "Definições de SLA",
     actions: ["visualizar", "criar", "editar", "excluir"],
   },
-  {
-    screen: "checklist_templates",
-    label: "Checklist Templates",
-    actions: ["visualizar", "criar", "editar", "excluir"],
-  },
+
   {
     screen: "chamados_os",
     label: "Chamados (O.S.)",
@@ -167,7 +163,6 @@ export const ROUTE_TO_SCREEN: Record<string, string> = {
   "/controle-acesso": "controle_acesso",
   "/perfis-acesso": "perfis_acesso",
   "/sla": "sla",
-  "/checklist-templates": "checklist_templates",
   "/historico-atividades": "sla",
   "/chamados-os": "chamados_os",
   "/chamados-externos": "chamados_externos",

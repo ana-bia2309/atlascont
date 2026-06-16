@@ -28,16 +28,16 @@ export const MENU_ITEMS_TREE: MenuTreeItem[] = [
       { key: "menu.os.relatorio-homem-hora", label: "Relatório Homem-Hora" },
       { key: "menu.os.historico", label: "Histórico Atividades" },
       { key: "menu.os.sla", label: "Definições de SLA" },
-      { key: "menu.os.checklist-templates", label: "Checklist Templates" },
     ],
   },
   {
     key: "menu.custos",
-    label: "Gestão de Custos",
+    label: "Gestão Financeira",
     children: [
       { key: "menu.custos.gastos", label: "Gastos" },
       { key: "menu.custos.relatorio-mensal", label: "Relatório Mensal" },
       { key: "menu.custos.tipos-gasto", label: "Tipos de Gasto" },
+      { key: "menu.custos.boletos", label: "Boletos" },
     ],
   },
   {
@@ -58,6 +58,7 @@ export const MENU_ITEMS_TREE: MenuTreeItem[] = [
       { key: "menu.cadastros.ativos", label: "Ativos" },
       { key: "menu.cadastros.controle-acesso", label: "Controle de Acesso" },
       { key: "menu.cadastros.perfis", label: "Perfis de Acesso" },
+      { key: "menu.cadastros.mapa-ativos", label: "Mapa dos Ativos" },
     ],
   },
   
@@ -93,9 +94,10 @@ export const ROUTE_TO_MENU_KEY: Record<string, string> = {
   "/materiais": "menu.almoxarifado.materiais",
   "/estoque": "menu.almoxarifado.estoque",
   "/pedidos-compra": "menu.almoxarifado.pedidos-compra",
-  "/pedidos-recebidos": "menu.almoxarifado.pedidos-recebidos",
+ "/pedidos-recebidos": "menu.almoxarifado.pedidos-recebidos",
+  "/mapa-ativos": "menu.cadastros.mapa-ativos",
+  "/boletos": "menu.custos.boletos",
   "/sla": "menu.os.sla",
-  "/checklist-templates": "menu.os.checklist-templates",
 };
 
 /** Map sidebar item URLs → menu keys (same as ROUTE_TO_MENU_KEY but keyed for sidebar use) */

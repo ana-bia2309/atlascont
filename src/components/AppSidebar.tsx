@@ -30,6 +30,7 @@ type MenuItem = {
   icon: any;
   iconColor?: string;
   requiredPermission?: string;
+  menuKey?: string;
 };
 
 type MenuGroup = {
@@ -116,7 +117,7 @@ const custosGroup: MenuGroup = {
     { title: "Gastos", url: "/gastos", icon: DollarSign, requiredPermission: "gastos.visualizar" },
     { title: "Relatório Mensal", url: "/relatorio-mensal", icon: CalendarRange, requiredPermission: "relatorio_mensal.visualizar" },
     { title: "Tipos de Gasto", url: "/tipos-gasto", icon: DollarSign, requiredPermission: "tipos_gasto.visualizar" },
-    { title: "Boletos", url: "/boletos", icon: DollarSign, requiredPermission: "gastos.visualizar" },
+    { title: "Boletos", url: "/boletos", icon: DollarSign, requiredPermission: "gastos.visualizar", menuKey: "menu.custos.boletos" },
   ],
 };
 const almoxarifadoGroup: MenuGroup = {
@@ -146,7 +147,7 @@ const cadastrosGroup: MenuGroup = {
     { title: "Unidades de Manutenção", url: "/blocos", icon: Building2, requiredPermission: "blocos.visualizar" },
     { title: "Controle de Acesso", url: "/controle-acesso", icon: ShieldCheck, requiredPermission: "controle_acesso.visualizar" },
     { title: "Perfis de Acesso", url: "/perfis-acesso", icon: KeyRound, requiredPermission: "perfis_acesso.visualizar" },
-    { title: "Mapa dos Ativos", url: "/mapa-ativos", icon: Building2, iconColor: "#3B82F6" },
+    { title: "Mapa dos Ativos", url: "/mapa-ativos", icon: Building2, iconColor: "#3B82F6", requiredPermission: "ativos.visualizar" },
   ],
 };
 
