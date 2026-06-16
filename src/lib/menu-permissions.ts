@@ -41,6 +41,16 @@ export const MENU_ITEMS_TREE: MenuTreeItem[] = [
     ],
   },
   {
+    key: "menu.almoxarifado",
+    label: "Almoxarifado",
+    children: [
+      { key: "menu.almoxarifado.materiais", label: "Cadastro de Materiais" },
+      { key: "menu.almoxarifado.estoque", label: "Estoque" },
+      { key: "menu.almoxarifado.pedidos-compra", label: "Pedidos de Compra" },
+      { key: "menu.almoxarifado.pedidos-recebidos", label: "Pedidos Recebidos" },
+    ],
+  },
+  {
     key: "menu.cadastros",
     label: "Cadastros",
     children: [
@@ -80,6 +90,10 @@ export const ROUTE_TO_MENU_KEY: Record<string, string> = {
   "/ativos": "menu.cadastros.ativos",
   "/controle-acesso": "menu.cadastros.controle-acesso",
   "/perfis-acesso": "menu.cadastros.perfis",
+  "/materiais": "menu.almoxarifado.materiais",
+  "/estoque": "menu.almoxarifado.estoque",
+  "/pedidos-compra": "menu.almoxarifado.pedidos-compra",
+  "/pedidos-recebidos": "menu.almoxarifado.pedidos-recebidos",
   "/sla": "menu.os.sla",
   "/checklist-templates": "menu.os.checklist-templates",
 };

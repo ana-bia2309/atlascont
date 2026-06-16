@@ -116,16 +116,16 @@ const custosGroup: MenuGroup = {
     { title: "Gastos", url: "/gastos", icon: DollarSign, requiredPermission: "gastos.visualizar" },
     { title: "Relatório Mensal", url: "/relatorio-mensal", icon: CalendarRange, requiredPermission: "relatorio_mensal.visualizar" },
     { title: "Tipos de Gasto", url: "/tipos-gasto", icon: DollarSign, requiredPermission: "tipos_gasto.visualizar" },
-    { title: "Boletos", url: "/boletos", icon: DollarSign },
+    { title: "Boletos", url: "/boletos", icon: DollarSign, requiredPermission: "gastos.visualizar" },
   ],
 };
 const almoxarifadoGroup: MenuGroup = {
-  id: "almoxarifado", title: "Almoxarifado", icon: Package, iconColor: "#8B5CF6",
+  id: "almoxarifado", title: "Almoxarifado", icon: Package, iconColor: "#8B5CF6", menuKey: "menu.almoxarifado",
   items: [
-    { title: "Cadastro de Materiais", url: "/materiais", icon: Package, iconColor: "#8B5CF6" },
-    { title: "Estoque", url: "/estoque", icon: Package, iconColor: "#10B981" },
-    { title: "Pedidos de Compra", url: "/pedidos-compra", icon: ShoppingCart },
-    { title: "Pedidos Recebidos", url: "/pedidos-recebidos", icon: ShoppingCart },
+    { title: "Cadastro de Materiais", url: "/materiais", icon: Package, iconColor: "#8B5CF6", requiredPermission: "materiais.visualizar" },
+    { title: "Estoque", url: "/estoque", icon: Package, iconColor: "#10B981", requiredPermission: "estoque.visualizar" },
+    { title: "Pedidos de Compra", url: "/pedidos-compra", icon: ShoppingCart, requiredPermission: "pedidos_compra.visualizar" },
+    { title: "Pedidos Recebidos", url: "/pedidos-recebidos", icon: ShoppingCart, requiredPermission: "pedidos_compra.visualizar" },
   ],
 };
 

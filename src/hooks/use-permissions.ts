@@ -105,6 +105,21 @@ export const PERMISSION_SCREENS = [
     label: "Chamados Externos",
     actions: ["visualizar", "analisar"],
   },
+  {
+    screen: "materiais",
+    label: "Almoxarifado — Materiais",
+    actions: ["visualizar", "criar", "editar", "excluir", "exportar"],
+  },
+  {
+    screen: "estoque",
+    label: "Almoxarifado — Estoque",
+    actions: ["visualizar", "criar", "editar", "excluir", "exportar"],
+  },
+  {
+    screen: "pedidos_compra",
+    label: "Almoxarifado — Pedidos de Compra",
+    actions: ["visualizar", "criar", "editar", "excluir"],
+  },
 ] as const;
 
 /** All possible permission keys derived from screens */
@@ -156,6 +171,10 @@ export const ROUTE_TO_SCREEN: Record<string, string> = {
   "/historico-atividades": "sla",
   "/chamados-os": "chamados_os",
   "/chamados-externos": "chamados_externos",
+  "/materiais": "materiais",
+  "/estoque": "estoque",
+  "/pedidos-compra": "pedidos_compra",
+  "/pedidos-recebidos": "pedidos_compra",
 };
 
 export const ROUTE_PRIORITY: string[] = [
