@@ -18,7 +18,7 @@ type Aprovacao = {
   id: string;
   os_id: string;
   user_id: string;
-    fiscal_nome?: string;
+  fiscal_nome?: string;
   titulo: string | null;
   mensagem: string | null;
   created_at: string;
@@ -31,6 +31,8 @@ type Aprovacao = {
     equipamentos: string | null;
     responsible_user_id?: string | null;
     observacoes_fiscais?: string | null;
+    aprovado_por_nome?: string | null;
+    aprovado_em?: string | null;
   } | null;
   materiais: {
     id: string;
@@ -100,10 +102,10 @@ export default function Aprovacoes() {
       return;
     }
 
-   const enriched = await Promise.all((notifs || []).map(async (n: any) => {
+    const enriched = await Promise.all((notifs || []).map(async (n: any) => {
       const [osRes, matRes] = await Promise.all([
         (supabase as any).from("ordens_servico")
-          .select("codigo_os, status, bloco_id, equipamentos, responsible_user_id, observacoes_fiscais, orcamento_status")
+          .select("codigo_os, status, bloco_id, equipamentos, responsible_user_id, observacoes_fiscais, orcamento_status, aprovado_por_nome, aprovado_em")
           .eq("id", n.os_id).single(),
         (supabase as any).from("materiais_os").select("*").eq("os_id", n.os_id),
       ]);
@@ -146,8 +148,8 @@ export default function Aprovacoes() {
       if (filterSearch.trim()) {
         const q = filterSearch.toLowerCase();
         if (!(a.os?.codigo_os || "").toLowerCase().includes(q) &&
-            !(a.os?.bloco_nome || "").toLowerCase().includes(q) &&
-            !(a.mensagem || "").toLowerCase().includes(q)) return false;
+          !(a.os?.bloco_nome || "").toLowerCase().includes(q) &&
+          !(a.mensagem || "").toLowerCase().includes(q)) return false;
       }
       if (filterBloco !== "__all__") {
         const blocoNome = blocos.find(b => b.id === filterBloco)?.nome;
@@ -176,6 +178,8 @@ export default function Aprovacoes() {
         status: novoStatus,
         observacoes_fiscais: justificativa.trim(),
         orcamento_status: action === "aprovar" ? "aprovado" : "reprovado",
+        aprovado_por_nome: selected.fiscal_nome || null,
+        aprovado_em: new Date().toISOString(),
       }).eq("id", selected.os_id);
 
       await (supabase as any).from("os_notifications").update({ read: true }).eq("id", selected.id);
@@ -364,11 +368,21 @@ export default function Aprovacoes() {
                   </div>
                 )}
 
-                {/* Justificativa já registrada */}
+                {/* Justificativa + quem aprovou/reprovou */}
                 {a.os?.observacoes_fiscais && (
-                  <div className="rounded-md bg-muted/30 px-3 py-2 text-xs">
-                    <span className="font-semibold text-muted-foreground">Justificativa: </span>
-                    {a.os.observacoes_fiscais}
+                  <div className="rounded-md bg-muted/30 px-3 py-2 text-xs space-y-1">
+                    {a.os.aprovado_por_nome && a.os.aprovado_em && (
+                      <p className="font-semibold text-muted-foreground">
+                        {a.orcamento_status === "aprovado" ? "✅ Aprovado" : "❌ Reprovado"} por{" "}
+                        <span className="text-foreground">{a.os.aprovado_por_nome}</span>
+                        {" · "}
+                        {format(new Date(a.os.aprovado_em), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                      </p>
+                    )}
+                    <p>
+                      <span className="font-semibold text-muted-foreground">Justificativa: </span>
+                      {a.os.observacoes_fiscais}
+                    </p>
                   </div>
                 )}
 
