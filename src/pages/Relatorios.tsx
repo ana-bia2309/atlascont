@@ -91,6 +91,7 @@ export default function Relatorios() {
   const [blocos, setBlocos] = useState<Bloco[]>([]);
   const [materiais, setMateriais] = useState<MatOS[]>([]);
   const [profilesMap, setProfilesMap] = useState<Record<string, string>>({});
+  const [responsaveisByOs, setResponsaveisByOs] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("periodo");
 
@@ -155,6 +156,18 @@ const fetchData = useCallback(async () => {
   if (!osRes.error) setOsList(osRes.data || []);
   if (!blocosRes.error) setBlocos(blocosRes.data || []);
   if (!matsRes.error) setMateriais(matsRes.data || []);
+
+  // Responsáveis vinculados a cada O.S. (tabela os_responsaveis)
+  const { data: respData } = await (supabase as any)
+    .from("os_responsaveis")
+    .select("os_id, profile_id, ordens_servico!inner(company_id)")
+    .eq("ordens_servico.company_id", companyId);
+  const respMap: Record<string, string[]> = {};
+  (respData || []).forEach((r: any) => {
+    if (!respMap[r.os_id]) respMap[r.os_id] = [];
+    respMap[r.os_id].push(r.profile_id);
+  });
+  setResponsaveisByOs(respMap);
 
   const pMap: Record<string, string> = {};
 
@@ -222,19 +235,32 @@ const fetchData = useCallback(async () => {
     });
   }, [filtered]);
 
-  // By responsável (criado_por)
+  // By responsável (técnicos vinculados via os_responsaveis)
   const byResponsavel = useMemo(() => {
     const m: Record<string, { nome: string; total: number; concluidas: number; abertas: number }> = {};
     filtered.forEach(os => {
-      const key = os.criado_por || "__none__";
-      const nome = os.criado_por ? (profilesMap[os.criado_por] || "Desconhecido") : "Sem responsável";
-      if (!m[key]) m[key] = { nome, total: 0, concluidas: 0, abertas: 0 };
-      m[key].total++;
-      if (os.status === "Concluída") m[key].concluidas++;
-      else if (os.status !== "Cancelada") m[key].abertas++;
+      const responsaveis = responsaveisByOs[os.id] || [];
+      const isConcluida = normalizeStatus(os.status) === "Concluída";
+      const isCancelada = normalizeStatus(os.status) === "Cancelada";
+      if (responsaveis.length === 0) {
+        // O.S. sem responsável atribuído
+        const key = "__none__";
+        if (!m[key]) m[key] = { nome: "Sem responsável", total: 0, concluidas: 0, abertas: 0 };
+        m[key].total++;
+        if (isConcluida) m[key].concluidas++;
+        else if (!isCancelada) m[key].abertas++;
+      } else {
+        // Cada técnico vinculado conta para a O.S.
+        responsaveis.forEach(pid => {
+          if (!m[pid]) m[pid] = { nome: profilesMap[pid] || "Desconhecido", total: 0, concluidas: 0, abertas: 0 };
+          m[pid].total++;
+          if (isConcluida) m[pid].concluidas++;
+          else if (!isCancelada) m[pid].abertas++;
+        });
+      }
     });
     return Object.values(m).sort((a, b) => b.total - a.total);
-  }, [filtered, profilesMap]);
+  }, [filtered, responsaveisByOs, profilesMap]);
 
   // Custos por OS
   const custosData = useMemo(() => {

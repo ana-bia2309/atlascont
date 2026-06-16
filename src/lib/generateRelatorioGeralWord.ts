@@ -132,8 +132,8 @@ const fixAndar = (andar: string | null): string => {
   if (!a) return "";
   const l = norm(a);
   if (l.includes("andar") || l.includes("terreo") || l.includes("subsolo") ||
-      l.includes("garagem") || l.includes("sobrelo") || l.includes("cobertura") ||
-      l.includes("mezanino")) return a;
+    l.includes("garagem") || l.includes("sobrelo") || l.includes("cobertura") ||
+    l.includes("mezanino")) return a;
   if (/^\d+\s*[ºo°]?$/.test(a)) return `${a.replace(/\s*[ºo°]\s*$/, "")}º Andar`;
   return `${a} Andar`;
 };
@@ -812,7 +812,15 @@ function capaHtml(
   profilesMap: Record<string, string>,
 ): string {
   const logoCell = logoLoc
-    ? `<td width="100" style="padding:10pt;"><table cellpadding="0" cellspacing="0" style="background:#FFFFFF;border-collapse:collapse;"><tr><td style="padding:6pt;"><img src="${logoLoc}" width="76"></td></tr></table></td>`
+    ? `<td width="120" style="padding:10pt;text-align:center;vertical-align:middle;">
+      <table cellpadding="0" cellspacing="0" style="background:#FFFFFF;border-collapse:collapse;">
+        <tr>
+          <td style="padding:6pt;text-align:center;">
+            <img src="${logoLoc}" width="76" style="width:76px;height:auto;display:block;">
+          </td>
+        </tr>
+      </table>
+    </td>`
     : "";
 
   const cards = [

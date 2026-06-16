@@ -30,6 +30,11 @@ import { PERMISSION_SCREENS, ALL_PERMISSIONS, ACTION_LABELS } from "@/hooks/use-
 
 const ALL_PERMISSION_KEYS = ALL_PERMISSIONS;
 
+// Telas de permissão em ordem alfabética (por label) para exibição
+const PERMISSION_SCREENS_SORTED = [...PERMISSION_SCREENS].sort((a, b) =>
+  a.label.localeCompare(b.label, "pt-BR")
+);
+
 type PerfilAcesso = {
   id: string;
   nome: string;
@@ -380,7 +385,7 @@ export default function PerfisAcesso() {
                         Resumo de permissões
                       </p>
                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                        {PERMISSION_SCREENS.map((screen) => {
+                        {PERMISSION_SCREENS_SORTED.map((screen) => {
                           const { active, total } = screenSummary(p._permissions, screen);
                           const hasNone = active === 0;
                           const hasAll = active === total;
@@ -482,8 +487,8 @@ export default function PerfisAcesso() {
                 </span>
               </div>
 
-              <Accordion type="multiple" defaultValue={PERMISSION_SCREENS.map((s) => s.screen)} className="space-y-1">
-                {PERMISSION_SCREENS.map((screen) => {
+              <Accordion type="multiple" defaultValue={PERMISSION_SCREENS_SORTED.map((s) => s.screen)} className="space-y-1">
+                {PERMISSION_SCREENS_SORTED.map((screen) => {
                   const screenKeys = screen.actions.map((a) => `${screen.screen}.${a}`);
                   const allChecked = screenKeys.every((k) => permSelected.has(k));
                   const someChecked = screenKeys.some((k) => permSelected.has(k));

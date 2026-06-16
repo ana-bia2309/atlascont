@@ -363,7 +363,7 @@ const {
         if (!matchesNome && !matchesEmail && !matchesCpf) return false;
       }
       return true;
-    });
+    }).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
   }, [users, filterRole, filterStatus, filterSearch, filterPerfil]);
 
   const hasActiveFilters = filterRole !== "__all__" || filterStatus !== "__all__" || filterSearch.trim() !== "" || filterPerfil !== "__all__";
