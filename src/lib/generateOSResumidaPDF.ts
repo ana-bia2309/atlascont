@@ -63,19 +63,19 @@ const PW = 210, PH = 297;
 const CW = PW - ML - MR;
 
 const C = {
-  navy:      [16, 36, 86]    as [number, number, number],
-  navyMid:   [40, 70, 140]   as [number, number, number],
+  navy: [58, 53, 92] as [number, number, number],
+  navyMid: [108, 100, 152] as [number, number, number],
   navyLight: [233, 239, 252] as [number, number, number],
-  green:     [22, 138, 70]   as [number, number, number],
-  red:       [186, 46, 46]   as [number, number, number],
-  amber:     [176, 108, 12]  as [number, number, number],
-  sky:       [16, 118, 186]  as [number, number, number],
-  gray:      [108, 118, 134] as [number, number, number],
+  green: [22, 138, 70] as [number, number, number],
+  red: [186, 46, 46] as [number, number, number],
+  amber: [176, 108, 12] as [number, number, number],
+  sky: [16, 118, 186] as [number, number, number],
+  gray: [108, 118, 134] as [number, number, number],
   grayLight: [246, 248, 251] as [number, number, number],
-  white:     [255, 255, 255] as [number, number, number],
-  dark:      [24, 30, 46]    as [number, number, number],
-  border:    [203, 212, 228] as [number, number, number],
-  blueSoft:  [176, 200, 245] as [number, number, number],
+  white: [255, 255, 255] as [number, number, number],
+  dark: [24, 30, 46] as [number, number, number],
+  border: [203, 212, 228] as [number, number, number],
+  blueSoft: [176, 200, 245] as [number, number, number],
 };
 
 // ─── Helpers básicos ───────────────────────────────────────────────────────────
@@ -383,22 +383,17 @@ function drawHeader(doc: jsPDF, os: OSRow, companyNome: string, logo: PageImg | 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12.5);
   doc.setTextColor(...C.white);
-  doc.text("FICHA RESUMIDA DE ORDEM DE SERVIÇO", tx, 13.5);
+  doc.text("FICHA DE ORDEM DE SERVIÇO", tx, 13.5);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.5);
   doc.setTextColor(...C.blueSoft);
   doc.text(companyNome.toUpperCase(), tx, 19.5);
 
-  doc.setFont("helvetica", "italic");
-  doc.setFontSize(6.8);
-  doc.setTextColor(150, 180, 235);
-  doc.text(ATLAS_SLOGAN, tx, 24);
-
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
   doc.setTextColor(150, 180, 235);
-  doc.text(`O.S. ${os.codigo_os || "—"}  |  Gerado em ${format(new Date(), "dd/MM/yyyy HH:mm")}`, tx, 29);
+  doc.text(`O.S. ${os.codigo_os || "—"}  |  Gerado em ${format(new Date(), "dd/MM/yyyy HH:mm")}`, tx, 24);
 
   return 44;
 }
@@ -486,9 +481,9 @@ function drawDetalhesBox(doc: jsPDF, os: OSRow, blocoNome: string, tecnicoNome: 
     doc.setTextColor(...C.dark);
     doc.text("•", ML + 4, fy);
     doc.text(`${label}:`, ML + 8, fy);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(...C.gray);
     const labelW = doc.getTextWidth(`${label}: `);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(60, 64, 72);
     doc.text(fitText(doc, val, colDivX - ML - 8 - labelW - 2), ML + 8 + labelW, fy);
     fy += lh;
   });
