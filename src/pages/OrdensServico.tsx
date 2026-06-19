@@ -148,11 +148,10 @@ function AtivoStatusBadge({ ativoId, nome }: { ativoId: string; nome: string }) 
     <div className="flex items-center gap-1.5">
       <span className="font-medium">{nome}</span>
       {status && (
-        <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${
-          status === "indisponivel"
+        <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${status === "indisponivel"
             ? "bg-red-50 text-red-700 border-red-200"
             : "bg-emerald-50 text-emerald-700 border-emerald-200"
-        }`}>
+          }`}>
           {status === "indisponivel" ? "🔴 Indisponível" : "🟢 Disponível"}
         </span>
       )}
@@ -201,34 +200,34 @@ export default function OrdensServico() {
   const [assinaturaOpen, setAssinaturaOpen] = useState(false);
   const sigCanvasRef = useRef<any>(null);
   const [salvandoAssinatura, setSalvandoAssinatura] = useState(false);
-  
-useEffect(() => {
-  if (!viewing) return;
-  // Registra clima para qualquer OS ao abrir, independente de status
-  // A função só atualiza se ainda não tiver clima registrado
-  (supabase as any)
-    .from("ordens_servico")
-    .select("clima_temperatura")
-    .eq("id", viewing.id)
-    .single()
-    .then(({ data }: any) => {
-      if (!data?.clima_temperatura) {
-        import("@/lib/registrarClima").then(({ registrarClimaOS }) => {
-          registrarClimaOS(viewing.id).then(async () => {
-            await fetchData();
-            const { data } = await (supabase as any)
-              .from("ordens_servico")
-              .select("clima_temperatura, clima_condicao")
-              .eq("id", viewing.id)
-              .single();
-            if (data?.clima_temperatura) {
-              setViewing(prev => prev ? { ...prev, ...data } : prev);
-            }
+
+  useEffect(() => {
+    if (!viewing) return;
+    // Registra clima para qualquer OS ao abrir, independente de status
+    // A função só atualiza se ainda não tiver clima registrado
+    (supabase as any)
+      .from("ordens_servico")
+      .select("clima_temperatura")
+      .eq("id", viewing.id)
+      .single()
+      .then(({ data }: any) => {
+        if (!data?.clima_temperatura) {
+          import("@/lib/registrarClima").then(({ registrarClimaOS }) => {
+            registrarClimaOS(viewing.id).then(async () => {
+              await fetchData();
+              const { data } = await (supabase as any)
+                .from("ordens_servico")
+                .select("clima_temperatura, clima_condicao")
+                .eq("id", viewing.id)
+                .single();
+              if (data?.clima_temperatura) {
+                setViewing(prev => prev ? { ...prev, ...data } : prev);
+              }
+            });
           });
-        });
-      }
-    });
-}, [viewing?.id]);
+        }
+      });
+  }, [viewing?.id]);
   const [pendingEdit, setPendingEdit] = useState<OrdemServico | null>(null);
 
   // Filter state
@@ -245,7 +244,7 @@ useEffect(() => {
   const [filterTipoServico, setFilterTipoServico] = useState("__all__");
   const [filterDateFrom, setFilterDateFrom] = useState<Date | undefined>();
   const [filterDateTo, setFilterDateTo] = useState<Date | undefined>();
-  
+
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
   // Saved filters (localStorage)
@@ -347,61 +346,61 @@ useEffect(() => {
     setDialogOpen(true);
   }, [searchParams, loading]);
 
- const fetchData = useCallback(async () => {
-  if (!companyId) return; // ✅ guard
+  const fetchData = useCallback(async () => {
+    if (!companyId) return; // ✅ guard
 
-  setLoading(true);
+    setLoading(true);
 
-  const [ordensRes, blocosRes, matsRes, anexosRes, cronosRes, ativosRes, profilesRes, slaRes, tecnicosRes]: any =
-    await Promise.all([
-      (supabase as any)
-        .from("ordens_servico")
-        .select("*")
-        .eq("company_id", companyId)
-        .not("origem", "in", "(Preventiva,Chamado)")
-        .order("created_at", { ascending: sortAsc }),
+    const [ordensRes, blocosRes, matsRes, anexosRes, cronosRes, ativosRes, profilesRes, slaRes, tecnicosRes]: any =
+      await Promise.all([
+        (supabase as any)
+          .from("ordens_servico")
+          .select("*")
+          .eq("company_id", companyId)
+          .not("origem", "in", "(Preventiva,Chamado)")
+          .order("created_at", { ascending: sortAsc }),
 
-      (supabase as any)
-        .from("blocos")
-        .select("id, nome")
-        .eq("company_id", companyId)
-        .order("nome"),
+        (supabase as any)
+          .from("blocos")
+          .select("id, nome")
+          .eq("company_id", companyId)
+          .order("nome"),
 
-      (supabase as any)
-        .from("materiais_os")
-        .select("id, os_id, nome_material, quantidade, unidade, custo_unitario, custo_total_item"),
+        (supabase as any)
+          .from("materiais_os")
+          .select("id, os_id, nome_material, quantidade, unidade, custo_unitario, custo_total_item"),
 
-      (supabase as any)
-        .from("anexos_os")
-        .select("id, os_id, nome_arquivo, url_arquivo, tipo_arquivo, file_path, tamanho_arquivo, bucket_name, created_at"),
+        (supabase as any)
+          .from("anexos_os")
+          .select("id, os_id, nome_arquivo, url_arquivo, tipo_arquivo, file_path, tamanho_arquivo, bucket_name, created_at"),
 
-      (supabase as any)
-        .from("cronogramas")
-        .select("id, titulo")
-        .eq("company_id", companyId)
-        .order("titulo"),
+        (supabase as any)
+          .from("cronogramas")
+          .select("id, titulo")
+          .eq("company_id", companyId)
+          .order("titulo"),
 
-      (supabase as any)
-        .from("ativos")
-        .select("id, nome, codigo_identificacao")
-        .eq("company_id", companyId)
-        .order("nome"),
+        (supabase as any)
+          .from("ativos")
+          .select("id, nome, codigo_identificacao")
+          .eq("company_id", companyId)
+          .order("nome"),
 
-      (supabase as any)
-        .from("profiles")
-        .select("id, nome")
-        .eq("company_id", companyId),
+        (supabase as any)
+          .from("profiles")
+          .select("id, nome")
+          .eq("company_id", companyId),
 
-      (supabase as any)
-        .from("sla_definicoes")
-        .select("*")
-        .eq("company_id", companyId),
+        (supabase as any)
+          .from("sla_definicoes")
+          .select("*")
+          .eq("company_id", companyId),
 
-      (supabase as any)
-        .from("profiles")
-        .select("id, nome, job_title, status")
-        .eq("company_id", companyId),
-    ]);
+        (supabase as any)
+          .from("profiles")
+          .select("id, nome, job_title, status")
+          .eq("company_id", companyId),
+      ]);
     if (ordensRes.error) {
       console.error("Erro ao carregar O.S.:", ordensRes.error);
       toast({ title: "Erro ao carregar O.S.", description: ordensRes.error.message, variant: "destructive" });
@@ -434,15 +433,15 @@ useEffect(() => {
     setAnexosMap(aMap);
 
     // Fetch responsáveis grouped by OS
-   const { data: respData } = await (supabase as any)
-  .from("os_responsaveis")
-  .select(`
+    const { data: respData } = await (supabase as any)
+      .from("os_responsaveis")
+      .select(`
     os_id,
     profile_id,
     profiles(nome),
     ordens_servico!inner(company_id)
   `)
-  .eq("ordens_servico.company_id", companyId);
+      .eq("ordens_servico.company_id", companyId);
     const rMap: Record<string, string[]> = {};
     const rIdsMap: Record<string, string[]> = {};
     (respData || []).forEach((r: any) => {
@@ -460,15 +459,15 @@ useEffect(() => {
     })));
 
     // Fetch auxiliares grouped by OS
-const { data: colabData } = await (supabase as any)
-  .from("os_colaboradores")
-  .select(`
+    const { data: colabData } = await (supabase as any)
+      .from("os_colaboradores")
+      .select(`
     os_id,
     profile_id,
     profiles(nome),
     ordens_servico!inner(company_id)
   `)
-  .eq("ordens_servico.company_id", companyId);
+      .eq("ordens_servico.company_id", companyId);
     const cMap: Record<string, string[]> = {};
     (colabData || []).forEach((c: any) => {
       if (!cMap[c.os_id]) cMap[c.os_id] = [];
@@ -490,8 +489,8 @@ const { data: colabData } = await (supabase as any)
     const allUsers: TecnicoOption[] = allProfiles
       .map((p: any) => ({ id: p.id, nome: p.nome, job_title: p.job_title || null }));
     setTecnicosOptions(allUsers);
-    
-// Carrega campos obrigatórios
+
+    // Carrega campos obrigatórios
     if (companyId) {
       const { data: camposConfig } = await (supabase as any)
         .from("os_campos_config")
@@ -501,14 +500,14 @@ const { data: colabData } = await (supabase as any)
       setCamposObrigatorios((camposConfig || []).map((c: any) => c.campo));
     }
     setLoading(false);
- }, [companyId, sortAsc]);
+  }, [companyId, sortAsc]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useRealtime(
-  ["ordens_servico", "blocos", "materiais_os", "anexos_os"],
-  fetchData,
-  companyId
-);
+    ["ordens_servico", "blocos", "materiais_os", "anexos_os"],
+    fetchData,
+    companyId
+  );
 
   // Auto-open OS detail when ?os=<id> is present
   useEffect(() => {
@@ -553,7 +552,7 @@ const { data: colabData } = await (supabase as any)
       if (filterSala !== "__all__" && os.sala !== filterSala) return false;
       if (filterTipoServico !== "__all__" && (os as any).tipo_servico !== filterTipoServico) return false;
       if (filterCodigo.trim() && !(os.codigo_os || "").toLowerCase().includes(filterCodigo.trim().toLowerCase())) return false;
-      
+
       if (filterDateFrom) {
         const created = os.created_at ? new Date(os.created_at) : null;
         if (!created || created < filterDateFrom) return false;
@@ -639,10 +638,10 @@ const { data: colabData } = await (supabase as any)
   const [numeroOsExterno, setNumeroOsExterno] = useState("");
   const [osTab, setOsTab] = useState("materiais");
 
- const isObrigatorio = (campo: string) => camposObrigatorios.includes(campo);
-const labelCampo = (label: string, campo: string) => (
-  <>{label}{isObrigatorio(campo) && <span className="text-destructive ml-0.5">*</span>}</>
-);
+  const isObrigatorio = (campo: string) => camposObrigatorios.includes(campo);
+  const labelCampo = (label: string, campo: string) => (
+    <>{label}{isObrigatorio(campo) && <span className="text-destructive ml-0.5">*</span>}</>
+  );
 
   const resetForm = () => {
     setCodigoOs(""); setStatus("Não Iniciada"); setPrioridade("Média"); setBlocoId("");
@@ -669,16 +668,16 @@ const labelCampo = (label: string, campo: string) => (
     setNaturezaServico((os as any).natureza_servico || "");
     // Load responsáveis and colaboradores for this OS
     setNumeroOsExterno((os as any).numero_os_externo || "");
-   Promise.all([
-  supabase.from("os_responsaveis").select("profile_id").eq("os_id", os.id),
-  supabase.from("os_colaboradores").select("profile_id").eq("os_id", os.id),
-  (supabase as any).from("os_fiscais").select("profile_id").eq("os_id", os.id),
-]).then(([respRes, colabRes, fiscaisRes]) => {
-  const respIds = (respRes.data || []).map((d: any) => d.profile_id);
-  setFormResponsaveis(respIds.length > 0 ? respIds : (os as any).responsible_user_id ? [(os as any).responsible_user_id] : []);
-  setFormColaboradores((colabRes.data || []).map((d: any) => d.profile_id));
-  setFormFiscais((fiscaisRes.data || []).map((d: any) => d.profile_id));
-});
+    Promise.all([
+      supabase.from("os_responsaveis").select("profile_id").eq("os_id", os.id),
+      supabase.from("os_colaboradores").select("profile_id").eq("os_id", os.id),
+      (supabase as any).from("os_fiscais").select("profile_id").eq("os_id", os.id),
+    ]).then(([respRes, colabRes, fiscaisRes]) => {
+      const respIds = (respRes.data || []).map((d: any) => d.profile_id);
+      setFormResponsaveis(respIds.length > 0 ? respIds : (os as any).responsible_user_id ? [(os as any).responsible_user_id] : []);
+      setFormColaboradores((colabRes.data || []).map((d: any) => d.profile_id));
+      setFormFiscais((fiscaisRes.data || []).map((d: any) => d.profile_id));
+    });
     setDialogOpen(true);
   };
 
@@ -784,12 +783,12 @@ const labelCampo = (label: string, campo: string) => (
         tecPayload.finalizado_por = profileId;
         tecPayload.finalizado_em = new Date().toISOString();
       }
-      
+
       const { error } = await (supabase as any)
-  .from("ordens_servico")
-  .update(tecPayload)
-  .eq("id", editing.id)
-  .eq("company_id", companyId);
+        .from("ordens_servico")
+        .update(tecPayload)
+        .eq("id", editing.id)
+        .eq("company_id", companyId);
       if (error) { toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" }); return; }
       logHistoricoOS(editing.id, "Edição (Técnico)", `Técnico alterou status para ${status}`, { status: editing.status }, { status });
       toast({ title: "Status atualizado" });
@@ -830,10 +829,10 @@ const labelCampo = (label: string, campo: string) => (
         payload.finalizado_em = new Date().toISOString();
       }
       const { error } = await (supabase as any)
-  .from("ordens_servico")
-  .update(payload)
-  .eq("id", editing.id)
-  .eq("company_id", companyId);
+        .from("ordens_servico")
+        .update(payload)
+        .eq("id", editing.id)
+        .eq("company_id", companyId);
       if (error) { toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" }); return; }
       const diff = computeDiff(editing as any, payload);
       logActivity({
@@ -862,11 +861,11 @@ const labelCampo = (label: string, campo: string) => (
     } else {
       payload.criado_por = profileId;
       const { data: inserted, error } = await (supabase as any)
-  .from("ordens_servico")
-  .insert({
-    ...payload,
-    company_id: companyId
-  }).select("id").single();
+        .from("ordens_servico")
+        .insert({
+          ...payload,
+          company_id: companyId
+        }).select("id").single();
       if (error || !inserted) { toast({ title: "Erro ao criar", description: error?.message, variant: "destructive" }); return; }
 
       // Save local materials collected before the OS existed
@@ -897,32 +896,32 @@ const labelCampo = (label: string, campo: string) => (
       toast({ title: "O.S. criada" });
 
       // Link back to the originating chamado if applicable
-     if (chamadoOrigemId) {
+      if (chamadoOrigemId) {
 
-  const osVinculadaMarker = `[OS_VINCULADA: ${codigoOs.trim()}]`;
+        const osVinculadaMarker = `[OS_VINCULADA: ${codigoOs.trim()}]`;
 
-  const { data: chamadoData } = await (supabase as any)
-    .from("ordens_servico")
-    .select("observacoes")
-    .eq("id", chamadoOrigemId)
-    .eq("company_id", companyId)
-    .single();
+        const { data: chamadoData } = await (supabase as any)
+          .from("ordens_servico")
+          .select("observacoes")
+          .eq("id", chamadoOrigemId)
+          .eq("company_id", companyId)
+          .single();
 
-  const obsAtual = (chamadoData?.observacoes || "").trim();
+        const obsAtual = (chamadoData?.observacoes || "").trim();
 
-  const novaObs = obsAtual
-    ? `${obsAtual}\n\n${osVinculadaMarker}`
-    : osVinculadaMarker;
+        const novaObs = obsAtual
+          ? `${obsAtual}\n\n${osVinculadaMarker}`
+          : osVinculadaMarker;
 
-  await (supabase as any)
-    .from("ordens_servico")
-    .update({
-      status: "Encerrado",
-      observacoes: novaObs,
-    })
-    .eq("id", chamadoOrigemId)
-    .eq("company_id", companyId);
-}
+        await (supabase as any)
+          .from("ordens_servico")
+          .update({
+            status: "Encerrado",
+            observacoes: novaObs,
+          })
+          .eq("id", chamadoOrigemId)
+          .eq("company_id", companyId);
+      }
 
       // Link back to the originating Chamado Externo (chamados table) if applicable
       // Após aprovação + criação da O.S., o chamado é Encerrado com vínculo à O.S.
@@ -990,10 +989,10 @@ const labelCampo = (label: string, campo: string) => (
     if (!can("painel_os.excluir")) { toast({ title: "Sem permissão para excluir", variant: "destructive" }); setDeleteId(null); return; }
     const osToDelete = ordens.find(o => o.id === deleteId);
     const { error } = await (supabase as any)
-  .from("ordens_servico")
-  .delete()
-  .eq("id", deleteId)
-  .eq("company_id", companyId);
+      .from("ordens_servico")
+      .delete()
+      .eq("id", deleteId)
+      .eq("company_id", companyId);
     if (error) { toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" }); }
     else {
       logActivity({ actionType: "exclusao", module: "Ordens de Serviço", description: `Excluiu O.S. ${osToDelete?.codigo_os || deleteId}` });
@@ -1028,10 +1027,10 @@ const labelCampo = (label: string, campo: string) => (
     }
     const ids = Array.from(selectedIds);
     const { error } = await (supabase as any)
-  .from("ordens_servico")
-  .delete()
-  .in("id", ids)
-  .eq("company_id", companyId);
+      .from("ordens_servico")
+      .delete()
+      .in("id", ids)
+      .eq("company_id", companyId);
     if (error) {
       toast({ title: "Erro ao excluir selecionadas", description: error.message, variant: "destructive" });
     } else {
@@ -1042,7 +1041,7 @@ const labelCampo = (label: string, campo: string) => (
     }
     setBulkDeleteOpen(false);
   };
-const handleSalvarAssinatura = async () => {
+  const handleSalvarAssinatura = async () => {
     if (!viewing || !sigCanvasRef.current) return;
     if (sigCanvasRef.current.isEmpty()) {
       toast({ title: "Desenhe a assinatura antes de salvar", variant: "destructive" });
@@ -1063,155 +1062,155 @@ const handleSalvarAssinatura = async () => {
     }
   };
   const handleReopen = async (os: OrdemServico) => {
-  if (!can("painel_os.editar")) {
-    toast({ title: "Sem permissão para reabrir O.S.", variant: "destructive" });
-    return;
-  }
-  const profileId = await getCurrentProfileId();
-  const { error } = await (supabase as any)
-    .from("ordens_servico")
-    .update({
-      status: "Em Execução",
-      finalizado_por: null,
-      finalizado_em: null,
-      editado_por: profileId,
-      editado_em: new Date().toISOString(),
-    })
-    .eq("id", os.id)
-    .eq("company_id", companyId);
-  if (error) {
-    toast({ title: "Erro ao reabrir", description: error.message, variant: "destructive" });
-    return;
-  }
-  await logHistoricoOS(os.id, "Reabertura", `Reabriu O.S. ${os.codigo_os || os.id}`, { status: os.status }, { status: "Em Execução" });
-  toast({ title: `O.S. ${os.codigo_os || ""} reaberta!` });
-  fetchData();
-};
- const handleFinalize = async (os: OrdemServico) => {
-  if (!can("painel_os.editar")) {
-    toast({ title: "Sem permissão para finalizar O.S.", variant: "destructive" });
-    return;
-  }
+    if (!can("painel_os.editar")) {
+      toast({ title: "Sem permissão para reabrir O.S.", variant: "destructive" });
+      return;
+    }
+    const profileId = await getCurrentProfileId();
+    const { error } = await (supabase as any)
+      .from("ordens_servico")
+      .update({
+        status: "Em Execução",
+        finalizado_por: null,
+        finalizado_em: null,
+        editado_por: profileId,
+        editado_em: new Date().toISOString(),
+      })
+      .eq("id", os.id)
+      .eq("company_id", companyId);
+    if (error) {
+      toast({ title: "Erro ao reabrir", description: error.message, variant: "destructive" });
+      return;
+    }
+    await logHistoricoOS(os.id, "Reabertura", `Reabriu O.S. ${os.codigo_os || os.id}`, { status: os.status }, { status: "Em Execução" });
+    toast({ title: `O.S. ${os.codigo_os || ""} reaberta!` });
+    fetchData();
+  };
+  const handleFinalize = async (os: OrdemServico) => {
+    if (!can("painel_os.editar")) {
+      toast({ title: "Sem permissão para finalizar O.S.", variant: "destructive" });
+      return;
+    }
 
-  // Valida estoque dos materiais
-  const { data: materiaisOs } = await (supabase as any)
-    .from("materiais_os")
-    .select("nome_material, materiais(id)")
-    .eq("os_id", os.id);
+    // Valida estoque dos materiais
+    const { data: materiaisOs } = await (supabase as any)
+      .from("materiais_os")
+      .select("nome_material, materiais(id)")
+      .eq("os_id", os.id);
 
-  if (materiaisOs && materiaisOs.length > 0) {
-    const semEstoque: string[] = [];
-    for (const m of materiaisOs) {
-      if (!m.materiais?.id) continue;
-      const { data: est } = await (supabase as any)
-        .from("estoque")
-        .select("quantidade_disponivel")
-        .eq("material_id", m.materiais.id)
-        .maybeSingle();
-      if (est && Number(est.quantidade_disponivel) === 0) {
-        semEstoque.push(m.nome_material);
+    if (materiaisOs && materiaisOs.length > 0) {
+      const semEstoque: string[] = [];
+      for (const m of materiaisOs) {
+        if (!m.materiais?.id) continue;
+        const { data: est } = await (supabase as any)
+          .from("estoque")
+          .select("quantidade_disponivel")
+          .eq("material_id", m.materiais.id)
+          .maybeSingle();
+        if (est && Number(est.quantidade_disponivel) === 0) {
+          semEstoque.push(m.nome_material);
+        }
+      }
+      if (semEstoque.length > 0) {
+        toast({
+          title: "Não é possível concluir esta O.S.",
+          description: `O material '${semEstoque[0]}' está com estoque zerado. Regularize o estoque antes de prosseguir.`,
+          variant: "destructive",
+        });
+        return;
       }
     }
-    if (semEstoque.length > 0) {
+
+    // Bloqueia se houver orçamento pendente, reprovado ou não enviado
+    const orcamentoStatus = (os as any).orcamento_status;
+    const temMateriais = (materiaisMap[os.id] || []).length > 0;
+
+    if (temMateriais && !orcamentoStatus) {
       toast({
-        title: "Não é possível concluir esta O.S.",
-        description: `O material '${semEstoque[0]}' está com estoque zerado. Regularize o estoque antes de prosseguir.`,
+        title: "Orçamento não enviado",
+        description: "Esta O.S. possui materiais mas o orçamento ainda não foi enviado para aprovação.",
         variant: "destructive",
       });
       return;
     }
-  }
 
-  // Bloqueia se houver orçamento pendente, reprovado ou não enviado
-  const orcamentoStatus = (os as any).orcamento_status;
-  const temMateriais = (materiaisMap[os.id] || []).length > 0;
+    if (orcamentoStatus === "pendente") {
+      toast({
+        title: "Orçamento aguardando aprovação",
+        description: "Aguarde a aprovação do orçamento antes de finalizar.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-  if (temMateriais && !orcamentoStatus) {
-    toast({
-      title: "Orçamento não enviado",
-      description: "Esta O.S. possui materiais mas o orçamento ainda não foi enviado para aprovação.",
-      variant: "destructive",
-    });
-    return;
-  }
+    if (orcamentoStatus === "reprovado") {
+      toast({
+        title: "Orçamento reprovado",
+        description: "O orçamento foi reprovado. Revise os materiais e reenvie para aprovação.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-  if (orcamentoStatus === "pendente") {
-    toast({
-      title: "Orçamento aguardando aprovação",
-      description: "Aguarde a aprovação do orçamento antes de finalizar.",
-      variant: "destructive",
-    });
-    return;
-  }
-
-  if (orcamentoStatus === "reprovado") {
-    toast({
-      title: "Orçamento reprovado",
-      description: "O orçamento foi reprovado. Revise os materiais e reenvie para aprovação.",
-      variant: "destructive",
-    });
-    return;
-  }
-
-  const today = format(
-    new Date(),
-    "yyyy-MM-dd"
-  );
-
-  const profileId =
-    await getCurrentProfileId();
-
-  const { error } =
-    await (supabase as any)
-      .from("ordens_servico")
-      .update({
-        status: "Concluída",
-        data_termino: today,
-        finalizado_por: profileId,
-        finalizado_em: new Date().toISOString(),
-      })
-      .eq("id", os.id)
-      .eq("company_id", companyId);
-
-  if (error) {
-
-    toast({
-      title: "Erro ao finalizar",
-      description: error.message,
-      variant: "destructive",
-    });
-
-  } else {
-
-    logActivity({
-      actionType: "finalizacao",
-      module: "Ordens de Serviço",
-      description:
-        `Finalizou O.S. ${os.codigo_os || os.id}`
-    });
-
-    logHistoricoOS(
-      os.id,
-      "Finalização",
-      `Finalizou O.S. ${os.codigo_os || os.id}`,
-      {
-        status: os.status,
-        data_termino: os.data_termino
-      },
-      {
-        status: "Concluída",
-        data_termino: today
-      },
+    const today = format(
+      new Date(),
+      "yyyy-MM-dd"
     );
 
-toast({
-  title:
-    `O.S. ${os.codigo_os || ""} finalizada!`
-});
+    const profileId =
+      await getCurrentProfileId();
 
-fetchData();
-  }
-};
+    const { error } =
+      await (supabase as any)
+        .from("ordens_servico")
+        .update({
+          status: "Concluída",
+          data_termino: today,
+          finalizado_por: profileId,
+          finalizado_em: new Date().toISOString(),
+        })
+        .eq("id", os.id)
+        .eq("company_id", companyId);
+
+    if (error) {
+
+      toast({
+        title: "Erro ao finalizar",
+        description: error.message,
+        variant: "destructive",
+      });
+
+    } else {
+
+      logActivity({
+        actionType: "finalizacao",
+        module: "Ordens de Serviço",
+        description:
+          `Finalizou O.S. ${os.codigo_os || os.id}`
+      });
+
+      logHistoricoOS(
+        os.id,
+        "Finalização",
+        `Finalizou O.S. ${os.codigo_os || os.id}`,
+        {
+          status: os.status,
+          data_termino: os.data_termino
+        },
+        {
+          status: "Concluída",
+          data_termino: today
+        },
+      );
+
+      toast({
+        title:
+          `O.S. ${os.codigo_os || ""} finalizada!`
+      });
+
+      fetchData();
+    }
+  };
 
   const fmtDate = (d: string | null) => {
     if (!d) return "—";
@@ -1221,8 +1220,8 @@ fetchData();
   const downloadPdf = async (os: OrdemServico) => {
     toast({ title: "Gerando PDF...", description: "Carregando anexos, fotos e memorial." });
     try {
-      const { generateRelatorioGeralPDF } = await import("@/lib/generateRelatorioGeralPDF");
-      await generateRelatorioGeralPDF({
+      const { generateOSResumidaPDF } = await import("@/lib/generateOSResumidaPDF");
+      await generateOSResumidaPDF({
         osList: [os as any],
         materiaisByOs: { [os.id]: (materiaisMap[os.id] || []) as any },
         blocosMap,
@@ -1669,7 +1668,7 @@ fetchData();
                             <RefreshCw className="h-4 w-4" />
                           </Button>
                         )}
-                       {can("painel_os.editar") && !isFinishedStatus(os.status) && (
+                        {can("painel_os.editar") && !isFinishedStatus(os.status) && (
                           <Button
                             variant="ghost"
                             size="icon"
@@ -1796,65 +1795,65 @@ fetchData();
                 </div>
               </div>
 
-             {/* Seção 3: Classificação */}
-<div className="rounded-xl border bg-card overflow-hidden">
-  <div className="flex items-center gap-3 px-5 py-3.5 border-b bg-muted/30">
-    <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">3</span>
-    <span className="font-semibold text-sm">Classificação</span>
-  </div>
-  <div className="p-5">
-    <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-      <div>
-        <label className="text-sm font-medium mb-1 block">{labelCampo("Tipo de Serviço", "tipo_servico")}</label>
-        <Select value={tipoServico || "__none__"} onValueChange={(v) => setTipoServico(v === "__none__" ? "" : v)} disabled={isTecnico && !!editing}>
-          <SelectTrigger><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__none__">Nenhum</SelectItem>
-            {TIPO_SERVICO_OPTIONS.map((t) => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
-          </SelectContent>
-        </Select>
-        {tipoServico && prioridade && (() => {
-          const slaDef = slaDefinicoes.find((s: any) => s.tipo_servico === tipoServico && s.prioridade === prioridade);
-          return slaDef ? (
-            <p className="text-xs text-muted-foreground mt-1">⏱ SLA automático: {slaDef.prazo_horas}h</p>
-          ) : null;
-        })()}
-      </div>
-      <div>
-        <label className="text-sm font-medium mb-1 block">Natureza do Serviço</label>
-        <Select value={naturezaServico || "__none__"} onValueChange={(v) => setNaturezaServico(v === "__none__" ? "" : v)} disabled={isTecnico && !!editing}>
-          <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__none__">Nenhuma</SelectItem>
-            {NATUREZA_SERVICO_OPTIONS.map((n) => (<SelectItem key={n} value={n}>{n}</SelectItem>))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <label className="text-sm font-medium mb-1 block">{labelCampo("Prioridade", "prioridade")}</label>
-        {!(isTecnico && editing) ? (
-          <Select value={prioridade} onValueChange={handlePrioridadeChange}>
-            <SelectTrigger><SelectValue placeholder="Selecione a prioridade" /></SelectTrigger>
-            <SelectContent>
-              {PRIORIDADE_OPTIONS.map((p) => (<SelectItem key={p} value={p}>{p}</SelectItem>))}
-            </SelectContent>
-          </Select>
-        ) : (
-          <Input value={prioridade} disabled />
-        )}
-      </div>
-      <div>
-        <label className="text-sm font-medium mb-1 block">Status</label>
-        <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger><SelectValue placeholder="Selecione o status" /></SelectTrigger>
-          <SelectContent>
-            {STATUS_OPTIONS.map((s) => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
-          </SelectContent>
-        </Select>
-      </div>
-    </div>
-  </div>
-</div>
+              {/* Seção 3: Classificação */}
+              <div className="rounded-xl border bg-card overflow-hidden">
+                <div className="flex items-center gap-3 px-5 py-3.5 border-b bg-muted/30">
+                  <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">3</span>
+                  <span className="font-semibold text-sm">Classificação</span>
+                </div>
+                <div className="p-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">{labelCampo("Tipo de Serviço", "tipo_servico")}</label>
+                      <Select value={tipoServico || "__none__"} onValueChange={(v) => setTipoServico(v === "__none__" ? "" : v)} disabled={isTecnico && !!editing}>
+                        <SelectTrigger><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">Nenhum</SelectItem>
+                          {TIPO_SERVICO_OPTIONS.map((t) => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
+                        </SelectContent>
+                      </Select>
+                      {tipoServico && prioridade && (() => {
+                        const slaDef = slaDefinicoes.find((s: any) => s.tipo_servico === tipoServico && s.prioridade === prioridade);
+                        return slaDef ? (
+                          <p className="text-xs text-muted-foreground mt-1">⏱ SLA automático: {slaDef.prazo_horas}h</p>
+                        ) : null;
+                      })()}
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">Natureza do Serviço</label>
+                      <Select value={naturezaServico || "__none__"} onValueChange={(v) => setNaturezaServico(v === "__none__" ? "" : v)} disabled={isTecnico && !!editing}>
+                        <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">Nenhuma</SelectItem>
+                          {NATUREZA_SERVICO_OPTIONS.map((n) => (<SelectItem key={n} value={n}>{n}</SelectItem>))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">{labelCampo("Prioridade", "prioridade")}</label>
+                      {!(isTecnico && editing) ? (
+                        <Select value={prioridade} onValueChange={handlePrioridadeChange}>
+                          <SelectTrigger><SelectValue placeholder="Selecione a prioridade" /></SelectTrigger>
+                          <SelectContent>
+                            {PRIORIDADE_OPTIONS.map((p) => (<SelectItem key={p} value={p}>{p}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Input value={prioridade} disabled />
+                      )}
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">Status</label>
+                      <Select value={status} onValueChange={setStatus}>
+                        <SelectTrigger><SelectValue placeholder="Selecione o status" /></SelectTrigger>
+                        <SelectContent>
+                          {STATUS_OPTIONS.map((s) => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              </div>
               {/* Seção 4: Equipe Responsável */}
               <div className="rounded-xl border bg-card overflow-hidden">
                 <div className="flex items-center gap-3 px-5 py-3.5 border-b bg-muted/30">
@@ -1893,7 +1892,7 @@ fetchData();
                   <span className="font-semibold text-sm">Planejamento</span>
                 </div>
                 <div className="p-5 space-y-4">
-                <div className="p-5 space-y-4">
+                  <div className="p-5 space-y-4">
 
 
 
@@ -1991,15 +1990,15 @@ fetchData();
                         </button>
                       </div>
                       {osTab === "materiais" && !(isTecnico && editing) && (
-                     <MateriaisSection
-                     ref={materiaisRef}
-                     osId={editing?.id || null}
-                     readOnly={!can("painel_os.editar") && !can("painel_os.criar")}
-                    preSelectedFiscais={!editing ? formFiscais : undefined}
-                  fiscaisOptions={!editing ? tecnicosOptions : undefined}
-                 onFiscaisChange={!editing ? setFormFiscais : undefined}
-                 />
-                )}
+                        <MateriaisSection
+                          ref={materiaisRef}
+                          osId={editing?.id || null}
+                          readOnly={!can("painel_os.editar") && !can("painel_os.criar")}
+                          preSelectedFiscais={!editing ? formFiscais : undefined}
+                          fiscaisOptions={!editing ? tecnicosOptions : undefined}
+                          onFiscaisChange={!editing ? setFormFiscais : undefined}
+                        />
+                      )}
                       {osTab === "evidencias" && (
                         <div className="space-y-4">
                           <AnexosSection ref={anexosRef} osId={editing?.id || null} readOnly={(isTecnico && !!editing) || !can("painel_os.anexar")} canAttach={can("painel_os.anexar")} canDownload={can("painel_os.baixar")} />
@@ -2058,9 +2057,9 @@ fetchData();
                   <Wrench className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
                   <div><div className="text-xs text-muted-foreground">Tipo de Serviço</div><div className="font-medium">{tipoServico || "—"}</div></div>
                   <div className="flex items-start gap-2">
-                 <Wrench className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-                 <div><div className="text-xs text-muted-foreground">Natureza do Serviço</div><div className="font-medium">{naturezaServico || "—"}</div></div>
-                </div>
+                    <Wrench className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                    <div><div className="text-xs text-muted-foreground">Natureza do Serviço</div><div className="font-medium">{naturezaServico || "—"}</div></div>
+                  </div>
                 </div>
                 <div className="flex items-start gap-2">
                   <Package className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
@@ -2173,13 +2172,13 @@ fetchData();
                   )}
                 </div>
                 {(viewing as any).clima_temperatura && (
-  <div>
-    <span className="text-muted-foreground">Clima na execução:</span>{" "}
-    <span className="font-medium">
-      {(viewing as any).clima_condicao} · {(viewing as any).clima_temperatura}°C
-    </span>
-  </div>
-)}
+                  <div>
+                    <span className="text-muted-foreground">Clima na execução:</span>{" "}
+                    <span className="font-medium">
+                      {(viewing as any).clima_condicao} · {(viewing as any).clima_temperatura}°C
+                    </span>
+                  </div>
+                )}
                 <div><span className="text-muted-foreground">Responsável:</span> <span className="font-medium">{
                   (responsaveisMap[viewing.id] || []).length > 0 ? responsaveisMap[viewing.id].join(", ") : "—"
                 }</span></div>
