@@ -8,7 +8,13 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
-import { getCompanyInfo } from "@/lib/pdfHeader";
+
+// Marca fixa do Atlas Control — esta ficha é uma ferramenta interna do sistema,
+// por isso NÃO usa getCompanyInfo() (que traria a marca da empresa-cliente, ex.: APA).
+const ATLAS_LOGO_PATH = "/icons/icon-256.png";
+const ATLAS_NOME = "Atlas Control";
+// TODO Ana: troque pelo slogan oficial exato do Atlas Control
+const ATLAS_SLOGAN = "SLOGAN_DO_ATLAS_AQUI";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -360,17 +366,17 @@ async function fetchMemorialResumo(osId: string): Promise<{ nome: string; qtd: n
 
 function drawHeader(doc: jsPDF, os: OSRow, companyNome: string, logo: PageImg | null): number {
   doc.setFillColor(...C.navy);
-  doc.rect(0, 0, PW, 32, "F");
+  doc.rect(0, 0, PW, 36, "F");
   doc.setFillColor(...C.navyMid);
-  doc.rect(0, 32, PW, 1.2, "F");
+  doc.rect(0, 36, PW, 1.2, "F");
 
   let tx = ML;
   if (logo) {
-    const maxH = 19, maxW = 24;
+    const maxH = 22, maxW = 26;
     const ratio = Math.min(maxW / logo.w, maxH / logo.h);
     const lw = logo.w * ratio, lh = logo.h * ratio;
     const fmt = logo.b64.startsWith("data:image/png") ? "PNG" : "JPEG";
-    try { doc.addImage(logo.b64, fmt, ML, (32 - lh) / 2, lw, lh); } catch { /* ignora */ }
+    try { doc.addImage(logo.b64, fmt, ML, (36 - lh) / 2, lw, lh); } catch { /* ignora */ }
     tx = ML + lw + 6;
   }
 
@@ -384,12 +390,17 @@ function drawHeader(doc: jsPDF, os: OSRow, companyNome: string, logo: PageImg | 
   doc.setTextColor(...C.blueSoft);
   doc.text(companyNome.toUpperCase(), tx, 19.5);
 
+  doc.setFont("helvetica", "italic");
+  doc.setFontSize(6.8);
+  doc.setTextColor(150, 180, 235);
+  doc.text(ATLAS_SLOGAN, tx, 24);
+
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
   doc.setTextColor(150, 180, 235);
-  doc.text(`O.S. ${os.codigo_os || "—"}  |  Gerado em ${format(new Date(), "dd/MM/yyyy HH:mm")}`, tx, 25);
+  doc.text(`O.S. ${os.codigo_os || "—"}  |  Gerado em ${format(new Date(), "dd/MM/yyyy HH:mm")}`, tx, 29);
 
-  return 40;
+  return 44;
 }
 
 function drawSumarioTable(doc: jsPDF, os: OSRow, blocoNome: string, tecnicoNome: string, y: number): number {
@@ -772,9 +783,8 @@ export async function generateOSResumidaPDF(params: {
   const os = osList[0];
   if (!os) return;
 
-  const company = await getCompanyInfo();
-  const companyNome = company.nome || params.companyName || "Atlas Control";
-  const logo = await loadLogo(company.logoUrl);
+  const companyNome = ATLAS_NOME;
+  const logo = await loadLogo(ATLAS_LOGO_PATH);
 
   const blocoNome = os.bloco_id ? (blocosMap[os.bloco_id] || "—") : "—";
   const tecnicoNome = os.responsible_user_id ? (profilesMap[os.responsible_user_id] || "—") : "—";

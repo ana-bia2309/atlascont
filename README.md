@@ -1,3 +1,3 @@
-# Welcome to your Lovable project
+# Atlas Control
 
 TODO: Document your project here
