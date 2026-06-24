@@ -217,17 +217,19 @@ const fetchData = useCallback(async () => {
     let html = `<html><head><meta charset="utf-8"><title>Relatório Homem-Hora</title>
     <style>
       body{font-family:Arial,sans-serif;padding:20px;font-size:12px}
-      h1{font-size:18px;margin-bottom:4px}
+      .brand{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+      .brand img{height:32px}
+      h1{font-size:18px;margin:0;color:#3A355C}
       h2{font-size:13px;color:#666;margin-bottom:16px}
       table{border-collapse:collapse;width:100%}
       th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}
-      th{background:#1e293b;color:#fff;font-size:11px}
-      tr:nth-child(even){background:#f8f9fa}
-      .total{font-weight:bold;background:#e2e8f0}
-      .prev{color:#0369a1;font-weight:bold}
-      .cor{color:#b45309;font-weight:bold}
+      th{background:#3A355C;color:#fff;font-size:11px}
+      tr:nth-child(even){background:#f4f3f7}
+      .total{font-weight:bold;background:#E4E1ED}
+      .prev{color:#3A355C;font-weight:bold}
+      .cor{color:#6C6498;font-weight:bold}
     </style></head><body>
-    <h1>Relatório Homem-Hora</h1>
+    <div class="brand"><img src="${window.location.origin}/icons/icon-256.png" /><h1>Atlas Control — Relatório Homem-Hora</h1></div>
     <h2>${MONTHS[month]}/${year} — Aba: ${tab.toUpperCase()}</h2>
     <table><thead><tr>
       <th>Tipo</th><th>Ordem</th><th>Atividade</th><th>Responsável</th>

@@ -430,16 +430,6 @@ const fetchData = useCallback(async () => {
         </div>
         <h1 className="text-2xl font-bold">Relatórios</h1>
         <div className="ml-auto flex items-center gap-2 flex-wrap">
-          {can("relatorios.exportar") && (
-            <>
-              <Button variant="outline" size="sm" onClick={exportCurrentPDF}>
-                <FileDown className="h-4 w-4 mr-1" /> PDF
-              </Button>
-              <Button variant="outline" size="sm" onClick={exportCurrentExcel}>
-                <FileSpreadsheet className="h-4 w-4 mr-1" /> Excel
-              </Button>
-            </>
-          )}
           <Button variant="outline" size="icon" onClick={fetchData} title="Atualizar">
             <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
           </Button>

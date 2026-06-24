@@ -20,7 +20,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { usePermissions } from "@/hooks/use-permissions";
-import { addPdfHeader, getCompanyInfo } from "@/lib/pdfHeader";
+import { addPdfHeader, getAtlasCompanyInfo } from "@/lib/pdfHeader";
 
 type OSRow = {
   id: string;
@@ -247,7 +247,7 @@ const fetchData = useCallback(async () => {
 
   const exportPDF = async () => {
     const doc = new jsPDF({ orientation: "landscape" });
-    const company = await getCompanyInfo();
+    const company = await getAtlasCompanyInfo();
     const startY = await addPdfHeader(doc, "Relatório Mensal de Gastos", filterLabel, company);
 
     doc.setFontSize(9);
@@ -267,10 +267,10 @@ const fetchData = useCallback(async () => {
       head: [HEADERS],
       body: buildRows(),
       styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: [99, 102, 241], textColor: 255, fontStyle: "bold" },
-      alternateRowStyles: { fillColor: [240, 245, 250] },
+      headStyles: { fillColor: [58, 53, 92], textColor: 255, fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [241, 239, 245] },
       foot: [["", "", "", "", fmtBRL(totalGasto), ""]],
-      footStyles: { fillColor: [99, 102, 241], textColor: 255, fontStyle: "bold" },
+      footStyles: { fillColor: [108, 100, 152], textColor: 255, fontStyle: "bold" },
     });
 
     doc.save(`relatorio_mensal_${filterYear}_${filterMonth}.pdf`);

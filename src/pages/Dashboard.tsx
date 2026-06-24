@@ -19,7 +19,7 @@ import { isFinishedStatus } from "@/lib/os-status";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import DashboardHealthScore from "@/components/dashboard/DashboardHealthScore";
-import { addPdfHeader, getCompanyInfo } from "@/lib/pdfHeader";
+import { addPdfHeader, getAtlasCompanyInfo } from "@/lib/pdfHeader";
 type AtividadeGlobal = {
   id: string;
   os_id: string;
@@ -447,7 +447,7 @@ useRealtime(
         <div className="flex gap-2">
           <Button variant="outline" size="sm" className="gap-2" onClick={async () => {
             const doc = new jsPDF();
-            const company = await getCompanyInfo();
+            const company = await getAtlasCompanyInfo();
             const startY = await addPdfHeader(doc, "Relatório Executivo", format(new Date(), "dd/MM/yyyy HH:mm"), company);
 
             // Resumo OS
@@ -464,7 +464,7 @@ useRealtime(
                 ["Preventivas", preventivaCount],
                 ["Corretivas", corretivaCount],
               ],
-              headStyles: { fillColor: [99, 102, 241] },
+              headStyles: { fillColor: [58, 53, 92] },
               styles: { fontSize: 10 },
             });
 
@@ -475,7 +475,7 @@ useRealtime(
               startY: y1 + 4,
               head: [["Prioridade", "Quantidade"]],
               body: Object.entries(prioStats).map(([k, v]) => [k, v]),
-              headStyles: { fillColor: [99, 102, 241] },
+              headStyles: { fillColor: [58, 53, 92] },
               styles: { fontSize: 10 },
             });
 
@@ -490,7 +490,7 @@ useRealtime(
                 ["Tempo Médio de Execução", tempoMedioExecucao !== null ? `${tempoMedioExecucao} dias` : "—"],
                 ["OS com SLA Estourado", atrasadas],
               ],
-              headStyles: { fillColor: [99, 102, 241] },
+              headStyles: { fillColor: [58, 53, 92] },
               styles: { fontSize: 10 },
             });
 
@@ -504,7 +504,7 @@ useRealtime(
                 startY: yg + 4,
                 head: [["Código OS", "Descrição", "Total"]],
                 body: gastosPorOs.slice(0, 10).map(g => [g.codigoOs, g.equipamentos || "—", `R$ ${g.total.toFixed(2)}`]),
-                headStyles: { fillColor: [99, 102, 241] },
+                headStyles: { fillColor: [58, 53, 92] },
                 styles: { fontSize: 9 },
               });
             }

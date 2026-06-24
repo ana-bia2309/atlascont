@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { addPdfHeader, addSectionTitle, getCompanyInfo } from "@/lib/pdfHeader";
+import { addPdfHeader, addSectionTitle, getAtlasCompanyInfo } from "@/lib/pdfHeader";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type MatOS = {
@@ -185,7 +185,7 @@ export default function RelatorioConsolidadoMateriais() {
     try {
       const doc = new jsPDF({ orientation: "landscape" });
       const pageW = doc.internal.pageSize.getWidth();
-      const company = await getCompanyInfo();
+      const company = await getAtlasCompanyInfo();
       let y = await addPdfHeader(doc, "Consolidado de Materiais", `${filtered.length} materiais diferentes`, company);
 
       // Tabela resumo
@@ -194,10 +194,10 @@ export default function RelatorioConsolidadoMateriais() {
         head: [["Material", "Unidade", "Qtd Total", "Custo Total", "Qtd O.S.", "Última Utilização"]],
         body: filtered.map(m => [m.nome, m.unidade, m.totalQtd, `R$ ${m.totalCusto.toFixed(2)}`, m.totalOS, fmtDate(m.ultimaUtilizacao)]),
         foot: [["TOTAL", "", filtered.reduce((s, m) => s + m.totalQtd, 0), `R$ ${filtered.reduce((s, m) => s + m.totalCusto, 0).toFixed(2)}`, filtered.reduce((s, m) => s + m.totalOS, 0), ""]],
-        headStyles: { fillColor: [210, 213, 235], textColor: [30, 30, 60], fontSize: 8, fontStyle: "bold" },
+        headStyles: { fillColor: [58, 53, 92], textColor: [255, 255, 255], fontSize: 8, fontStyle: "bold" },
         bodyStyles: { fontSize: 8, textColor: [40, 40, 40] },
         alternateRowStyles: { fillColor: [250, 250, 255] },
-        footStyles: { fillColor: [210, 213, 235], textColor: [30, 30, 60], fontSize: 8, fontStyle: "bold" },
+        footStyles: { fillColor: [58, 53, 92], textColor: [255, 255, 255], fontSize: 8, fontStyle: "bold" },
         margin: { left: 10, right: 10 },
         tableWidth: pageW - 20,
       });
@@ -211,7 +211,7 @@ export default function RelatorioConsolidadoMateriais() {
         if (y + 30 > 195) { doc.addPage(); y = 14; }
 
         // Barra do material
-        doc.setFillColor(230, 232, 245);
+        doc.setFillColor(233, 231, 240);
         doc.rect(10, y, pageW - 20, 8, "F");
         doc.setFontSize(9);
         doc.setFont("helvetica", "bold");

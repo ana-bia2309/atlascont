@@ -7,7 +7,9 @@ export type PdfCompanyInfo = {
 };
 
 export async function getCompanyInfo(): Promise<PdfCompanyInfo> {
+  
   try {
+    
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { nome: "Atlas Control", logoUrl: null };
 
@@ -49,6 +51,17 @@ async function loadImageAsBase64(url: string): Promise<string | null> {
   }
 }
 
+// Branding fixo do Atlas Control — usado pelos relatórios internos do sistema
+// (Mensal de Gastos, Consolidado de Materiais, Materiais por O.S., Executivo).
+// NÃO usar no Relatório Geral de O.S., que mantém a marca da empresa-cliente
+// (ex.: APA) via getCompanyInfo(), pois é um documento voltado ao cliente.
+export function getAtlasCompanyInfo(): PdfCompanyInfo {
+  return {
+    nome: "Atlas Control",
+    logoUrl: `${window.location.origin}/icons/icon-256.png`,
+  };
+}
+
 export async function addPdfHeader(
   doc: jsPDF,
   title: string,
@@ -81,14 +94,14 @@ export async function addPdfHeader(
   // Nome da empresa — pequeno, cinza
   if (company?.nome) {
     doc.setFontSize(8);
-    doc.setTextColor(120, 120, 120);
+    doc.setTextColor(108, 100, 152);
     doc.setFont("helvetica", "normal");
     doc.text(company.nome.toUpperCase(), textX, 10);
   }
 
   // Título — preto, negrito
   doc.setFontSize(15);
-  doc.setTextColor(30, 30, 30);
+  doc.setTextColor(58, 53, 92);
   doc.setFont("helvetica", "bold");
   doc.text(title, textX, 19);
   doc.setFont("helvetica", "normal");
@@ -110,8 +123,8 @@ export async function addPdfHeader(
   doc.text(`Gerado em ${hoje}`, pageW - 10, 10, { align: "right" });
   doc.text("Atlas Control", pageW - 10, 16, { align: "right" });
 
-  // Linha separadora — cinza claro
-  doc.setDrawColor(200, 200, 200);
+  // Linha separadora — tom Atlas suave
+  doc.setDrawColor(108, 100, 152);
   doc.setLineWidth(0.5);
   doc.line(10, 32, pageW - 10, 32);
 
@@ -122,11 +135,11 @@ export async function addPdfHeader(
 export function addSectionTitle(doc: jsPDF, title: string, y: number): number {
   const pageW = doc.internal.pageSize.getWidth();
   doc.setFontSize(10);
-  doc.setTextColor(30, 30, 30);
+  doc.setTextColor(58, 53, 92);
   doc.setFont("helvetica", "bold");
   doc.text(title, 10, y);
   doc.setFont("helvetica", "normal");
-  doc.setDrawColor(220, 220, 220);
+  doc.setDrawColor(108, 100, 152);
   doc.setLineWidth(0.3);
   doc.line(10, y + 2, pageW - 10, y + 2);
   return y + 7;

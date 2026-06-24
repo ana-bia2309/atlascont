@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { addPdfHeader, getCompanyInfo } from "@/lib/pdfHeader";
+import { addPdfHeader, getAtlasCompanyInfo } from "@/lib/pdfHeader";
 
 type MatOS = {
   id: string;
@@ -169,7 +169,7 @@ export default function RelatorioMateriais() {
     try {
       const doc = new jsPDF({ orientation: "landscape" });
       const pageW = doc.internal.pageSize.getWidth();
-      const company = await getCompanyInfo();
+      const company = await getAtlasCompanyInfo();
       let y = await addPdfHeader(doc, "Relatório de Materiais por O.S.", `${osComMateriais.length} O.S. com materiais`, company);
 
       for (const os of osComMateriais) {
@@ -183,7 +183,7 @@ export default function RelatorioMateriais() {
         const pageW2 = doc.internal.pageSize.getWidth();
 
         // Linha 1 — fundo escuro com código, status e data
-        doc.setFillColor(50, 55, 80);
+        doc.setFillColor(58, 53, 92);
         doc.rect(10, y, pageW2 - 20, 9, "F");
         doc.setFontSize(9);
         doc.setFont("helvetica", "bold");
@@ -200,19 +200,22 @@ export default function RelatorioMateriais() {
         };
         const sc = statusColors[os.status || ""] || [156, 163, 175];
         const statusText = os.status || "—";
-        doc.setFillColor(sc[0], sc[1], sc[2]);
-        doc.roundedRect(45, y + 1.5, 36, 6, 1, 1, "F");
         doc.setFontSize(7);
+        const statusW = Math.max(doc.getTextWidth(statusText) + 8, 22);
+        doc.setFillColor(sc[0], sc[1], sc[2]);
+        doc.roundedRect(45, y + 1.5, statusW, 6, 1, 1, "F");
         doc.setTextColor(255, 255, 255);
-        doc.text(statusText, 63, y + 5.8, { align: "center" });
+        doc.text(statusText, 45 + statusW / 2, y + 5.8, { align: "center" });
 
-        // Badge Portal do Cliente
+        // Badge Portal do Cliente (posição calculada após o selo de status)
         if (os.origem === "Portal do Cliente") {
-          doc.setFillColor(139, 92, 246);
-          doc.roundedRect(84, y + 1.5, 32, 6, 1, 1, "F");
+          const portalX = 45 + statusW + 3;
           doc.setFontSize(6.5);
+          const portalW = doc.getTextWidth("Portal do Cliente") + 6;
+          doc.setFillColor(108, 100, 152);
+          doc.roundedRect(portalX, y + 1.5, portalW, 6, 1, 1, "F");
           doc.setTextColor(255, 255, 255);
-          doc.text("Portal do Cliente", 100, y + 5.8, { align: "center" });
+          doc.text("Portal do Cliente", portalX + portalW / 2, y + 5.8, { align: "center" });
         }
 
         doc.setFontSize(8);
@@ -261,10 +264,10 @@ export default function RelatorioMateriais() {
             `R$ ${Number(m.custo_total_item).toFixed(2)}`,
           ]),
           foot: [["Total da O.S.", "", "", "", `R$ ${totalOS.toFixed(2)}`]],
-          headStyles: { fillColor: [210, 213, 235], textColor: [30, 30, 60], fontSize: 7.5, fontStyle: "bold" },
+          headStyles: { fillColor: [58, 53, 92], textColor: [255, 255, 255], fontSize: 7.5, fontStyle: "bold" },
           bodyStyles: { fontSize: 7.5, textColor: [40, 40, 40] },
-          alternateRowStyles: { fillColor: [250, 250, 255] },
-          footStyles: { fillColor: [210, 213, 235], textColor: [30, 30, 60], fontSize: 7.5, fontStyle: "bold" },
+          alternateRowStyles: { fillColor: [241, 239, 245] },
+          footStyles: { fillColor: [108, 100, 152], textColor: [255, 255, 255], fontSize: 7.5, fontStyle: "bold" },
           margin: { left: 10, right: 10 },
           tableWidth: pageW - 20,
         });

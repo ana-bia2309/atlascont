@@ -103,7 +103,6 @@ const relatoriosGroup: MenuGroup = {
     { title: "Relatório Homem-Hora", url: "/relatorio-homem-hora", icon: Clock, iconColor: "#0EA5E9", requiredPermission: "relatorio_hh.visualizar" },
     { title: "Histórico Atividades", url: "/historico-atividades", icon: Activity, iconColor: "#6B7280", requiredPermission: "sla.visualizar" },
     { title: "Tempo de Parada de Ativos", url: "/relatorio-ativos", icon: BarChart3, requiredPermission: "relatorios.visualizar" },
-    { title: "Desempenho por Técnico", url: "/relatorio-tecnicos", icon: Users, iconColor: "#8B5CF6" },
     { title: "Saúde dos Ativos", url: "/saude-ativos", icon: Activity, iconColor: "#10B981" },
     { title: "Relatório Geral de O.S.", url: "/relatorio-geral-os", icon: ClipboardList, iconColor: "#6366F1" },
     { title: "Materiais por O.S.", url: "/relatorio-materiais-os", icon: Package, iconColor: "#8B5CF6" },
