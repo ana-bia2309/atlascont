@@ -188,9 +188,9 @@ export default function Login() {
           </p>
 
           <ul className="mt-10 space-y-4">
-            <Feature icon={BarChart2}    label="Monitoramento e relatórios em tempo real" accent="blue"   />
-            <Feature icon={ShieldCheck}  label="Controle de acesso e perfis corporativos"  accent="purple" />
-            <Feature icon={Cpu}          label="Integração nativa com ordens de serviço"   accent="slate"  />
+            <Feature icon={BarChart2} label="Ordens de serviço e chamados em um só lugar" accent="blue" />
+            <Feature icon={ShieldCheck} label="Gestão de equipes com níveis de acesso" accent="purple" />
+            <Feature icon={Cpu} label="Relatórios, ativos e manutenção integrados" accent="slate" />
           </ul>
         </div>
 
