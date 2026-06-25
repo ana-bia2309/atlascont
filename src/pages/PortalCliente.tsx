@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useCompany } from "@/hooks/use-company";
@@ -16,7 +16,9 @@ import {
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { Plus, RefreshCw, MessagesSquare, Clock, CheckCircle2, AlertTriangle, Play, LogOut, Wrench, MapPin, Calendar, ChevronRight } from "@/lib/icons";
+import { Plus, RefreshCw, MessagesSquare, Clock, CheckCircle2, AlertTriangle, LogOut, Wrench, MapPin, Calendar, Search, X } from "@/lib/icons";
+
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 type Chamado = {
   id: string;
@@ -38,37 +40,168 @@ type Chamado = {
 type Ativo = { id: string; nome: string; codigo_identificacao?: string | null };
 type Bloco = { id: string; nome: string | null };
 
-const statusConfig: Record<string, { label: string; color: string; icon: typeof Clock }> = {
-  "Em análise": { label: "Em análise", color: "bg-sky-50 text-sky-700 border-sky-200", icon: Clock },
-  "Encerrado":  { label: "Encerrado",  color: "bg-zinc-100 text-zinc-600 border-zinc-300", icon: AlertTriangle },
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .slice(0, 2)
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase();
+}
+
+function getResultado(c: Chamado): "Aprovado" | "Recusado" | null {
+  if (c.status !== "Encerrado") return null;
+  return c.os_id ? "Aprovado" : "Recusado";
+}
+
+// ─── Status Dashboard Card ────────────────────────────────────────────────────
+
+type StatCardProps = {
+  label: string;
+  value: number;
+  accent: string; // tailwind color token e.g. "blue"
+  active: boolean;
+  onClick: () => void;
 };
 
-const TIMELINE_STEPS = ["Em análise", "Aprovado", "Concluído"];
+function StatCard({ label, value, accent, active, onClick }: StatCardProps) {
+  const accentMap: Record<string, { border: string; label: string; ring: string }> = {
+    sky: { border: "hover:border-sky-400", label: "text-sky-600", ring: "ring-sky-400" },
+    amber: { border: "hover:border-amber-400", label: "text-amber-600", ring: "ring-amber-400" },
+    emerald: { border: "hover:border-emerald-400", label: "text-emerald-600", ring: "ring-emerald-400" },
+    rose: { border: "hover:border-rose-400", label: "text-rose-600", ring: "ring-rose-400" },
+    violet: { border: "hover:border-violet-400", label: "text-violet-600", ring: "ring-violet-400" },
+  };
+  const a = accentMap[accent] ?? accentMap["sky"];
 
-function StatusTimeline({ status, osId }: { status: string; osId: string | null }) {
-  const currentIdx = osId ? 2 : status === "Em análise" ? 0 : 1;
-  const labels = ["Em análise", "Aprovado", "Concluído"];
   return (
-    <div className="flex items-center gap-1 mt-3">
-      {labels.map((step, i) => {
-        const done = i <= currentIdx;
-        const current = i === currentIdx;
-        return (
-          <div key={step} className="flex flex-col items-center gap-1 flex-1">
-            <div className={cn("h-1.5 w-full rounded-full transition-all", done ? "bg-primary" : "bg-muted")} />
-            <span className={cn("text-[10px]", current ? "text-primary font-medium" : done ? "text-muted-foreground" : "text-muted-foreground/50")}>
-              {step}
-            </span>
-          </div>
-        );
-      })}
-    </div>
+    <button
+      onClick={onClick}
+      className={cn(
+        "group relative overflow-hidden bg-white border rounded-2xl p-5 text-left transition-all duration-200",
+        "shadow-sm hover:shadow-md hover:-translate-y-0.5",
+        a.border,
+        active && `ring-2 ${a.ring} border-transparent`
+      )}
+    >
+      <p className={cn("text-[10px] font-black uppercase tracking-widest mb-2", a.label)}>{label}</p>
+      <p className="text-3xl font-black text-slate-900">{value}</p>
+      <div className="absolute bottom-0 right-0 p-3 opacity-[0.04] group-hover:opacity-[0.08] transition-opacity">
+        <div className={cn("w-12 h-12 rounded-full border-4", `border-current ${a.label}`)} />
+      </div>
+    </button>
   );
 }
+
+// ─── Tab Button ───────────────────────────────────────────────────────────────
+
+function TabBtn({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "px-5 py-2 rounded-lg text-sm font-semibold transition-all",
+        active
+          ? "bg-white text-indigo-700 shadow-sm font-bold"
+          : "text-slate-500 hover:text-slate-700"
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+// ─── Ticket Card ─────────────────────────────────────────────────────────────
+
+function TicketCard({ c, onClick }: { c: Chamado; onClick: () => void }) {
+  const resultado = getResultado(c);
+
+  const statusStyle = {
+    "Em análise": "bg-sky-50 text-sky-700 border-sky-200",
+    Encerrado: "bg-zinc-100 text-zinc-600 border-zinc-300",
+  };
+
+  const resultadoStyle = {
+    Aprovado: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    Recusado: "bg-rose-50 text-rose-700 border-rose-200",
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      className="group w-full text-left bg-white border border-slate-200 rounded-2xl p-5 shadow-sm
+                 hover:shadow-lg hover:shadow-slate-200/60 hover:border-indigo-200
+                 transition-all duration-200 flex flex-col justify-between"
+    >
+      {/* Top row */}
+      <div>
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <span className="text-[9px] font-black bg-slate-100 text-slate-500 px-2 py-1 rounded border border-slate-200 font-mono">
+            {c.codigo}
+          </span>
+          <div className="flex flex-wrap gap-1.5 justify-end">
+            <Badge
+              variant="outline"
+              className={cn("text-[10px] border h-5 px-1.5", statusStyle[c.status as keyof typeof statusStyle] ?? statusStyle["Em análise"])}
+            >
+              {c.status}
+            </Badge>
+            {resultado && (
+              <Badge
+                variant="outline"
+                className={cn("text-[10px] border h-5 px-1.5", resultadoStyle[resultado])}
+              >
+                {resultado}
+              </Badge>
+            )}
+          </div>
+        </div>
+
+        <h4 className="font-bold text-slate-800 text-sm mb-1 group-hover:text-indigo-600 transition-colors truncate">
+          {c.ativo_nome || "Equipamento"}
+        </h4>
+        {c.descricao_problema && (
+          <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed mb-3">
+            {c.descricao_problema}
+          </p>
+        )}
+      </div>
+
+      {/* Bottom row */}
+      <div className="space-y-1.5 pt-3 border-t border-slate-100 mt-2">
+        {(c.bloco_nome || c.andar || c.sala) && (
+          <p className="text-[11px] text-slate-600 flex items-center gap-1.5 font-medium">
+            <MapPin className="h-3 w-3 shrink-0" />
+            {[c.bloco_nome, c.andar, c.sala].filter(Boolean).join(" · ")}
+          </p>
+        )}
+        {c.created_at && (
+          <p className="text-[10px] text-slate-400 flex items-center gap-1.5">
+            <Calendar className="h-3 w-3 shrink-0" />
+            {format(new Date(c.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+          </p>
+        )}
+      </div>
+    </button>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function PortalCliente() {
   const { session } = useAuth();
   const { companyId } = useCompany();
+
   const [chamados, setChamados] = useState<Chamado[]>([]);
   const [ativos, setAtivos] = useState<Ativo[]>([]);
   const [blocos, setBlocos] = useState<Bloco[]>([]);
@@ -79,6 +212,7 @@ export default function PortalCliente() {
   const [saving, setSaving] = useState(false);
   const [profileId, setProfileId] = useState<string | null>(null);
 
+  // Form state
   const [formAtivoId, setFormAtivoId] = useState("");
   const [formBlocoId, setFormBlocoId] = useState("");
   const [formAndar, setFormAndar] = useState("");
@@ -87,6 +221,14 @@ export default function PortalCliente() {
   const [formNome, setFormNome] = useState("");
   const [formRamal, setFormRamal] = useState("");
   const [formTelefone, setFormTelefone] = useState("");
+
+  // Filter / tab state
+  const [activeTab, setActiveTab] = useState<"ativos" | "historico" | "todos">("ativos");
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<"recente" | "antigo">("recente");
+
+  // ── Data fetching ──────────────────────────────────────────────────────────
 
   const fetchData = useCallback(async () => {
     if (!companyId || !session?.user?.id) { setLoading(false); return; }
@@ -123,6 +265,8 @@ export default function PortalCliente() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // ── Form ──────────────────────────────────────────────────────────────────
+
   const resetForm = () => {
     setFormAtivoId(""); setFormBlocoId(""); setFormAndar("");
     setFormSala(""); setFormDescricao("");
@@ -130,34 +274,14 @@ export default function PortalCliente() {
   };
 
   const handleNovoChamado = async () => {
-    if (!formAtivoId) {
-      toast({ title: "Selecione o equipamento", variant: "destructive" });
-      return;
-    }
-    if (!formNome.trim()) {
-      toast({ title: "Informe seu nome", variant: "destructive" });
-      return;
-    }
-    if (!formBlocoId) {
-      toast({ title: "Selecione o bloco/unidade", variant: "destructive" });
-      return;
-    }
-    if (!formAndar.trim()) {
-      toast({ title: "Informe o andar", variant: "destructive" });
-      return;
-    }
-    if (!formSala.trim()) {
-      toast({ title: "Informe a sala/ambiente", variant: "destructive" });
-      return;
-    }
-    if (!formRamal.trim()) {
-      toast({ title: "Informe o ramal", variant: "destructive" });
-      return;
-    }
-    if (!formDescricao.trim()) {
-      toast({ title: "Descreva o problema", variant: "destructive" });
-      return;
-    }
+    if (!formAtivoId) { toast({ title: "Selecione o equipamento", variant: "destructive" }); return; }
+    if (!formNome.trim()) { toast({ title: "Informe seu nome", variant: "destructive" }); return; }
+    if (!formBlocoId) { toast({ title: "Selecione o bloco/unidade", variant: "destructive" }); return; }
+    if (!formAndar.trim()) { toast({ title: "Informe o andar", variant: "destructive" }); return; }
+    if (!formSala.trim()) { toast({ title: "Informe a sala/ambiente", variant: "destructive" }); return; }
+    if (!formRamal.trim()) { toast({ title: "Informe o ramal", variant: "destructive" }); return; }
+    if (!formDescricao.trim()) { toast({ title: "Descreva o problema", variant: "destructive" }); return; }
+
     setSaving(true);
     try {
       const ativo = ativos.find(a => a.id === formAtivoId);
@@ -190,131 +314,239 @@ export default function PortalCliente() {
     }
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-  };
+  const handleLogout = async () => { await supabase.auth.signOut(); };
+
+  // ── Computed stats ────────────────────────────────────────────────────────
 
   const emAnalise = chamados.filter(c => c.status === "Em análise").length;
   const aprovados = chamados.filter(c => c.status === "Encerrado" && c.os_id).length;
   const recusados = chamados.filter(c => c.status === "Encerrado" && c.justificativa_recusa && !c.os_id).length;
+  const encerrados = chamados.filter(c => c.status === "Encerrado").length;
+
+  const statCards = [
+    { key: "Em análise", label: "Em análise", value: emAnalise, accent: "sky" },
+    { key: "Aprovado", label: "Aprovados", value: aprovados, accent: "emerald" },
+    { key: "Recusado", label: "Recusados", value: recusados, accent: "rose" },
+    { key: "Encerrado", label: "Encerrados", value: encerrados, accent: "violet" },
+    { key: "todos", label: "Total", value: chamados.length, accent: "amber" },
+  ];
+
+  // ── Filtered list ─────────────────────────────────────────────────────────
+
+  const displayedChamados = useMemo(() => {
+    let list = [...chamados];
+
+    // Tab filter — ignorado se um card de status está ativo
+    // (evita que a aba bloqueie chamados que o card quer mostrar)
+    if (!statusFilter) {
+      if (activeTab === "ativos") {
+        list = list.filter(c => c.status !== "Encerrado");
+      } else if (activeTab === "historico") {
+        list = list.filter(c => c.status === "Encerrado");
+      }
+    }
+
+    // Status card filter
+    if (statusFilter && statusFilter !== "todos") {
+      if (statusFilter === "Aprovado") {
+        list = list.filter(c => c.status === "Encerrado" && c.os_id);
+      } else if (statusFilter === "Recusado") {
+        list = list.filter(c => c.status === "Encerrado" && !c.os_id);
+      } else {
+        list = list.filter(c => c.status === statusFilter);
+      }
+    }
+
+    // Search
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(c =>
+        c.codigo?.toLowerCase().includes(q) ||
+        c.ativo_nome?.toLowerCase().includes(q) ||
+        c.descricao_problema?.toLowerCase().includes(q)
+      );
+    }
+
+    // Sort
+    list.sort((a, b) => {
+      const da = new Date(a.created_at).getTime();
+      const db = new Date(b.created_at).getTime();
+      return sort === "recente" ? db - da : da - db;
+    });
+
+    return list;
+  }, [chamados, activeTab, statusFilter, search, sort]);
+
+  const toggleStatusFilter = (key: string) => {
+    const next = statusFilter === key ? null : key;
+    setStatusFilter(next);
+    // Se filtrou por Aprovado/Recusado/Encerrado, muda aba para "todos"
+    // pois esses são chamados encerrados, invisíveis na aba "Ativos"
+    if (next && ["Aprovado", "Recusado", "Encerrado"].includes(next)) {
+      setActiveTab("todos");
+    }
+  };
+
+  const clearFilters = () => {
+    setStatusFilter(null);
+    setSearch("");
+    setSort("recente");
+  };
+
+  const hasFilters = statusFilter !== null || search.trim() !== "";
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="border-b bg-card sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+
+      {/* ── Header ── */}
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
+        <div className="max-w-screen-xl mx-auto px-4 sm:px-8 h-16 flex items-center justify-between">
+          {/* Left: brand */}
           <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-              <MessagesSquare className="h-4 w-4 text-primary" />
+            <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-base shadow-md shadow-indigo-200">
+              P
             </div>
-            <div>
-              <p className="text-sm font-semibold leading-tight">Portal de Chamados</p>
-              <p className="text-xs text-muted-foreground leading-tight">Olá, {profileNome.split(" ")[0]}</p>
+            <div className="hidden sm:block">
+              <p className="text-base font-extrabold tracking-tight leading-tight">Portal de Chamados</p>
+              <p className="text-xs text-slate-500 italic leading-tight">Olá, {profileNome.split(" ")[0]}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+
+          {/* Right: actions */}
+          <div className="flex items-center gap-3">
+            <Button
+              size="sm"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-100 gap-1.5 font-bold"
+              onClick={() => { setFormNome(profileNome); setNovoChamadoOpen(true); }}
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Novo Chamado</span>
+              <span className="sm:hidden">Abrir</span>
+            </Button>
             <Button variant="outline" size="icon" onClick={fetchData} title="Atualizar">
               <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
             </Button>
-            <Button variant="ghost" size="icon" onClick={handleLogout} title="Sair">
-              <LogOut className="h-4 w-4 text-muted-foreground" />
+            <div className="w-9 h-9 rounded-full bg-slate-200 border-2 border-white shadow-sm flex items-center justify-center text-[11px] font-bold text-slate-600 select-none">
+              {profileNome ? getInitials(profileNome) : "?"}
+            </div>
+            <Button variant="ghost" size="icon" onClick={handleLogout} title="Sair" className="text-slate-400 hover:text-slate-700">
+              <LogOut className="h-4 w-4" />
             </Button>
           </div>
         </div>
-      </div>
+      </header>
 
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            { label: "Em análise", value: emAnalise, color: "text-sky-600" },
-            { label: "Aprovados", value: aprovados, color: "text-emerald-600" },
-            { label: "Recusados", value: recusados, color: "text-red-600" },
-          ].map(s => (
-            <div key={s.label} className="rounded-xl border bg-card p-4 text-center">
-              <p className={cn("text-2xl font-bold", s.color)}>{s.value}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{s.label}</p>
+      {/* ── Main ── */}
+      <main className="max-w-screen-xl mx-auto px-4 sm:px-8 py-8 space-y-8">
+
+        {/* Dashboard section */}
+        <section>
+          <div className="mb-5 flex items-end justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-800">Minhas Solicitações</h2>
+              <p className="text-sm text-slate-500">Acompanhe e gerencie seus chamados em tempo real.</p>
             </div>
-          ))}
-        </div>
+            {hasFilters && (
+              <button
+                onClick={clearFilters}
+                className="text-indigo-600 text-xs font-bold hover:underline flex items-center gap-1"
+              >
+                <X className="h-3 w-3" /> Limpar filtros
+              </button>
+            )}
+          </div>
 
-        <Button className="w-full h-12 text-base gap-2" onClick={() => { setFormNome(profileNome); setNovoChamadoOpen(true); }}>
-          <Plus className="h-5 w-5" />
-          Abrir Novo Chamado
-        </Button>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+            {statCards.map(s => (
+              <StatCard
+                key={s.key}
+                label={s.label}
+                value={s.value}
+                accent={s.accent}
+                active={statusFilter === s.key}
+                onClick={() => toggleStatusFilter(s.key)}
+              />
+            ))}
+          </div>
+        </section>
 
-        <div>
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Meus Chamados</h2>
+        {/* List section */}
+        <section className="space-y-5">
+          {/* Tabs + Search row */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-200 pb-5">
+            {/* Tabs */}
+            <nav className="flex gap-1 bg-slate-200/50 p-1 rounded-xl w-fit">
+              <TabBtn active={activeTab === "ativos"} onClick={() => setActiveTab("ativos")}>    Ativos    </TabBtn>
+              <TabBtn active={activeTab === "historico"} onClick={() => setActiveTab("historico")}> Histórico </TabBtn>
+              <TabBtn active={activeTab === "todos"} onClick={() => setActiveTab("todos")}>     Ver Todos </TabBtn>
+            </nav>
+
+            {/* Search + sort */}
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative min-w-[260px]">
+                <Search className="absolute inset-y-0 left-3 my-auto h-4 w-4 text-slate-400 pointer-events-none" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Buscar por código ou equipamento..."
+                  className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm
+                             focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                />
+              </div>
+              <select
+                value={sort}
+                onChange={e => setSort(e.target.value as "recente" | "antigo")}
+                className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium
+                           focus:outline-none cursor-pointer"
+              >
+                <option value="recente">Mais Recentes</option>
+                <option value="antigo">Mais Antigos</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Grid */}
           {loading ? (
-            <p className="text-center text-sm text-muted-foreground py-8">Carregando...</p>
-          ) : chamados.length === 0 ? (
-            <div className="text-center py-12 rounded-xl border border-dashed">
-              <MessagesSquare className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="text-muted-foreground text-sm">Nenhum chamado aberto ainda.</p>
+            <p className="text-center text-sm text-muted-foreground py-12">Carregando...</p>
+          ) : displayedChamados.length === 0 ? (
+            <div className="py-24 text-center">
+              <div className="text-5xl mb-4">📂</div>
+              <h3 className="text-base font-bold text-slate-800">Nenhum chamado nesta categoria</h3>
+              <p className="text-sm text-slate-500 mt-1">Altere os filtros ou abra um novo chamado.</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {chamados.map(c => {
-                const cfg = statusConfig[c.status] || statusConfig["Em análise"];
-                const StatusIcon = cfg.icon;
-                const resultado = c.status === "Encerrado" ? (c.os_id ? "Aprovado" : "Recusado") : null;
-                return (
-                  <button key={c.id} onClick={() => setViewing(c)} className="w-full text-left rounded-xl border bg-card p-4 hover:bg-muted/30 transition-colors">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <span className="text-xs font-mono text-muted-foreground">{c.codigo}</span>
-                          <Badge variant="outline" className={cn("text-[10px] border h-5 px-1.5", cfg.color)}>
-                            <StatusIcon className="h-3 w-3 mr-1" />{cfg.label}
-                          </Badge>
-                          {resultado && (
-                            <Badge variant="outline" className={cn("text-[10px] border h-5 px-1.5",
-                              resultado === "Aprovado" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-700 border-red-200"
-                            )}>
-                              {resultado}
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="font-medium text-sm truncate">{c.ativo_nome || "Equipamento"}</p>
-                        {c.descricao_problema && (
-                          <p className="text-xs text-muted-foreground mt-0.5 truncate">{c.descricao_problema}</p>
-                        )}
-                        {(c.bloco_nome || c.andar || c.sala) && (
-                          <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                            <MapPin className="h-3 w-3" />
-                            {[c.bloco_nome, c.andar, c.sala].filter(Boolean).join(" · ")}
-                          </p>
-                        )}
-                        {c.created_at && (
-                          <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            {format(new Date(c.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                          </p>
-                        )}
-                        {c.status !== "Encerrado" && <StatusTimeline status={c.status} osId={c.os_id} />}
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
-                    </div>
-                  </button>
-                );
-              })}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+              {displayedChamados.map(c => (
+                <TicketCard key={c.id} c={c} onClick={() => setViewing(c)} />
+              ))}
             </div>
           )}
-        </div>
-      </div>
+        </section>
+      </main>
 
-      {/* Dialog Ver chamado */}
+      {/* ── Dialog: Ver Chamado ── */}
       <Dialog open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 flex-wrap">
               <span className="font-mono text-sm">{viewing?.codigo}</span>
               {viewing && (
-                <Badge variant="outline" className={cn("text-xs border", statusConfig[viewing.status]?.color)}>
+                <Badge variant="outline" className={cn("text-xs border",
+                  viewing.status === "Em análise"
+                    ? "bg-sky-50 text-sky-700 border-sky-200"
+                    : "bg-zinc-100 text-zinc-600 border-zinc-300"
+                )}>
                   {viewing.status}
                 </Badge>
               )}
               {viewing?.status === "Encerrado" && (
                 <Badge variant="outline" className={cn("text-xs border",
-                  viewing.os_id ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-700 border-red-200"
+                  viewing.os_id
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    : "bg-rose-50 text-rose-700 border-rose-200"
                 )}>
                   {viewing.os_id ? "Aprovado" : "Recusado"}
                 </Badge>
@@ -355,12 +587,6 @@ export default function PortalCliente() {
                   Aberto em {format(new Date(viewing.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                 </div>
               )}
-              {viewing.status !== "Encerrado" && (
-                <div className="pt-2 border-t">
-                  <p className="text-xs font-medium text-muted-foreground mb-2">Progresso</p>
-                  <StatusTimeline status={viewing.status} osId={viewing.os_id} />
-                </div>
-              )}
             </div>
           )}
           <DialogFooter>
@@ -369,7 +595,7 @@ export default function PortalCliente() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog Novo Chamado */}
+      {/* ── Dialog: Novo Chamado ── */}
       <Dialog open={novoChamadoOpen} onOpenChange={(o) => { if (!o) { setNovoChamadoOpen(false); resetForm(); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -387,7 +613,9 @@ export default function PortalCliente() {
                 <SelectTrigger><SelectValue placeholder="Selecione o equipamento" /></SelectTrigger>
                 <SelectContent>
                   {ativos.map(a => (
-                    <SelectItem key={a.id} value={a.id}>{a.nome}{a.codigo_identificacao ? ` (${a.codigo_identificacao})` : ""}</SelectItem>
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.nome}{a.codigo_identificacao ? ` (${a.codigo_identificacao})` : ""}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -413,7 +641,9 @@ export default function PortalCliente() {
                 <Input value={formRamal} onChange={e => setFormRamal(e.target.value)} placeholder="Ex: 1234" />
               </div>
               <div>
-                <label className="text-sm font-medium mb-1.5 block">Telefone <span className="text-muted-foreground font-normal">(opcional)</span></label>
+                <label className="text-sm font-medium mb-1.5 block">
+                  Telefone <span className="text-muted-foreground font-normal">(opcional)</span>
+                </label>
                 <Input value={formTelefone} onChange={e => setFormTelefone(e.target.value)} placeholder="(00) 00000-0000" />
               </div>
             </div>
@@ -429,7 +659,7 @@ export default function PortalCliente() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setNovoChamadoOpen(false); resetForm(); }}>Cancelar</Button>
-            <Button onClick={handleNovoChamado} disabled={saving}>
+            <Button onClick={handleNovoChamado} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700">
               {saving ? "Abrindo..." : "Abrir Chamado"}
             </Button>
           </DialogFooter>
