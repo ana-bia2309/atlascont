@@ -84,6 +84,9 @@ export default function PortalCliente() {
   const [formAndar, setFormAndar] = useState("");
   const [formSala, setFormSala] = useState("");
   const [formDescricao, setFormDescricao] = useState("");
+  const [formNome, setFormNome] = useState("");
+  const [formRamal, setFormRamal] = useState("");
+  const [formTelefone, setFormTelefone] = useState("");
 
   const fetchData = useCallback(async () => {
     if (!companyId || !session?.user?.id) { setLoading(false); return; }
@@ -123,11 +126,32 @@ export default function PortalCliente() {
   const resetForm = () => {
     setFormAtivoId(""); setFormBlocoId(""); setFormAndar("");
     setFormSala(""); setFormDescricao("");
+    setFormNome(""); setFormRamal(""); setFormTelefone("");
   };
 
   const handleNovoChamado = async () => {
     if (!formAtivoId) {
       toast({ title: "Selecione o equipamento", variant: "destructive" });
+      return;
+    }
+    if (!formNome.trim()) {
+      toast({ title: "Informe seu nome", variant: "destructive" });
+      return;
+    }
+    if (!formBlocoId) {
+      toast({ title: "Selecione o bloco/unidade", variant: "destructive" });
+      return;
+    }
+    if (!formAndar.trim()) {
+      toast({ title: "Informe o andar", variant: "destructive" });
+      return;
+    }
+    if (!formSala.trim()) {
+      toast({ title: "Informe a sala/ambiente", variant: "destructive" });
+      return;
+    }
+    if (!formRamal.trim()) {
+      toast({ title: "Informe o ramal", variant: "destructive" });
       return;
     }
     if (!formDescricao.trim()) {
@@ -150,7 +174,9 @@ export default function PortalCliente() {
         sala: formSala.trim() || null,
         descricao_problema: formDescricao.trim(),
         solicitante_id: profileId,
-        solicitante_nome: profileNome,
+        solicitante_nome: formNome.trim(),
+        ramal: formRamal.trim(),
+        telefone: formTelefone.trim() || null,
       });
       if (error) throw error;
       toast({ title: "Chamado aberto!", description: "Nossa equipe irá analisar em breve." });
@@ -210,7 +236,7 @@ export default function PortalCliente() {
           ))}
         </div>
 
-        <Button className="w-full h-12 text-base gap-2" onClick={() => setNovoChamadoOpen(true)}>
+        <Button className="w-full h-12 text-base gap-2" onClick={() => { setFormNome(profileNome); setNovoChamadoOpen(true); }}>
           <Plus className="h-5 w-5" />
           Abrir Novo Chamado
         </Button>
@@ -352,6 +378,10 @@ export default function PortalCliente() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
+              <label className="text-sm font-medium mb-1.5 block">Seu nome *</label>
+              <Input value={formNome} onChange={e => setFormNome(e.target.value)} placeholder="Nome completo" />
+            </div>
+            <div>
               <label className="text-sm font-medium mb-1.5 block">Equipamento *</label>
               <Select value={formAtivoId} onValueChange={setFormAtivoId}>
                 <SelectTrigger><SelectValue placeholder="Selecione o equipamento" /></SelectTrigger>
@@ -363,7 +393,7 @@ export default function PortalCliente() {
               </Select>
             </div>
             <div>
-              <label className="text-sm font-medium mb-1.5 block">Localização</label>
+              <label className="text-sm font-medium mb-1.5 block">Localização *</label>
               <div className="grid grid-cols-2 gap-2">
                 <Select value={formBlocoId} onValueChange={setFormBlocoId}>
                   <SelectTrigger><SelectValue placeholder="Bloco/Unidade" /></SelectTrigger>
@@ -376,6 +406,16 @@ export default function PortalCliente() {
                 <Input value={formAndar} onChange={e => setFormAndar(e.target.value)} placeholder="Andar" />
               </div>
               <Input className="mt-2" value={formSala} onChange={e => setFormSala(e.target.value)} placeholder="Sala / Ambiente" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Ramal *</label>
+                <Input value={formRamal} onChange={e => setFormRamal(e.target.value)} placeholder="Ex: 1234" />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Telefone <span className="text-muted-foreground font-normal">(opcional)</span></label>
+                <Input value={formTelefone} onChange={e => setFormTelefone(e.target.value)} placeholder="(00) 00000-0000" />
+              </div>
             </div>
             <div>
               <label className="text-sm font-medium mb-1.5 block">Descrição do problema *</label>
