@@ -149,8 +149,8 @@ function AtivoStatusBadge({ ativoId, nome }: { ativoId: string; nome: string }) 
       <span className="font-medium">{nome}</span>
       {status && (
         <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${status === "indisponivel"
-            ? "bg-red-50 text-red-700 border-red-200"
-            : "bg-emerald-50 text-emerald-700 border-emerald-200"
+          ? "bg-red-50 text-red-700 border-red-200"
+          : "bg-emerald-50 text-emerald-700 border-emerald-200"
           }`}>
           {status === "indisponivel" ? "🔴 Indisponível" : "🟢 Disponível"}
         </span>
@@ -1441,16 +1441,17 @@ export default function OrdensServico() {
                     />
                   </TableHead>
                 )}
-                <TableHead className="w-[80px]">Código</TableHead>
-                <TableHead className="w-[100px]">OS Externa</TableHead>
-                <TableHead>Local</TableHead>
-                <TableHead>Prioridade</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>SLA</TableHead>
-                <TableHead>Prazo</TableHead>
-                <TableHead>Custo</TableHead>
-                <TableHead>Auxiliares</TableHead>
-                <TableHead className="w-[140px] text-right">Ações</TableHead>
+                <TableHead className="w-[110px] font-semibold text-slate-700">Código</TableHead>
+                <TableHead className="w-[100px] font-semibold text-slate-700">OS Externa</TableHead>
+                <TableHead className="w-[120px] font-semibold text-slate-700">Local</TableHead>
+                <TableHead className="w-[220px] font-semibold text-slate-700">Equipamentos</TableHead>
+                <TableHead className="w-[110px] font-semibold text-slate-700">Prioridade</TableHead>
+                <TableHead className="w-[130px] font-semibold text-slate-700">Status</TableHead>
+                <TableHead className="w-[90px] font-semibold text-slate-700">SLA</TableHead>
+                <TableHead className="w-[150px] font-semibold text-slate-700">Prazo</TableHead>
+                <TableHead className="w-[100px] font-semibold text-slate-700">Custo</TableHead>
+                <TableHead className="w-[120px] font-semibold text-slate-700">Auxiliares</TableHead>
+                <TableHead className="w-[180px] text-center font-semibold text-slate-700">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1655,8 +1656,8 @@ export default function OrdensServico() {
                     </TableCell>
 
                     {/* Ações */}
-                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-0.5">
+                    <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-center gap-0.5">
                         {can("painel_os.editar") && isFinishedStatus(os.status) && (
                           <Button
                             variant="ghost"
