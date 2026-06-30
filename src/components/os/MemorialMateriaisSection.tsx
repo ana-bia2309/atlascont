@@ -38,6 +38,7 @@ type MemorialRow = {
 type Props = {
   osId: string | null;
   readOnly?: boolean;
+  onTotalChange?: (total: number) => void;
 };
 
 export type MemorialHandle = {
@@ -52,7 +53,7 @@ const fmt = (n: number | null | undefined) =>
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const MemorialMateriaisSection = forwardRef<MemorialHandle, Props>(
-  ({ osId, readOnly = false }, ref) => {
+  ({ osId, readOnly = false, onTotalChange }, ref) => {
     const { companyId } = useCompany();
 
     const [materiais, setMateriais] = useState<Material[]>([]);
@@ -245,6 +246,11 @@ const MemorialMateriaisSection = forwardRef<MemorialHandle, Props>(
 
     const grandTotalQtd = rowTotals.reduce((s, r) => s + r.totalQtd, 0);
     const grandTotalValor = rowTotals.reduce((s, r) => s + r.totalValor, 0);
+
+    useEffect(() => {
+      onTotalChange?.(grandTotalValor);
+    }, [grandTotalValor, onTotalChange]);
+
 
     const availableAtivos = ativos.filter(a => !selectedAtivos.find(s => s.id === a.id));
 
@@ -465,16 +471,11 @@ const MemorialMateriaisSection = forwardRef<MemorialHandle, Props>(
               {rows.length > 0 && (
                 <tfoot>
                   <tr className="border-t-2 bg-muted/30">
-                    <td className="px-3 py-2 font-bold text-xs sticky left-0 bg-muted/30" colSpan={3}>
+                    <td
+                      className="px-3 py-2 font-bold text-xs sticky left-0 bg-muted/30"
+                      colSpan={3 + selectedAtivos.length + 1}
+                    >
                       TOTAL GERAL
-                    </td>
-                    {selectedAtivos.map(a => (
-                      <td key={a.id} className="px-2 py-2 text-center font-semibold text-xs">
-                        {rows.reduce((s, r) => s + (r.quantidades[a.id] || 0), 0) || "—"}
-                      </td>
-                    ))}
-                    <td className="px-2 py-2 text-center font-bold text-xs bg-muted/40">
-                      {grandTotalQtd || "—"}
                     </td>
                     <td className="px-2 py-2 text-center font-bold text-primary text-xs bg-primary/10">
                       R$ {fmt(grandTotalValor)}

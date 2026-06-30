@@ -637,6 +637,7 @@ export default function OrdensServico() {
   const [chamadoExternoId, setChamadoExternoId] = useState<string | null>(null);
   const [numeroOsExterno, setNumeroOsExterno] = useState("");
   const [osTab, setOsTab] = useState("materiais");
+  const [memorialTotal, setMemorialTotal] = useState(0);
 
   const isObrigatorio = (campo: string) => camposObrigatorios.includes(campo);
   const labelCampo = (label: string, campo: string) => (
@@ -679,6 +680,11 @@ export default function OrdensServico() {
       setFormFiscais((fiscaisRes.data || []).map((d: any) => d.profile_id));
     });
     setDialogOpen(true);
+  };
+
+  const openMemorial = (os: OrdemServico) => {
+    openEdit(os);
+    setOsTab("memorial");
   };
 
   useEffect(() => {
@@ -1681,8 +1687,12 @@ export default function OrdensServico() {
                             <CheckCircle2 className="h-4 w-4" />
                           </Button>
                         )}
+
                         <Button variant="ghost" size="icon" onClick={() => setViewing(os)} title="Ver detalhes">
                           <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => openMemorial(os)} title="Memorial de Cálculo">
+                          <FileText className="h-4 w-4" />
                         </Button>
                         {can("painel_os.baixar") && (
                           <Button variant="ghost" size="icon" onClick={() => downloadPdf(os)} title="Baixar PDF">
@@ -1989,6 +1999,11 @@ export default function OrdensServico() {
                         )}
                         <button onClick={() => setOsTab("memorial")} className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${osTab === "memorial" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
                           <FileText className="h-4 w-4" /> Memorial de Cálculo
+                          {memorialTotal > 0 && (
+                            <Badge variant="secondary" className="ml-0.5 text-[10px] px-1.5 py-0 font-semibold text-primary bg-primary/10">
+                              R$ {memorialTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </Badge>
+                          )}
                         </button>
                       </div>
                       {osTab === "materiais" && !(isTecnico && editing) && (
@@ -2011,7 +2026,11 @@ export default function OrdensServico() {
                         <AtividadesNovaOSSection ref={atividadesNovaRef} responsaveisOptions={tecnicosOptions} />
                       )}
                       {osTab === "memorial" && (
-                        <MemorialMateriaisSection osId={editing?.id || null} readOnly={isTecnico && !!editing && !can("painel_os.editar")} />
+                        <MemorialMateriaisSection
+                          osId={editing?.id || null}
+                          readOnly={isTecnico && !!editing && !can("painel_os.editar")}
+                          onTotalChange={setMemorialTotal}
+                        />
                       )}
                     </div>
                   </div>
