@@ -5,11 +5,14 @@ import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { CheckCircle2, XCircle, ClipboardList, RefreshCw, Search, Clock, Filter } from "@/lib/icons";
+// ⚠️ Se algum destes ícones não existir em "@/lib/icons", importe-o diretamente de "lucide-react"
+import {
+  FileCheck2, RefreshCw, Search, Clock, CheckCircle2, XCircle,
+  Layers, ExternalLink, Building2, MapPin, ShieldCheck,
+  CalendarIcon, Info, FolderSearch, Filter, X,
+} from "@/lib/icons";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -28,6 +31,9 @@ type Aprovacao = {
     codigo_os: string;
     status: string;
     bloco_nome: string | null;
+    andar?: string | null;
+    sala?: string | null;
+    numero_os_externo?: string | null;
     equipamentos: string | null;
     responsible_user_id?: string | null;
     observacoes_fiscais?: string | null;
@@ -45,10 +51,10 @@ type Aprovacao = {
 };
 
 const STATUS_FILTER_OPTIONS = [
-  { value: "todos", label: "Todos" },
-  { value: "pendente", label: "🟡 Pendentes" },
-  { value: "aprovado", label: "🟢 Aprovados" },
-  { value: "reprovado", label: "🔴 Reprovados" },
+  { value: "todos", label: "Todos os Status" },
+  { value: "pendente", label: "Pendentes" },
+  { value: "aprovado", label: "Aprovados" },
+  { value: "reprovado", label: "Reprovados" },
 ];
 
 export default function Aprovacoes() {
@@ -68,6 +74,7 @@ export default function Aprovacoes() {
   const [filterDateTo, setFilterDateTo] = useState("");
   const [filterBloco, setFilterBloco] = useState("__all__");
   const [blocos, setBlocos] = useState<{ id: string; nome: string }[]>([]);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   useEffect(() => {
     const getProfile = async () => {
@@ -105,7 +112,7 @@ export default function Aprovacoes() {
     const enriched = await Promise.all((notifs || []).map(async (n: any) => {
       const [osRes, matRes] = await Promise.all([
         (supabase as any).from("ordens_servico")
-          .select("codigo_os, status, bloco_id, equipamentos, responsible_user_id, observacoes_fiscais, orcamento_status, aprovado_por_nome, aprovado_em")
+          .select("codigo_os, status, bloco_id, andar, sala, numero_os_externo, equipamentos, responsible_user_id, observacoes_fiscais, orcamento_status, aprovado_por_nome, aprovado_em")
           .eq("id", n.os_id).single(),
         (supabase as any).from("materiais_os").select("*").eq("os_id", n.os_id),
       ]);
@@ -144,11 +151,12 @@ export default function Aprovacoes() {
   // Filtros aplicados
   const filtered = useMemo(() => {
     return aprovacoes.filter(a => {
-      if (filterStatus !== "todos" && a.orcamento_status !== filterStatus) return false;
+      if (filterStatus !== "todos" && (a.orcamento_status || "pendente") !== filterStatus) return false;
       if (filterSearch.trim()) {
         const q = filterSearch.toLowerCase();
         if (!(a.os?.codigo_os || "").toLowerCase().includes(q) &&
           !(a.os?.bloco_nome || "").toLowerCase().includes(q) &&
+          !(a.fiscal_nome || "").toLowerCase().includes(q) &&
           !(a.mensagem || "").toLowerCase().includes(q)) return false;
       }
       if (filterBloco !== "__all__") {
@@ -164,6 +172,13 @@ export default function Aprovacoes() {
       return true;
     });
   }, [aprovacoes, filterStatus, filterSearch, filterBloco, filterDateFrom, filterDateTo, blocos]);
+
+  const hasActiveFilters = filterStatus !== "todos" || !!filterSearch || filterBloco !== "__all__" || !!filterDateFrom || !!filterDateTo;
+
+  const clearFilters = () => {
+    setFilterStatus("todos"); setFilterSearch(""); setFilterBloco("__all__");
+    setFilterDateFrom(""); setFilterDateTo("");
+  };
 
   const handleAction = async () => {
     if (!selected) return;
@@ -198,223 +213,341 @@ export default function Aprovacoes() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    if (status === "aprovado") return <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 border">🟢 Aprovado</Badge>;
-    if (status === "reprovado") return <Badge className="bg-red-50 text-red-700 border-red-200 border">🔴 Reprovado</Badge>;
-    return <Badge className="bg-amber-50 text-amber-700 border-amber-200 border">🟡 Pendente</Badge>;
-  };
-
   return (
-    <div className="space-y-6">
+    <div className="max-w-[1600px] mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <header className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex items-center gap-3">
-          <ClipboardList className="h-6 w-6 text-primary" />
+          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl border border-indigo-100 shadow-sm">
+            <FileCheck2 className="h-8 w-8" />
+          </div>
           <div>
-            <h1 className="text-2xl font-bold">Aprovações de Orçamento</h1>
-            <p className="text-sm text-muted-foreground">Gerencie e acompanhe os orçamentos das O.S.</p>
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Aprovações de Orçamento</h1>
+            <p className="text-sm text-slate-500">Gerencie e acompanhe os orçamentos das Ordens de Serviço em tempo real.</p>
           </div>
         </div>
-        <Button variant="outline" size="icon" onClick={fetchData}>
-          <RefreshCw className="h-4 w-4" />
+        <Button variant="outline" size="icon" onClick={fetchData} className="self-start md:self-auto rounded-xl">
+          <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
         </Button>
-      </div>
+      </header>
 
-      {/* Cards de resumo */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <Card className="cursor-pointer hover:border-zinc-400 transition-colors" onClick={() => setFilterStatus("todos")}>
-          <CardHeader className="pb-1 pt-4 px-4">
-            <CardTitle className="text-xs text-muted-foreground font-medium">Total</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <span className="text-3xl font-bold">{stats.total}</span>
-          </CardContent>
-        </Card>
-        <Card className="cursor-pointer hover:border-amber-400 transition-colors border-amber-200 bg-amber-50/30" onClick={() => setFilterStatus("pendente")}>
-          <CardHeader className="pb-1 pt-4 px-4">
-            <CardTitle className="text-xs text-amber-600 font-medium">🟡 Pendentes</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <span className="text-3xl font-bold text-amber-700">{stats.pendentes}</span>
-          </CardContent>
-        </Card>
-        <Card className="cursor-pointer hover:border-emerald-400 transition-colors border-emerald-200 bg-emerald-50/30" onClick={() => setFilterStatus("aprovado")}>
-          <CardHeader className="pb-1 pt-4 px-4">
-            <CardTitle className="text-xs text-emerald-600 font-medium">🟢 Aprovados</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <span className="text-3xl font-bold text-emerald-700">{stats.aprovados}</span>
-          </CardContent>
-        </Card>
-        <Card className="cursor-pointer hover:border-red-400 transition-colors border-red-200 bg-red-50/30" onClick={() => setFilterStatus("reprovado")}>
-          <CardHeader className="pb-1 pt-4 px-4">
-            <CardTitle className="text-xs text-red-600 font-medium">🔴 Reprovados</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <span className="text-3xl font-bold text-red-700">{stats.reprovados}</span>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Cards de estatísticas */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <button
+          type="button"
+          onClick={() => setFilterStatus("todos")}
+          className="text-left bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200"
+        >
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Total de O.S.</p>
+              <h3 className="text-3xl font-extrabold text-slate-900">{stats.total}</h3>
+            </div>
+            <div className="p-2.5 bg-slate-50 text-slate-500 rounded-xl">
+              <Layers className="h-5 w-5" />
+            </div>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setFilterStatus("pendente")}
+          className="text-left bg-white p-5 rounded-2xl border-l-4 border-l-amber-500 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200"
+        >
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-amber-500 mb-1">Pendentes</p>
+              <h3 className="text-3xl font-extrabold text-slate-900">{stats.pendentes}</h3>
+            </div>
+            <div className="p-2.5 bg-amber-50 text-amber-600 rounded-xl">
+              <Clock className="h-5 w-5" />
+            </div>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setFilterStatus("aprovado")}
+          className="text-left bg-white p-5 rounded-2xl border-l-4 border-l-emerald-500 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200"
+        >
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-emerald-500 mb-1">Aprovados</p>
+              <h3 className="text-3xl font-extrabold text-slate-900">{stats.aprovados}</h3>
+            </div>
+            <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl">
+              <CheckCircle2 className="h-5 w-5" />
+            </div>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setFilterStatus("reprovado")}
+          className="text-left bg-white p-5 rounded-2xl border-l-4 border-l-rose-500 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200"
+        >
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-rose-500 mb-1">Reprovados</p>
+              <h3 className="text-3xl font-extrabold text-slate-900">{stats.reprovados}</h3>
+            </div>
+            <div className="p-2.5 bg-rose-50 text-rose-600 rounded-xl">
+              <XCircle className="h-5 w-5" />
+            </div>
+          </div>
+        </button>
+      </section>
 
       {/* Filtros */}
-      <div className="flex flex-wrap gap-3 rounded-lg border bg-card p-4">
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Filter className="h-3.5 w-3.5" /> Filtros:
+      <section className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm mb-6 space-y-3">
+        <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
+          <div className="flex flex-col sm:flex-row gap-3 w-full lg:flex-1">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3.5 top-3 h-5 w-5 text-slate-400" />
+              <Input
+                value={filterSearch}
+                onChange={(e) => setFilterSearch(e.target.value)}
+                placeholder="Código OS, bloco, fiscal, mensagem..."
+                className="pl-11 h-11 text-sm bg-slate-50 border-slate-200 rounded-xl focus-visible:ring-indigo-500"
+              />
+            </div>
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="w-full sm:w-48 h-11 text-sm bg-slate-50 border-slate-200 rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_FILTER_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center gap-2 self-end lg:self-auto">
+            <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap">
+              {filtered.length} {filtered.length === 1 ? "resultado" : "resultados"}
+            </span>
+            <Button variant="ghost" size="sm" onClick={() => setAdvancedOpen((o) => !o)} className="gap-1.5 text-slate-500">
+              <Filter className="h-3.5 w-3.5" /> Avançados
+            </Button>
+          </div>
         </div>
-        <div className="relative flex-1 min-w-[180px]">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input value={filterSearch} onChange={e => setFilterSearch(e.target.value)}
-            placeholder="Código OS, bloco, mensagem..." className="pl-9 h-9" />
-        </div>
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-[160px] h-9"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {STATUS_FILTER_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={filterBloco} onValueChange={setFilterBloco}>
-          <SelectTrigger className="w-[160px] h-9"><SelectValue placeholder="Bloco" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__all__">Todos os blocos</SelectItem>
-            {blocos.map(b => <SelectItem key={b.id} value={b.id}>{b.nome}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <div className="flex items-center gap-2">
-          <Input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)}
-            className="h-9 w-36 text-xs" placeholder="De" />
-          <span className="text-muted-foreground text-xs">até</span>
-          <Input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)}
-            className="h-9 w-36 text-xs" placeholder="Até" />
-        </div>
-        {(filterStatus !== "todos" || filterSearch || filterBloco !== "__all__" || filterDateFrom || filterDateTo) && (
-          <Button variant="ghost" size="sm" onClick={() => {
-            setFilterStatus("todos"); setFilterSearch(""); setFilterBloco("__all__");
-            setFilterDateFrom(""); setFilterDateTo("");
-          }}>
-            Limpar filtros
-          </Button>
+
+        {advancedOpen && (
+          <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-slate-100">
+            <Select value={filterBloco} onValueChange={setFilterBloco}>
+              <SelectTrigger className="w-[180px] h-10 text-sm bg-slate-50 border-slate-200 rounded-xl">
+                <SelectValue placeholder="Bloco" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Todos os blocos</SelectItem>
+                {blocos.map((b) => (<SelectItem key={b.id} value={b.id}>{b.nome}</SelectItem>))}
+              </SelectContent>
+            </Select>
+            <div className="flex items-center gap-2">
+              <Input type="date" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)}
+                className="h-10 w-36 text-xs bg-slate-50 border-slate-200 rounded-xl" />
+              <span className="text-xs text-slate-400">até</span>
+              <Input type="date" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)}
+                className="h-10 w-36 text-xs bg-slate-50 border-slate-200 rounded-xl" />
+            </div>
+            {hasActiveFilters && (
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="text-slate-500">
+                <X className="mr-1 h-3 w-3" /> Limpar filtros
+              </Button>
+            )}
+          </div>
         )}
-        <span className="ml-auto text-xs text-muted-foreground self-center">
-          {filtered.length} resultado(s)
-        </span>
-      </div>
+      </section>
 
       {/* Lista */}
       {loading ? (
-        <p className="text-muted-foreground text-sm">Carregando...</p>
+        <p className="text-slate-500 text-sm">Carregando...</p>
       ) : filtered.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            <CheckCircle2 className="h-10 w-10 mx-auto mb-3 opacity-30" />
-            <p>Nenhum orçamento encontrado.</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {filtered.map(a => (
-            <Card key={a.id} className={cn(
-              "border transition-colors",
-              a.orcamento_status === "aprovado" && "border-emerald-200 bg-emerald-50/20",
-              a.orcamento_status === "reprovado" && "border-red-200 bg-red-50/20",
-              (!a.orcamento_status || a.orcamento_status === "pendente") && "border-amber-200",
-            )}>
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <ClipboardList className="h-4 w-4 text-primary" />
-                    O.S. {a.os?.codigo_os || "—"}
-                    {getStatusBadge(a.orcamento_status || "pendente")}
-                    {a.os?.bloco_nome && (
-                      <span className="text-xs text-muted-foreground font-normal">· {a.os.bloco_nome}</span>
-                    )}
-                  </CardTitle>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Clock className="h-3.5 w-3.5" />
-                    {format(new Date(a.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {a.mensagem && <p className="text-sm text-muted-foreground">{a.mensagem}</p>}
-
-                {a.materiais.length > 0 && (
-                  <div className="rounded-md border overflow-hidden">
-                    <table className="w-full text-sm">
-                      <thead className="bg-muted">
-                        <tr>
-                          <th className="text-left px-3 py-1.5 font-medium">Material</th>
-                          <th className="text-center px-3 py-1.5 font-medium">Qtd</th>
-                          <th className="text-right px-3 py-1.5 font-medium">Valor Unit.</th>
-                          <th className="text-right px-3 py-1.5 font-medium">Total</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {a.materiais.map(m => (
-                          <tr key={m.id} className="border-t">
-                            <td className="px-3 py-1.5">{m.nome_material}</td>
-                            <td className="px-3 py-1.5 text-center">{m.quantidade} {m.unidade}</td>
-                            <td className="px-3 py-1.5 text-right">R$ {Number(m.custo_unitario).toFixed(2)}</td>
-                            <td className="px-3 py-1.5 text-right font-semibold">R$ {Number(m.custo_total_item).toFixed(2)}</td>
-                          </tr>
-                        ))}
-                        <tr className="border-t bg-muted/50">
-                          <td colSpan={3} className="px-3 py-1.5 text-right font-semibold">Total Geral:</td>
-                          <td className="px-3 py-1.5 text-right font-bold text-primary">
-                            R$ {a.materiais.reduce((s, m) => s + Number(m.custo_total_item), 0).toFixed(2)}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-
-                {/* Justificativa + quem aprovou/reprovou */}
-                {a.os?.observacoes_fiscais && (
-                  <div className="rounded-md bg-muted/30 px-3 py-2 text-xs space-y-1">
-                    {a.os.aprovado_por_nome && a.os.aprovado_em && (
-                      <p className="font-semibold text-muted-foreground">
-                        {a.orcamento_status === "aprovado" ? "✅ Aprovado" : "❌ Reprovado"} por{" "}
-                        <span className="text-foreground">{a.os.aprovado_por_nome}</span>
-                        {" · "}
-                        {format(new Date(a.os.aprovado_em), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                      </p>
-                    )}
-                    <p>
-                      <span className="font-semibold text-muted-foreground">Justificativa: </span>
-                      {a.os.observacoes_fiscais}
-                    </p>
-                  </div>
-                )}
-
-                {/* Botões só para pendentes e só para o fiscal designado */}
-                {(a.orcamento_status === "pendente" || !a.orcamento_status) && (
-                  profileId === a.user_id ? (
-                    <div className="flex justify-end gap-2 pt-1">
-                      <Button variant="outline" size="sm"
-                        className="border-red-300 text-red-700 hover:bg-red-50"
-                        onClick={() => { setSelected(a); setAction("reprovar"); setJustificativa(""); }}>
-                        <XCircle className="h-4 w-4 mr-1" /> Reprovar
-                      </Button>
-                      <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700"
-                        onClick={() => { setSelected(a); setAction("aprovar"); setJustificativa(""); }}>
-                        <CheckCircle2 className="h-4 w-4 mr-1" /> Aprovar
-                      </Button>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground text-right pt-1">
-                      🔒 Apenas o fiscal designado pode aprovar este orçamento.
-                    </p>
-                  )
-                )}
-              </CardContent>
-            </Card>
-          ))}
+        <div className="bg-white p-12 text-center rounded-2xl border border-slate-100 shadow-sm">
+          <FolderSearch className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+          <p className="text-slate-500 font-medium">Nenhum orçamento encontrado com os filtros aplicados.</p>
         </div>
+      ) : (
+        <main className="space-y-6">
+          {filtered.map((a) => {
+            const totalCalc = a.materiais.reduce((s, m) => s + Number(m.custo_total_item), 0);
+            const statusKey = a.orcamento_status || "pendente";
+            const statusLabel = statusKey === "aprovado" ? "Aprovado" : statusKey === "reprovado" ? "Reprovado" : "Pendente";
+            const statusBadgeClass =
+              statusKey === "aprovado" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+              statusKey === "reprovado" ? "bg-rose-50 text-rose-700 border-rose-200" :
+              "bg-amber-50 text-amber-700 border-amber-200";
+            const cardBorderClass =
+              statusKey === "aprovado" ? "border-emerald-100 hover:border-emerald-200" :
+              statusKey === "reprovado" ? "border-rose-100 hover:border-rose-200" :
+              "border-amber-100 hover:border-amber-200";
+
+            return (
+              <div key={a.id} className={cn("bg-white rounded-2xl border shadow-sm overflow-hidden hover:shadow-md transition-all duration-200", cardBorderClass)}>
+                {/* Cabeçalho do card */}
+                <div className="p-5 bg-slate-50/50 border-b border-slate-100">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div className="flex items-center gap-2 bg-indigo-50 text-indigo-900 font-bold px-3 py-1.5 rounded-xl border border-indigo-100">
+                        <span className="text-base sm:text-lg">O.S. {a.os?.codigo_os || "—"}</span>
+                      </div>
+
+                      {a.os?.numero_os_externo ? (
+                        <div className="flex items-center gap-1.5 bg-slate-100 text-slate-600 text-xs font-semibold px-2.5 py-1.5 rounded-xl border border-slate-200">
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          <span>O.S. Externa: {a.os.numero_os_externo}</span>
+                        </div>
+                      ) : (
+                        <div className="text-xs text-slate-400 italic px-2.5 py-1.5 bg-slate-50 border border-dashed border-slate-200 rounded-xl">
+                          Sem O.S. Externa
+                        </div>
+                      )}
+
+                      <span className={cn("px-3 py-1 rounded-full text-xs font-bold border uppercase tracking-wider", statusBadgeClass)}>
+                        {statusLabel}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col items-start sm:items-end text-sm text-slate-500">
+                      <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-1">
+                        <CalendarIcon className="h-3.5 w-3.5" />
+                        <span>{format(new Date(a.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</span>
+                      </div>
+                      <div className="text-slate-700 font-medium">
+                        Valor Total: <strong className="text-slate-950 font-bold text-lg">
+                          R$ {totalCalc.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Grid de metadados */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-white p-3.5 rounded-xl border border-slate-100 shadow-sm text-sm">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="p-1.5 bg-slate-100 text-slate-500 rounded-lg"><Building2 className="h-4 w-4" /></div>
+                      <div className="truncate">
+                        <p className="text-[10px] uppercase font-bold text-slate-400 leading-none mb-0.5">Unidade</p>
+                        <p className="font-semibold text-slate-700 truncate" title={a.os?.bloco_nome || ""}>{a.os?.bloco_nome || "—"}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="p-1.5 bg-slate-100 text-slate-500 rounded-lg"><Layers className="h-4 w-4" /></div>
+                      <div className="truncate">
+                        <p className="text-[10px] uppercase font-bold text-slate-400 leading-none mb-0.5">Pavimento / Andar</p>
+                        <p className="font-semibold text-slate-700 truncate">{a.os?.andar || "—"}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="p-1.5 bg-slate-100 text-slate-500 rounded-lg"><MapPin className="h-4 w-4" /></div>
+                      <div className="truncate">
+                        <p className="text-[10px] uppercase font-bold text-slate-400 leading-none mb-0.5">Ambiente / Sala</p>
+                        <p className="font-semibold text-slate-700 truncate" title={a.os?.sala || ""}>{a.os?.sala || "—"}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="p-1.5 bg-indigo-50 text-indigo-500 rounded-lg"><ShieldCheck className="h-4 w-4" /></div>
+                      <div className="truncate">
+                        <p className="text-[10px] uppercase font-bold text-indigo-400 leading-none mb-0.5">Fiscal de Aprovação</p>
+                        <p className="font-semibold text-indigo-950 truncate" title={a.fiscal_nome || ""}>{a.fiscal_nome || "—"}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {a.mensagem && (
+                    <div className="mt-3 flex items-center gap-2.5 text-xs text-slate-600 bg-slate-100/50 p-2.5 rounded-lg border border-slate-100">
+                      <Info className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                      <span>{a.mensagem}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Tabela de materiais + ações */}
+                {a.materiais.length > 0 && (
+                  <div className="p-5">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-sm text-slate-600">
+                        <thead>
+                          <tr className="border-b-2 border-slate-200 text-slate-700 text-xs font-extrabold uppercase tracking-wider">
+                            <th className="pb-3">Material</th>
+                            <th className="pb-3 text-right w-24">Qtd</th>
+                            <th className="pb-3 text-right w-32">Valor Unit.</th>
+                            <th className="pb-3 text-right w-36">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {a.materiais.map((m) => (
+                            <tr key={m.id} className="hover:bg-slate-50/50 transition-colors">
+                              <td className="py-3 font-medium text-slate-900">{m.nome_material}</td>
+                              <td className="py-3 text-right font-semibold text-slate-700">{m.quantidade} {m.unidade}</td>
+                              <td className="py-3 text-right text-slate-500">
+                                R$ {Number(m.custo_unitario).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                              <td className="py-3 text-right font-bold text-slate-900">
+                                R$ {Number(m.custo_total_item).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Justificativa + quem aprovou/reprovou */}
+                    {a.os?.observacoes_fiscais && (
+                      <div className="mt-4 rounded-xl bg-slate-50 border border-slate-100 px-4 py-3 text-xs space-y-1">
+                        {a.os.aprovado_por_nome && a.os.aprovado_em && (
+                          <p className="font-semibold text-slate-500">
+                            {statusKey === "aprovado" ? "✅ Aprovado" : "❌ Reprovado"} por{" "}
+                            <span className="text-slate-800">{a.os.aprovado_por_nome}</span>
+                            {" · "}
+                            {format(new Date(a.os.aprovado_em), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                          </p>
+                        )}
+                        <p><span className="font-semibold text-slate-500">Justificativa: </span>{a.os.observacoes_fiscais}</p>
+                      </div>
+                    )}
+
+                    {/* Botões só para pendentes e só para o fiscal designado */}
+                    {statusKey === "pendente" ? (
+                      profileId === a.user_id ? (
+                        <div className="mt-6 flex flex-wrap gap-3 justify-end border-t border-slate-100 pt-4">
+                          <Button
+                            variant="outline"
+                            className="h-auto px-5 py-2.5 border-rose-200 text-rose-700 hover:bg-rose-50 rounded-xl text-sm font-semibold gap-2"
+                            onClick={() => { setSelected(a); setAction("reprovar"); setJustificativa(""); }}
+                          >
+                            <XCircle className="h-4 w-4" /> Reprovar Orçamento
+                          </Button>
+                          <Button
+                            className="h-auto px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold gap-2 shadow-sm"
+                            onClick={() => { setSelected(a); setAction("aprovar"); setJustificativa(""); }}
+                          >
+                            <CheckCircle2 className="h-4 w-4" /> Aprovar Orçamento
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="mt-6 flex justify-end border-t border-slate-100 pt-4">
+                          <p className="text-xs text-slate-400">🔒 Apenas o fiscal designado pode aprovar este orçamento.</p>
+                        </div>
+                      )
+                    ) : (
+                      <div className="mt-6 flex justify-between items-center border-t border-slate-100 pt-4 text-xs text-slate-400">
+                        <span className="flex items-center gap-1.5">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-500" /> O.S. processada pelo sistema.
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </main>
       )}
 
       {/* Dialog de confirmação */}
-      <Dialog open={!!selected} onOpenChange={o => { if (!o) { setSelected(null); setJustificativa(""); setAction(null); } }}>
-        <DialogContent className="sm:max-w-[500px]">
+      <Dialog open={!!selected} onOpenChange={(o) => { if (!o) { setSelected(null); setJustificativa(""); setAction(null); } }}>
+        <DialogContent className="sm:max-w-[500px] rounded-2xl">
           <DialogHeader>
             <DialogTitle>
               {action === "aprovar" ? "✅ Aprovar Orçamento" : "❌ Reprovar Orçamento"} — O.S. {selected?.os?.codigo_os}
@@ -425,16 +558,26 @@ export default function Aprovacoes() {
               <label className="text-sm font-medium mb-1 block">
                 Justificativa <span className="text-destructive">*</span>
               </label>
-              <Textarea value={justificativa} onChange={e => setJustificativa(e.target.value)}
+              <Textarea
+                value={justificativa}
+                onChange={(e) => setJustificativa(e.target.value)}
                 placeholder={action === "aprovar" ? "Descreva o motivo da aprovação..." : "Descreva o motivo da reprovação..."}
-                rows={4} />
+                rows={4}
+                className="rounded-xl"
+              />
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => { setSelected(null); setJustificativa(""); setAction(null); }}>
+              <Button variant="outline" className="rounded-xl" onClick={() => { setSelected(null); setJustificativa(""); setAction(null); }}>
                 Cancelar
               </Button>
-              <Button onClick={handleAction} disabled={submitting || !justificativa.trim()}
-                className={action === "aprovar" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-red-600 hover:bg-red-700"}>
+              <Button
+                onClick={handleAction}
+                disabled={submitting || !justificativa.trim()}
+                className={cn(
+                  "rounded-xl",
+                  action === "aprovar" ? "bg-indigo-600 hover:bg-indigo-700" : "bg-rose-600 hover:bg-rose-700"
+                )}
+              >
                 {submitting ? "Processando..." : action === "aprovar" ? "Confirmar Aprovação" : "Confirmar Reprovação"}
               </Button>
             </div>
