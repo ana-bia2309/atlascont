@@ -223,7 +223,7 @@ export default function Aprovacoes() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Aprovações de Orçamento</h1>
-            <p className="text-sm text-slate-500">Gerencie e acompanhe os orçamentos das Ordens de Serviço em tempo real.</p>
+            <p className="text-sm text-slate-500">Gerencie e acompanhe os orçamentos das Ordens de Serviço.</p>
           </div>
         </div>
         <Button variant="outline" size="icon" onClick={fetchData} className="self-start md:self-auto rounded-xl">
