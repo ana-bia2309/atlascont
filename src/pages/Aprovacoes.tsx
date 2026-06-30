@@ -7,11 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import MemorialMateriaisSection from "@/components/os/MemorialMateriaisSection";
 // ⚠️ Se algum destes ícones não existir em "@/lib/icons", importe-o diretamente de "lucide-react"
 import {
   FileCheck2, RefreshCw, Search, Clock, CheckCircle2, XCircle,
   Layers, ExternalLink, Building2, MapPin, ShieldCheck,
-  CalendarIcon, Info, FolderSearch, Filter, X,
+  CalendarIcon, Info, FolderSearch, Filter, X, FileText,
 } from "@/lib/icons";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -66,6 +67,7 @@ export default function Aprovacoes() {
   const [justificativa, setJustificativa] = useState("");
   const [action, setAction] = useState<"aprovar" | "reprovar" | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [memorialAprovacao, setMemorialAprovacao] = useState<Aprovacao | null>(null);
 
   // Filtros
   const [filterStatus, setFilterStatus] = useState("pendente");
@@ -409,8 +411,8 @@ export default function Aprovacoes() {
                       </span>
                     </div>
 
-                    <div className="flex flex-col items-start sm:items-end text-sm text-slate-500">
-                      <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-1">
+                    <div className="flex flex-col items-start sm:items-end gap-2 text-sm text-slate-500">
+                      <div className="flex items-center gap-1.5 text-xs text-slate-400">
                         <CalendarIcon className="h-3.5 w-3.5" />
                         <span>{format(new Date(a.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</span>
                       </div>
@@ -419,6 +421,14 @@ export default function Aprovacoes() {
                           R$ {totalCalc.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </strong>
                       </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setMemorialAprovacao(a)}
+                        className="h-7 gap-1.5 text-xs rounded-lg border-slate-200 text-slate-600 hover:bg-slate-50"
+                      >
+                        <FileText className="h-3.5 w-3.5" /> Ver Memorial de Cálculo
+                      </Button>
                     </div>
                   </div>
 
@@ -581,6 +591,22 @@ export default function Aprovacoes() {
                 {submitting ? "Processando..." : action === "aprovar" ? "Confirmar Aprovação" : "Confirmar Reprovação"}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog do Memorial de Cálculo */}
+      <Dialog open={!!memorialAprovacao} onOpenChange={(o) => { if (!o) setMemorialAprovacao(null); }}>
+        <DialogContent className="sm:max-w-[1100px] max-h-[85vh] overflow-y-auto rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              Memorial de Cálculo — O.S. {memorialAprovacao?.os?.codigo_os}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            {memorialAprovacao && (
+              <MemorialMateriaisSection osId={memorialAprovacao.os_id} readOnly />
+            )}
           </div>
         </DialogContent>
       </Dialog>

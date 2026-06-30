@@ -239,13 +239,20 @@ const MemorialMateriaisSection = forwardRef<MemorialHandle, Props>(
     };
 
     // ── Computed totals ───────────────────────────────────────────────────────
-    const rowTotals = useMemo(() => rows.map(r => ({
-      totalQtd: selectedAtivos.reduce((s, a) => s + (r.quantidades[a.id] || 0), 0),
-      totalValor: selectedAtivos.reduce((s, a) => s + (r.quantidades[a.id] || 0), 0) * r.custo_unitario,
-    })), [rows, selectedAtivos]);
+    // Arredonda para 2 casas decimais já no cálculo, evitando erros de ponto
+    // flutuante (ex.: 4.8 + 4.8 + 3 = 12.600000000000001) em qualquer lugar
+    // que use esse valor depois (coluna "Total", valor por linha, total geral).
+    const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
-    const grandTotalQtd = rowTotals.reduce((s, r) => s + r.totalQtd, 0);
-    const grandTotalValor = rowTotals.reduce((s, r) => s + r.totalValor, 0);
+    const rowTotals = useMemo(() => rows.map(r => {
+      const totalQtd = round2(selectedAtivos.reduce((s, a) => s + (r.quantidades[a.id] || 0), 0));
+      return {
+        totalQtd,
+        totalValor: round2(totalQtd * r.custo_unitario),
+      };
+    }), [rows, selectedAtivos]);
+
+    const grandTotalValor = round2(rowTotals.reduce((s, r) => s + r.totalValor, 0));
 
     useEffect(() => {
       onTotalChange?.(grandTotalValor);
@@ -498,12 +505,7 @@ const MemorialMateriaisSection = forwardRef<MemorialHandle, Props>(
         {/* Summary card */}
         {grandTotalValor > 0 && (
           <div className="rounded-lg border bg-primary/5 p-3 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-muted-foreground">Custo total do Memorial de Cálculo</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {rows.length} material(is) · {grandTotalQtd} {rows[0]?.material_unidade || "itens"} no total
-              </p>
-            </div>
+            <p className="text-xs text-muted-foreground font-medium">Custo total do Memorial de Cálculo</p>
             <p className="text-lg font-bold text-primary">R$ {fmt(grandTotalValor)}</p>
           </div>
         )}
