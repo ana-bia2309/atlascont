@@ -532,12 +532,6 @@ const MateriaisSection = forwardRef<MateriaisSectionHandle, MateriaisSectionProp
               </span>
             )}
           </div>
-          {!readOnly && !adding && !editingKey && (
-            <Button variant="outline" size="sm" onClick={() => { setAdding(true); setDraft(emptyDraft); }}
-              className="h-7 text-xs gap-1 border-primary/30 text-primary hover:bg-primary/10">
-              <Plus className="h-3 w-3" /> Adicionar material
-            </Button>
-          )}
         </div>
 
         <div className="p-4 space-y-2">
@@ -592,6 +586,14 @@ const MateriaisSection = forwardRef<MateriaisSectionHandle, MateriaisSectionProp
                 )
               )}
             </div>
+          )}
+
+          {/* Botão Adicionar material — no fluxo natural, abaixo da lista */}
+          {!readOnly && !adding && !editingKey && (
+            <Button variant="outline" size="sm" onClick={() => { setAdding(true); setDraft(emptyDraft); }}
+              className="w-full h-9 text-sm gap-1.5 border-primary/30 text-primary hover:bg-primary/10 mt-1">
+              <Plus className="h-4 w-4" /> Adicionar material
+            </Button>
           )}
 
           {/* Form de adição — sticky no bottom quando há muitos itens */}

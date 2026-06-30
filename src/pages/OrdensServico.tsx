@@ -590,7 +590,7 @@ export default function OrdensServico() {
 
   const [codigoOs, setCodigoOs] = useState("");
   const [status, setStatus] = useState("Não Iniciada");
-  const [prioridade, setPrioridade] = useState("Média");
+  const [prioridade, setPrioridade] = useState("");
 
   const handlePrioridadeChange = useCallback(async (novaPrioridade: string) => {
     setPrioridade(novaPrioridade);
@@ -644,7 +644,7 @@ export default function OrdensServico() {
   );
 
   const resetForm = () => {
-    setCodigoOs(""); setStatus("Não Iniciada"); setPrioridade("Média"); setBlocoId("");
+    setCodigoOs(""); setStatus("Não Iniciada"); setPrioridade(""); setBlocoId("");
     setAndar(""); setSala(""); setCronogramaId(""); setAtivoId(""); setTipoServico(""); setNaturezaServico("");
     setPrazo(undefined); setDataInicio(undefined); setDataTermino(undefined);
     setObservacoes(""); setEquipamentos(""); setFormResponsaveis([]); setFormColaboradores([]); setFormFiscais([]); setEditing(null);
@@ -736,6 +736,7 @@ export default function OrdensServico() {
     if (!editing && !can("painel_os.criar")) { toast({ title: "Sem permissão para criar O.S.", variant: "destructive" }); return; }
     if (editing && !can("painel_os.editar") && !isTecnicoAssigned(editing)) { toast({ title: "Sem permissão para editar O.S.", variant: "destructive" }); return; }
     // codigo_os gerado automaticamente
+    if (!prioridade) { toast({ title: "Selecione a prioridade", variant: "destructive" }); return; }
 
     // Valida campos obrigatórios configurados
     if (companyId) {
@@ -2007,7 +2008,7 @@ export default function OrdensServico() {
                         </div>
                       )}
                       {osTab === "atividades" && !editing && can("painel_os.criar") && (
-                        <AtividadesNovaOSSection ref={atividadesNovaRef} />
+                        <AtividadesNovaOSSection ref={atividadesNovaRef} responsaveisOptions={tecnicosOptions} />
                       )}
                       {osTab === "memorial" && (
                         <MemorialMateriaisSection osId={editing?.id || null} readOnly={isTecnico && !!editing && !can("painel_os.editar")} />

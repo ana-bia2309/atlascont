@@ -52,6 +52,10 @@ type Movimentacao = {
 };
 
 type EntradaItem = { material_id: string; quantidade: string; unidade: string };
+const fmtQtd = (n: number) => {
+  const r = Math.round((n + Number.EPSILON) * 100) / 100;
+  return r % 1 === 0 ? String(r) : r.toFixed(2);
+};
 
 export default function Estoque() {
   const { companyId } = useCompany();
@@ -425,16 +429,16 @@ export default function Estoque() {
                       )}
                     </TableCell>
                     <TableCell className="text-center font-semibold">
-                      {item.quantidade_disponivel} {item.material.unidade || ""}
+                      {fmtQtd(item.quantidade_disponivel)} {item.material.unidade || ""}
                     </TableCell>
                     <TableCell className="text-center text-amber-700">
-                      {item.quantidade_empenhada} {item.material.unidade || ""}
+                      {fmtQtd(item.quantidade_empenhada)} {item.material.unidade || ""}
                     </TableCell>
                     <TableCell className="text-center font-bold text-primary">
-                      {item.quantidade_total} {item.material.unidade || ""}
+                      {fmtQtd(item.quantidade_total)} {item.material.unidade || ""}
                     </TableCell>
                     <TableCell className="text-center text-muted-foreground">
-                      {item.quantidade_minima || "—"}
+                      {item.quantidade_minima ? fmtQtd(item.quantidade_minima) : "—"}
                     </TableCell>
                     <TableCell>{getStatusBadge(item)}</TableCell>
                     <TableCell className="text-right">
@@ -769,7 +773,7 @@ export default function Estoque() {
                         />
                         {estoqueItem && (
                           <p className="text-[10px] text-muted-foreground text-center mt-0.5">
-                            Disp: {estoqueItem.quantidade_disponivel}
+                            Disp: {fmtQtd(estoqueItem.quantidade_disponivel)}
                           </p>
                         )}
                       </div>

@@ -27,6 +27,8 @@ export interface AtividadesNovaOSSectionHandle {
 interface Props {
   /** Lista de tipos de atividade pré-carregados (opcional). */
   tiposAtividade?: { id: string; nome: string }[];
+  /** Técnicos disponíveis para selecionar como responsável. */
+  responsaveisOptions?: { id: string; nome: string }[];
   readOnly?: boolean;
 }
 
@@ -52,7 +54,7 @@ const empty_draft: Draft = {
 };
 
 const AtividadesNovaOSSection = forwardRef<AtividadesNovaOSSectionHandle, Props>(
-  ({ tiposAtividade = [], readOnly = false }, ref) => {
+  ({ tiposAtividade = [], responsaveisOptions = [], readOnly = false }, ref) => {
     const [items, setItems] = useState<LocalAtividade[]>([]);
     const [adding, setAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -176,6 +178,7 @@ const AtividadesNovaOSSection = forwardRef<AtividadesNovaOSSectionHandle, Props>
                   draft={draft}
                   setDraft={setDraft}
                   tiposAtividade={tiposAtividade}
+                  responsaveisOptions={responsaveisOptions}
                   onSave={handle_save}
                   onCancel={reset_draft}
                   saveLabel="Salvar"
@@ -213,6 +216,7 @@ const AtividadesNovaOSSection = forwardRef<AtividadesNovaOSSectionHandle, Props>
             draft={draft}
             setDraft={setDraft}
             tiposAtividade={tiposAtividade}
+            responsaveisOptions={responsaveisOptions}
             onSave={handle_save}
             onCancel={reset_draft}
             saveLabel="Adicionar"
@@ -230,6 +234,7 @@ function AtividadeForm({
   draft,
   setDraft,
   tiposAtividade,
+  responsaveisOptions,
   onSave,
   onCancel,
   saveLabel,
@@ -237,6 +242,7 @@ function AtividadeForm({
   draft: Draft;
   setDraft: (d: Draft) => void;
   tiposAtividade: { id: string; nome: string }[];
+  responsaveisOptions: { id: string; nome: string }[];
   onSave: () => void;
   onCancel: () => void;
   saveLabel: string;
@@ -287,13 +293,17 @@ function AtividadeForm({
         </div>
       </div>
       <div>
-        <label className="text-xs text-muted-foreground">Responsável (texto livre)</label>
-        <Input
-          value={draft.responsavel}
-          onChange={(e) => setDraft({ ...draft, responsavel: e.target.value })}
-          placeholder="Opcional"
-          className="h-8 text-sm"
-        />
+        <label className="text-xs text-muted-foreground">Responsável</label>
+        <Select
+          value={draft.responsavel || "__none__"}
+          onValueChange={(v) => setDraft({ ...draft, responsavel: v === "__none__" ? "" : v })}
+        >
+          <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecione um técnico (opcional)" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">Nenhum</SelectItem>
+            {responsaveisOptions.map((t) => <SelectItem key={t.id} value={t.nome}>{t.nome}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </div>
       <div className="flex justify-end gap-2 pt-1">
         <Button variant="ghost" size="sm" onClick={onCancel}>
