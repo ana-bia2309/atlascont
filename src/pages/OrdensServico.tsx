@@ -805,6 +805,8 @@ export default function OrdensServico() {
 
     const payload: any = {
       codigo_os: editing ? codigoOs.trim() : await (async () => { const { data } = await (supabase as any).rpc("next_os_numero"); return data || codigoOs.trim(); })(),
+      status: status || null,
+       prioridade: prioridade || null, 
       bloco_id: blocoId || null, andar: andar.trim() || null, sala: sala.trim() || null,
       prazo: formatDateStr(prazo),
       data_inicio: formatDateStr(dataInicio), data_termino: formatDateStr(dataTermino),
