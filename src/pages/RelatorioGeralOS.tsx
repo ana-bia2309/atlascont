@@ -147,8 +147,22 @@ export default function RelatorioGeralOS() {
       if (filterBloco !== "__all__" && os.bloco_id !== filterBloco) return false;
       if (filterAtivo !== "__all__" && os.ativo_id !== filterAtivo) return false;
       if (filterOrigem !== "__all__" && os.origem !== filterOrigem) return false;
-      if (filterDateFrom && os.created_at && os.created_at < filterDateFrom) return false;
-      if (filterDateTo && os.created_at && os.created_at.slice(0, 10) > filterDateTo) return false;
+      
+      // -------------------------------------------------------------
+      // NOVA LÓGICA DE DATAS: Analisa o ciclo de vida da O.S.
+      // -------------------------------------------------------------
+      const dataInicio = os.created_at ? os.created_at.slice(0, 10) : "";
+      const dataFimRaw = os.finalizado_em || os.data_termino;
+      // Se a O.S. não tem data de fim, usamos uma data no futuro distante para mantê-la "aberta" na lógica
+      const dataFim = dataFimRaw ? dataFimRaw.slice(0, 10) : "9999-12-31"; 
+
+      // 1. Se a O.S. terminou ANTES da data inicial do filtro, ela fica de fora.
+      if (filterDateFrom && dataFim < filterDateFrom) return false;
+      
+      // 2. Se a O.S. começou DEPOIS da data final do filtro, ela fica de fora.
+      if (filterDateTo && dataInicio > filterDateTo) return false;
+      // -------------------------------------------------------------
+
       if (filterSearch.trim()) {
         const q = filterSearch.toLowerCase();
         const match = [os.codigo_os, os.titulo, os.descricao, os.equipamentos]
