@@ -1,6 +1,6 @@
 import {
-  Gauge, ClipboardList, CalendarRange, Wrench, BarChart3, Clock, Activity,
-  DollarSign, Timer, ListChecks, Building2, Box, ShieldCheck, KeyRound, LogOut, User, Settings, Settings2, Briefcase, ChevronRight, MessagesSquare, Package,
+  Gauge, ClipboardList, CalendarRange, Wrench, Package, BarChart3, Clock, Activity,
+  DollarSign, Timer, ListChecks, Building2, Box, ShieldCheck, KeyRound, LogOut, User, Settings, Settings2, Briefcase, ChevronRight, MessagesSquare,
   CheckCircle2, Bot, BookOpen, ShoppingCart,
   Users, TrendingUp,
 } from "@/lib/icons";
@@ -126,6 +126,8 @@ const almoxarifadoGroup: MenuGroup = {
     { title: "Estoque", url: "/estoque", icon: Package, iconColor: "#10B981", requiredPermission: "estoque.visualizar" },
     { title: "Pedidos de Compra", url: "/pedidos-compra", icon: ShoppingCart, requiredPermission: "pedidos_compra.visualizar" },
     { title: "Pedidos Recebidos", url: "/pedidos-recebidos", icon: ShoppingCart, requiredPermission: "pedidos_compra.visualizar" },
+   { title: "Empréstimos (Gestão)", url: "/emprestimos-gestao", icon: Wrench, iconColor: "#7C3AED" },
+    { title: "Meus Empréstimos", url: "/emprestimos", icon: Package, iconColor: "#7C3AED" },
   ],
 };
 
@@ -257,27 +259,27 @@ export function AppSidebar() {
   const isSuperAdmin = session?.user?.email === "anafranca00@icloud.com";
 
   const [userName, setUserName] = useState<string | null>(null);
-const [companyLogo, setCompanyLogo] = useState<string | null>(null);
+  const [companyLogo, setCompanyLogo] = useState<string | null>(null);
 
-useEffect(() => {
-  if (!session?.user?.id) return;
-  (supabase as any)
-    .from("profiles")
-    .select("company_id")
-    .eq("user_id", session.user.id)
-    .maybeSingle()
-    .then(({ data }: any) => {
-      if (!data?.company_id) return;
-      (supabase as any)
-        .from("companies")
-        .select("logo_url")
-        .eq("id", data.company_id)
-        .maybeSingle()
-        .then(({ data: company }: any) => {
-          setCompanyLogo(company?.logo_url || null);
-        });
-    });
-}, [session?.user?.id]);
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    (supabase as any)
+      .from("profiles")
+      .select("company_id")
+      .eq("user_id", session.user.id)
+      .maybeSingle()
+      .then(({ data }: any) => {
+        if (!data?.company_id) return;
+        (supabase as any)
+          .from("companies")
+          .select("logo_url")
+          .eq("id", data.company_id)
+          .maybeSingle()
+          .then(({ data: company }: any) => {
+            setCompanyLogo(company?.logo_url || null);
+          });
+      });
+  }, [session?.user?.id]);
   useEffect(() => {
     const userId = session?.user?.id;
     if (!userId) { setUserName(null); return; }
@@ -302,7 +304,7 @@ useEffect(() => {
     "/cronogramas": cronogramasPendentes,
   };
 
-const allGroups = [osGroup, preventivaGroup, relatoriosGroup, custosGroup, almoxarifadoGroup, configGroup, cadastrosGroup];  const initialOpen = allGroups.find((g) =>
+  const allGroups = [osGroup, preventivaGroup, relatoriosGroup, custosGroup, almoxarifadoGroup, configGroup, cadastrosGroup]; const initialOpen = allGroups.find((g) =>
     g.items.some((i) => location.pathname === i.url || location.pathname.startsWith(i.url + "/"))
   )?.id ?? null;
 
@@ -312,16 +314,16 @@ const allGroups = [osGroup, preventivaGroup, relatoriosGroup, custosGroup, almox
     setOpenGroupId((prev) => (prev === id ? null : id));
   }, []);
 
-const filterItems = useCallback(
-  (items: MenuItem[]) =>
-    items.filter((item) => {
-      if (item.requiredPermission && !can(item.requiredPermission)) return false;
-      const menuKey = URL_TO_MENU_KEY[item.url];
-      if (menuKey && !canMenu(menuKey)) return false;
-      return true;
-    }),
-  [can, canMenu],
-);
+  const filterItems = useCallback(
+    (items: MenuItem[]) =>
+      items.filter((item) => {
+        if (item.requiredPermission && !can(item.requiredPermission)) return false;
+        const menuKey = URL_TO_MENU_KEY[item.url];
+        if (menuKey && !canMenu(menuKey)) return false;
+        return true;
+      }),
+    [can, canMenu],
+  );
 
   const showDashboard = can("dashboard.visualizar") && canMenu("menu.dashboard");
 
@@ -387,14 +389,14 @@ const filterItems = useCallback(
 
         <Separator className="mx-3 my-1 w-auto" />
 
-     {/* Gestão */}
+        {/* Gestão */}
         <SidebarGroup>
           {!collapsed && (
             <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
               Gestão
             </SidebarGroupLabel>
           )}
-         <SidebarGroupContent>
+          <SidebarGroupContent>
             <SidebarMenu>
               <CollapsibleGroup {...groupProps(relatoriosGroup)} />
               <CollapsibleGroup {...groupProps(custosGroup)} />
@@ -408,7 +410,7 @@ const filterItems = useCallback(
 
         <Separator className="mx-3 my-1 w-auto" />
 
-       {/* IA Atlas + Planejamento */}
+        {/* IA Atlas + Planejamento */}
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -449,22 +451,22 @@ const filterItems = useCallback(
           </SidebarGroupContent>
         </SidebarGroup>
         {isSuperAdmin && (
-  <>
-    <Separator className="mx-3 my-1 w-auto" />
-    <SidebarGroup>
-      {!collapsed && (
-        <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-          Super Admin
-        </SidebarGroupLabel>
-      )}
-      <SidebarGroupContent>
-        <SidebarMenu>
-          <SidebarTopItem item={{ title: "Gerenciar Empresas", url: "/gerenciar-empresas", icon: Building2, iconColor: "#6366F1" }} collapsed={collapsed} />
-        </SidebarMenu>
-      </SidebarGroupContent>
-    </SidebarGroup>
-  </>
-)}
+          <>
+            <Separator className="mx-3 my-1 w-auto" />
+            <SidebarGroup>
+              {!collapsed && (
+                <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  Super Admin
+                </SidebarGroupLabel>
+              )}
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarTopItem item={{ title: "Gerenciar Empresas", url: "/gerenciar-empresas", icon: Building2, iconColor: "#6366F1" }} collapsed={collapsed} />
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        )}
       </SidebarContent>
 
       <SidebarFooter>

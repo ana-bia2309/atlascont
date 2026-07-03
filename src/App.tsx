@@ -64,6 +64,8 @@ import RelatorioSaudeAtivos from "@/pages/RelatorioSaudeAtivos";
 import RelatorioGeralOS from "@/pages/RelatorioGeralOS";
 import RelatorioMateriais from "@/pages/RelatorioMateriais";
 import RelatorioConsolidadoMateriais from "@/pages/RelatorioConsolidadoMateriais";
+import GestaoEmprestimos from "@/pages/GestaoEmprestimos";
+import MeusEmprestimos from "@/pages/MeusEmprestimos";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -72,74 +74,76 @@ const App = () => (
       <Toaster />
       <BrowserRouter>
         <AuthProvider>
-        <ScrollToTop />
-        <Routes>
-          <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route element={<Layout />}>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/blocos" element={<Blocos />} />
-            <Route path="/ordens-servico" element={<ErrorBoundary fallbackMessage="Erro ao carregar Ordens de Serviço"><OrdensServico /></ErrorBoundary>} />
-            <Route path="/os-campos-config" element={<OsCamposConfig />} />
-            <Route path="/minhas-ordens-servico" element={<ErrorBoundary fallbackMessage="Erro ao carregar Minhas O.S."><MinhasOrdensServico /></ErrorBoundary>} />
-            <Route path="/gastos" element={<Gastos />} />
-            <Route path="/relatorios" element={<Relatorios />} />
-            <Route path="/relatorio-mensal" element={<RelatorioMensal />} />
-            <Route path="/cronogramas" element={<Cronogramas />} />
-            <Route path="/ativos" element={<Ativos />} />
-            <Route path="/ativos/etiquetas" element={<AtivoEtiquetas />} />
-            <Route path="/ativos/:id" element={<AtivoDetalhes />} />
-            <Route path="/relatorio-ativos" element={<RelatorioAtivos />} />
-            <Route path="/controle-acesso" element={<ControleAcesso />} />
-            <Route path="/materiais" element={<Materiais />} />
-            <Route path="/historico-atividades" element={<HistoricoAtividades />} />
-            <Route path="/perfis-acesso" element={<PerfisAcesso />} />
-            <Route path="/sla" element={<SlaDefinicoes />} />
-            <Route path="/preventivas" element={<PlanosManutencao />} />
-            <Route path="/ordens-preventivas" element={<OrdensPreventivas />} />
-            <Route path="/chamados" element={<ErrorBoundary fallbackMessage="Erro ao carregar Chamados"><Chamados /></ErrorBoundary>} />
-            <Route path="/chamados-os" element={<ErrorBoundary fallbackMessage="Erro ao carregar Chamados de O.S."><ChamadosOS /></ErrorBoundary>} />
-            <Route path="/chamados-externos" element={<ErrorBoundary fallbackMessage="Erro ao carregar Chamados Externos"><ChamadosExternos /></ErrorBoundary>} />
-            <Route path="/checklist-templates" element={<ChecklistTemplates />} />
-            <Route path="/tipos-gasto" element={<TiposGasto />} />
-            <Route path="/tipos-atividade" element={<TiposAtividade />} />
-            <Route path="/tipos-sistema" element={<TiposSistema />} />
-            <Route path="/aprovacoes" element={<Aprovacoes />} />
-            <Route path="/relatorio-homem-hora" element={<RelatorioHomemHora />} />
-            <Route path="/ia" element={<IAAtlas />} />
-            <Route path="/regras-prioridade" element={<RegrasPrioridade />} />
-            <Route path="/estoque" element={<Estoque />} />
-            <Route path="/planejamento" element={<CentralPlanejamento />} />
-            <Route path="/kanban" element={<Kanban />} />
-            <Route path="/agenda" element={<Agenda />} />
-            <Route path="/canvas" element={<Canvas />} />
-            <Route path="/pedidos-compra" element={<PedidosCompra />} />
-            <Route path="/pedidos-recebidos" element={<PedidosRecebidos />} />
-            <Route path="/boletos" element={<Boletos />} />
-            <Route path="/diagnostico" element={<DiagnosticoFalhas />} />
-            <Route path="/mapa-ativos" element={<MapaAtivos />} />
-            <Route path="/relatorio-tecnicos" element={<RelatorioTecnicos />} />
-            <Route path="/gerenciar-empresas" element={<GerenciarEmpresas />} />
-            <Route path="/saude-ativos" element={<RelatorioSaudeAtivos />} />
-            <Route path="/relatorio-geral-os" element={<RelatorioGeralOS />} />
-            <Route path="/relatorio-materiais-os" element={<RelatorioMateriais />} />
-<Route path="/relatorio-consolidado-materiais" element={<RelatorioConsolidadoMateriais />} />
+          <ScrollToTop />
+          <Routes>
+            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route element={<Layout />}>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/blocos" element={<Blocos />} />
+              <Route path="/ordens-servico" element={<ErrorBoundary fallbackMessage="Erro ao carregar Ordens de Serviço"><OrdensServico /></ErrorBoundary>} />
+              <Route path="/os-campos-config" element={<OsCamposConfig />} />
+              <Route path="/minhas-ordens-servico" element={<ErrorBoundary fallbackMessage="Erro ao carregar Minhas O.S."><MinhasOrdensServico /></ErrorBoundary>} />
+              <Route path="/gastos" element={<Gastos />} />
+              <Route path="/relatorios" element={<Relatorios />} />
+              <Route path="/relatorio-mensal" element={<RelatorioMensal />} />
+              <Route path="/cronogramas" element={<Cronogramas />} />
+              <Route path="/ativos" element={<Ativos />} />
+              <Route path="/ativos/etiquetas" element={<AtivoEtiquetas />} />
+              <Route path="/ativos/:id" element={<AtivoDetalhes />} />
+              <Route path="/relatorio-ativos" element={<RelatorioAtivos />} />
+              <Route path="/controle-acesso" element={<ControleAcesso />} />
+              <Route path="/materiais" element={<Materiais />} />
+              <Route path="/historico-atividades" element={<HistoricoAtividades />} />
+              <Route path="/perfis-acesso" element={<PerfisAcesso />} />
+              <Route path="/sla" element={<SlaDefinicoes />} />
+              <Route path="/preventivas" element={<PlanosManutencao />} />
+              <Route path="/ordens-preventivas" element={<OrdensPreventivas />} />
+              <Route path="/chamados" element={<ErrorBoundary fallbackMessage="Erro ao carregar Chamados"><Chamados /></ErrorBoundary>} />
+              <Route path="/chamados-os" element={<ErrorBoundary fallbackMessage="Erro ao carregar Chamados de O.S."><ChamadosOS /></ErrorBoundary>} />
+              <Route path="/chamados-externos" element={<ErrorBoundary fallbackMessage="Erro ao carregar Chamados Externos"><ChamadosExternos /></ErrorBoundary>} />
+              <Route path="/checklist-templates" element={<ChecklistTemplates />} />
+              <Route path="/tipos-gasto" element={<TiposGasto />} />
+              <Route path="/tipos-atividade" element={<TiposAtividade />} />
+              <Route path="/tipos-sistema" element={<TiposSistema />} />
+              <Route path="/aprovacoes" element={<Aprovacoes />} />
+              <Route path="/relatorio-homem-hora" element={<RelatorioHomemHora />} />
+              <Route path="/ia" element={<IAAtlas />} />
+              <Route path="/regras-prioridade" element={<RegrasPrioridade />} />
+              <Route path="/estoque" element={<Estoque />} />
+              <Route path="/planejamento" element={<CentralPlanejamento />} />
+              <Route path="/kanban" element={<Kanban />} />
+              <Route path="/agenda" element={<Agenda />} />
+              <Route path="/canvas" element={<Canvas />} />
+              <Route path="/pedidos-compra" element={<PedidosCompra />} />
+              <Route path="/pedidos-recebidos" element={<PedidosRecebidos />} />
+              <Route path="/boletos" element={<Boletos />} />
+              <Route path="/diagnostico" element={<DiagnosticoFalhas />} />
+              <Route path="/mapa-ativos" element={<MapaAtivos />} />
+              <Route path="/relatorio-tecnicos" element={<RelatorioTecnicos />} />
+              <Route path="/gerenciar-empresas" element={<GerenciarEmpresas />} />
+              <Route path="/saude-ativos" element={<RelatorioSaudeAtivos />} />
+              <Route path="/relatorio-geral-os" element={<RelatorioGeralOS />} />
+              <Route path="/relatorio-materiais-os" element={<RelatorioMateriais />} />
+              <Route path="/relatorio-consolidado-materiais" element={<RelatorioConsolidadoMateriais />} />
+              <Route path="/emprestimos-gestao" element={<GestaoEmprestimos />} />
+              <Route path="/emprestimos" element={<MeusEmprestimos />} />
             </Route>
-<Route path="/login" element={<Login />} />
-<Route path="/portal-cliente" element={<PortalCliente />} />
-<Route path="/onboarding" element={<Onboarding />} />
-<Route path="/auth/callback" element={<AuthCallback />} />
-          <Route path="/solicitar-acesso" element={<SolicitarAcesso />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/ativo/:id" element={<AtivoPublico />} />
-          <Route path="/os/:id" element={<OSPublica />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/portal-cliente" element={<PortalCliente />} />
+            <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/solicitar-acesso" element={<SolicitarAcesso />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/ativo/:id" element={<AtivoPublico />} />
+            <Route path="/os/:id" element={<OSPublica />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
         </AuthProvider>
       </BrowserRouter>
-        </TooltipProvider>
+    </TooltipProvider>
 
     <SpeedInsights />
-    
+
   </QueryClientProvider>
 );
 
