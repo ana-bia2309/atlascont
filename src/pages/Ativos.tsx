@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { logActivity } from "@/lib/activity-log";
 
 type Bloco = { id: string; nome: string | null };
+type Pavimento = { id: string; nome: string; bloco_id: string | null };
 
 type Ativo = {
   id: string;
@@ -133,6 +134,10 @@ export default function Ativos() {
   const [filterSearch, setFilterSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterBloco, setFilterBloco] = useState("all");
+  const [pavimentos, setPavimentos] = useState<Pavimento[]>([]);
+  const [novoPavimentoOpen, setNovoPavimentoOpen] = useState(false);
+  const [novoPavimentoNome, setNovoPavimentoNome] = useState("");
+  const [savingPavimento, setSavingPavimento] = useState(false);
 
   // Confirmação de exclusão
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -147,9 +152,10 @@ export default function Ativos() {
     if (!profile?.company_id) { setLoading(false); return; }
     const companyId = profile.company_id;
 
-    const [ativosRes, blocosRes] = await Promise.all([
+    const [ativosRes, blocosRes, pavimentosRes] = await Promise.all([
       (supabase as any).from("ativos").select("*").eq("company_id", companyId).order("criado_em", { ascending: false }),
       (supabase as any).from("blocos").select("id, nome").eq("company_id", companyId).order("nome"),
+      (supabase as any).from("pavimentos").select("id, nome, bloco_id").eq("company_id", companyId).order("nome"),
     ]);
 
     if (ativosRes.error) {
@@ -163,6 +169,9 @@ export default function Ativos() {
     const map: Record<string, string> = {};
     bList.forEach((b: any) => { map[b.id] = b.nome || ""; });
     setBlocosMap(map);
+
+    const pList = pavimentosRes.data || [];
+    setPavimentos(pList);
     setLoading(false);
   }, []);
 
@@ -279,6 +288,59 @@ export default function Ativos() {
 
   const openNew = () => { setEditing(null); setForm(emptyForm); setOpen(true); };
 
+  const pavimentosDisponiveis = useMemo(() => {
+    return pavimentos
+      .filter(p => !p.bloco_id || p.bloco_id === form.bloco_id)
+      .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  }, [pavimentos, form.bloco_id]);
+
+  // Se o bloco mudar e o pavimento selecionado não pertencer mais à lista
+  // disponível para o novo bloco, limpa a seleção para evitar inconsistência.
+  useEffect(() => {
+    if (!form.area_pavimento) return;
+    const aindaValido = pavimentosDisponiveis.some(p => p.nome === form.area_pavimento);
+    if (!aindaValido) {
+      setForm(f => ({ ...f, area_pavimento: "" }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.bloco_id]);
+
+  const handleSalvarPavimento = async () => {
+    const nome = novoPavimentoNome.trim();
+    if (!nome) { toast({ title: "Informe o nome do pavimento", variant: "destructive" }); return; }
+
+    const jaExiste = pavimentos.find(p =>
+      p.nome.toLowerCase() === nome.toLowerCase() && (!p.bloco_id || p.bloco_id === form.bloco_id)
+    );
+    if (jaExiste) {
+      setForm(f => ({ ...f, area_pavimento: jaExiste.nome }));
+      setNovoPavimentoOpen(false); setNovoPavimentoNome("");
+      return;
+    }
+
+    setSavingPavimento(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: profile }: any = await supabase.from("profiles").select("company_id").eq("user_id", user.id).single();
+      if (!profile?.company_id) return;
+
+      const { data: inserted, error } = await (supabase as any).from("pavimentos")
+        .insert({ company_id: profile.company_id, bloco_id: form.bloco_id || null, nome })
+        .select("id, nome, bloco_id")
+        .single();
+
+      if (error) { toast({ title: "Erro ao cadastrar pavimento", description: error.message, variant: "destructive" }); return; }
+
+      setPavimentos(prev => [...prev, inserted]);
+      setForm(f => ({ ...f, area_pavimento: inserted.nome }));
+      toast({ title: "Pavimento cadastrado" });
+      setNovoPavimentoOpen(false); setNovoPavimentoNome("");
+    } finally {
+      setSavingPavimento(false);
+    }
+  };
+
   const filtered = useMemo(() => {
     return list.filter(a => {
       if (a.status === "excluído") return false;
@@ -334,6 +396,43 @@ export default function Ativos() {
       if (!profile?.company_id) return;
       const companyId = profile.company_id;
 
+      // Cache local de pavimentos para esta importação (evita criar duplicados
+      // dentro do mesmo lote e reaproveita o que já existe no banco)
+      const pavimentosCache: Pavimento[] = [...pavimentos];
+      const novosPavimentosCriados: Pavimento[] = [];
+
+      const getOrCreatePavimento = async (nome: string, blocoId: string | null) => {
+        const nomeNormalizado = nome.trim();
+        if (!nomeNormalizado) return null;
+
+        const existente = pavimentosCache.find(p =>
+          p.nome.toLowerCase() === nomeNormalizado.toLowerCase() &&
+          (!p.bloco_id || p.bloco_id === blocoId)
+        );
+        if (existente) return existente.nome;
+
+        const { data: inserted, error } = await (supabase as any).from("pavimentos")
+          .insert({ company_id: companyId, bloco_id: blocoId || null, nome: nomeNormalizado })
+          .select("id, nome, bloco_id")
+          .single();
+
+        if (error) {
+          // Pode ter sido criado em paralelo (unique constraint) — tenta buscar
+          const { data: found } = await (supabase as any).from("pavimentos")
+            .select("id, nome, bloco_id")
+            .eq("company_id", companyId)
+            .eq("nome", nomeNormalizado)
+            .eq("bloco_id", blocoId || null)
+            .maybeSingle();
+          if (found) { pavimentosCache.push(found); return found.nome; }
+          return nomeNormalizado; // fallback: grava o texto mesmo sem persistir o cadastro do pavimento
+        }
+
+        pavimentosCache.push(inserted);
+        novosPavimentosCriados.push(inserted);
+        return inserted.nome;
+      };
+
       const reader = new FileReader();
       reader.onload = async (ev) => {
         const data = new Uint8Array(ev.target?.result as ArrayBuffer);
@@ -355,6 +454,12 @@ export default function Ativos() {
           }
           if (!payload.nome) { errors++; continue; }
 
+          // Cria o pavimento automaticamente se ainda não existir
+          if (payload.area_pavimento) {
+            const nomePavimento = await getOrCreatePavimento(String(payload.area_pavimento), payload.bloco_id || null);
+            if (nomePavimento) payload.area_pavimento = nomePavimento;
+          }
+
           const { data: existing } = await (supabase as any).from("ativos").select("id")
             .eq("codigo_identificacao", payload.codigo_identificacao).eq("company_id", companyId).maybeSingle();
           if (existing?.id) {
@@ -366,7 +471,14 @@ export default function Ativos() {
           }
         }
 
-        toast({ title: "Importação concluída", description: `${success} importado(s), ${errors} erro(s).` });
+        if (novosPavimentosCriados.length > 0) {
+          setPavimentos(prev => [...prev, ...novosPavimentosCriados]);
+        }
+
+        const pavimentosMsg = novosPavimentosCriados.length > 0
+          ? ` ${novosPavimentosCriados.length} novo(s) pavimento(s) cadastrado(s).`
+          : "";
+        toast({ title: "Importação concluída", description: `${success} importado(s), ${errors} erro(s).${pavimentosMsg}` });
         setImportOpen(false); setImportFile(null); setImportPreview([]);
         fetchData();
       };
@@ -464,7 +576,30 @@ export default function Ativos() {
                     <FormSelect label="Grupo de Áreas" value={form.grupo_areas} onChange={v => setForm(f => ({ ...f, grupo_areas: v }))} options={["Ala Norte", "Ala Sul", "Ala Leste", "Ala Oeste", "Ala A", "Ala B", "Ala C", "Bloco Principal", "Anexo", "Outro"]} />
                   </div>
                   <div className="grid grid-cols-2 gap-4 mt-3">
-                    <FormSelect label="Área / Pavimento" value={form.area_pavimento} onChange={v => setForm(f => ({ ...f, area_pavimento: v }))} options={["Subsolo", "Térreo", "1º Pavimento", "2º Pavimento", "3º Pavimento", "4º Pavimento", "5º Pavimento", "Cobertura", "Garagem", "Outro"]} />
+                    <div>
+                      <label className="text-sm font-medium">Área / Pavimento</label>
+                      <Select
+                        value={form.area_pavimento}
+                        onValueChange={v => {
+                          if (v === "__add_new__") { setNovoPavimentoNome(""); setNovoPavimentoOpen(true); return; }
+                          setForm(f => ({ ...f, area_pavimento: v === "__none__" ? "" : v }));
+                        }}
+                      >
+                        <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">— Nenhum —</SelectItem>
+                          {pavimentosDisponiveis.map(p => (
+                            <SelectItem key={p.id} value={p.nome}>{p.nome}</SelectItem>
+                          ))}
+                          <SelectItem value="__add_new__" className="text-primary font-medium">
+                            <span className="flex items-center gap-1.5"><Plus className="h-3.5 w-3.5" /> Adicionar novo pavimento</span>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {!form.bloco_id && (
+                        <p className="text-xs text-muted-foreground mt-1">Selecione um bloco para restringir os pavimentos a ele.</p>
+                      )}
+                    </div>
                     <div>
                       <label className="text-sm font-medium">Identificação do Ambiente</label>
                       <Input value={form.identificacao_ambiente} onChange={e => setForm(f => ({ ...f, identificacao_ambiente: e.target.value }))} placeholder="Ex: Sala 301, Copa, CPD" />
@@ -654,8 +789,8 @@ export default function Ativos() {
             <div className="rounded-md border bg-muted/30 p-3 space-y-2">
               <p className="text-sm font-medium">Passo 1 — Baixe o modelo</p>
               <Button variant="outline" size="sm" className="gap-1.5" onClick={() => {
-                const headers = ["nome","codigo","tipo","sistema","grupo","marca","modelo","numero_serie","patrimonio","bloco","grupo_areas","area_pavimento","ambiente","tipo_atividade","corrente","capacidade","tensao","potencia","area_climatizada","ocupantes_fixos","ocupantes_flutuantes","carga_termica","status","categoria","data_instalacao","observacoes"];
-                const exemplo = ["Split Hi-Wall","EQ-001","Hi-wall","Ar-condicionado","Climatização","Carrier","42LUQA012515LC","S/N123","PAT001","Bloco K","Ala Sul","2º Pavimento","Sala 280","Escritório","5.5","12000","220","1500","30","10","5","15000","ativo","Climatização","2024-01-15","Exemplo"];
+                const headers = ["nome", "codigo", "tipo", "sistema", "grupo", "marca", "modelo", "numero_serie", "patrimonio", "bloco", "grupo_areas", "area_pavimento", "ambiente", "tipo_atividade", "corrente", "capacidade", "tensao", "potencia", "area_climatizada", "ocupantes_fixos", "ocupantes_flutuantes", "carga_termica", "status", "categoria", "data_instalacao", "observacoes"];
+                const exemplo = ["Split Hi-Wall", "EQ-001", "Hi-wall", "Ar-condicionado", "Climatização", "Carrier", "42LUQA012515LC", "S/N123", "PAT001", "Bloco K", "Ala Sul", "2º Pavimento", "Sala 280", "Escritório", "5.5", "12000", "220", "1500", "30", "10", "5", "15000", "ativo", "Climatização", "2024-01-15", "Exemplo"];
                 const ws = XLSX.utils.aoa_to_sheet([headers, exemplo]);
                 ws["!cols"] = headers.map(h => ({ wch: Math.max(h.length + 4, 16) }));
                 const wb = XLSX.utils.book_new();
@@ -687,6 +822,36 @@ export default function Ativos() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Adicionar Novo Pavimento */}
+      <Dialog open={novoPavimentoOpen} onOpenChange={setNovoPavimentoOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader><DialogTitle>Adicionar novo pavimento</DialogTitle></DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <label className="text-sm font-medium">Nome do pavimento</label>
+              <Input
+                value={novoPavimentoNome}
+                onChange={e => setNovoPavimentoNome(e.target.value)}
+                placeholder="Ex: 9º Pavimento, Mezanino, Subsolo 2"
+                onKeyDown={e => { if (e.key === "Enter") handleSalvarPavimento(); }}
+                autoFocus
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {form.bloco_id
+                ? <>Ficará disponível apenas para o bloco <strong>{blocosMap[form.bloco_id]}</strong>.</>
+                : "Nenhum bloco selecionado — ficará disponível para todos os blocos."}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNovoPavimentoOpen(false)}>Cancelar</Button>
+            <Button onClick={handleSalvarPavimento} disabled={savingPavimento || !novoPavimentoNome.trim()}>
+              {savingPavimento ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
