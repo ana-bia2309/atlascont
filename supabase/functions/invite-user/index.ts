@@ -5,6 +5,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const SUPER_ADMIN_EMAIL = "anafranca00@icloud.com";
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -64,9 +66,20 @@ Deno.serve(async (req) => {
 
     const { nome, cpf, email, role, perfil_acesso_id, redirectTo, company_id: targetCompanyId } = await req.json();
 
-    if (!nome || !email || !role) {
-      return new Response(JSON.stringify({ error: "Campos obrigatórios: nome, email, role" }), {
-        status: 400,
+    // Só o Super Admin pode definir uma empresa diferente da própria
+    // (usado no fluxo de "Nova Empresa", que cria o admin inicial de outra empresa)
+    const isSuperAdmin = caller.email === SUPER_ADMIN_EMAIL;
+
+    if (targetCompanyId && !isSuperAdmin) {
+      return new Response(JSON.stringify({ error: "Você não pode convidar usuários para outra empresa" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!callerProfile.company_id && !targetCompanyId) {
+      return new Response(JSON.stringify({ error: "Administrador sem empresa vinculada" }), {
+        status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -135,7 +148,7 @@ Deno.serve(async (req) => {
       console.error("Profile lookup error:", profileError.message);
     }
 
-    const finalCompanyId = targetCompanyId || callerProfile.company_id;
+    const finalCompanyId = (isSuperAdmin && targetCompanyId) ? targetCompanyId : callerProfile.company_id;
 
     if (profile) {
       const { error: updateError } = await adminClient.from("profiles").update({
