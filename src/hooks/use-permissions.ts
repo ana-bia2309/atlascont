@@ -116,6 +116,11 @@ export const PERMISSION_SCREENS = [
     label: "Almoxarifado — Pedidos de Compra",
     actions: ["visualizar", "criar", "editar", "excluir"],
   },
+  {
+    screen: "avaliacoes",
+    label: "Avaliações de O.S.",
+    actions: ["visualizar", "avaliar", "reabrir", "exportar"],
+  },
 ] as const;
 
 /** All possible permission keys derived from screens */

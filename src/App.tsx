@@ -43,6 +43,9 @@ import ChamadosExternos from "@/pages/ChamadosExternos";
 import AuthCallback from "@/pages/AuthCallback";
 import Onboarding from "@/pages/Onboarding";
 import Aprovacoes from "@/pages/Aprovacoes";
+import Avaliacoes from "@/pages/Avaliacoes";
+import AvaliacaoDetalhe from "@/pages/AvaliacaoDetalhe";
+import RelatoriosAvaliacoes from "@/pages/RelatoriosAvaliacoes";
 import RelatorioAtivos from "@/pages/RelatorioAtivos";
 import IAAtlas from "@/pages/IAAtlas";
 import OsCamposConfig from "@/pages/OsCamposConfig";
@@ -106,6 +109,9 @@ const App = () => (
               <Route path="/tipos-atividade" element={<TiposAtividade />} />
               <Route path="/tipos-sistema" element={<TiposSistema />} />
               <Route path="/aprovacoes" element={<Aprovacoes />} />
+              <Route path="/avaliacoes" element={<Avaliacoes />} />
+              <Route path="/avaliacoes/:osId" element={<AvaliacaoDetalhe />} />
+              <Route path="/relatorio-avaliacoes" element={<RelatoriosAvaliacoes />} />
               <Route path="/relatorio-homem-hora" element={<RelatorioHomemHora />} />
               <Route path="/ia" element={<IAAtlas />} />
               <Route path="/regras-prioridade" element={<RegrasPrioridade />} />

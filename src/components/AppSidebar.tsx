@@ -2,7 +2,7 @@ import {
   Gauge, ClipboardList, CalendarRange, Wrench, Package, BarChart3, Clock, Activity,
   DollarSign, Timer, ListChecks, Building2, Box, ShieldCheck, KeyRound, LogOut, User, Settings, Settings2, Briefcase, ChevronRight, MessagesSquare,
   CheckCircle2, Bot, BookOpen, ShoppingCart,
-  Users, TrendingUp,
+  Users, TrendingUp, Star,
 } from "@/lib/icons";
 
 import { usePendingCounts } from "@/hooks/use-pending-counts";
@@ -60,6 +60,7 @@ const osGroup: MenuGroup = {
     { title: "Cronogramas", url: "/cronogramas", icon: CalendarRange, iconColor: "#64748B", requiredPermission: "cronogramas.visualizar" },
     { title: "Chamados Externos", url: "/chamados-externos", icon: MessagesSquare, iconColor: "#F97316", requiredPermission: "chamados_externos.visualizar" },
     { title: "Aprovações", url: "/aprovacoes", icon: CheckCircle2, iconColor: "#22C55E" },
+    { title: "Avaliações", url: "/avaliacoes", icon: Star, iconColor: "#F59E0B", requiredPermission: "avaliacoes.visualizar" },
     { title: "Diagnóstico de Falhas", url: "/diagnostico", icon: Wrench, iconColor: "#F59E0B" },
   ],
 };
@@ -107,6 +108,7 @@ const relatoriosGroup: MenuGroup = {
     { title: "Relatório Geral de O.S.", url: "/relatorio-geral-os", icon: ClipboardList, iconColor: "#6366F1" },
     { title: "Materiais por O.S.", url: "/relatorio-materiais-os", icon: Package, iconColor: "#8B5CF6" },
     { title: "Consolidado de Materiais", url: "/relatorio-consolidado-materiais", icon: TrendingUp, iconColor: "#F59E0B" },
+    { title: "Relatório de Avaliações", url: "/relatorio-avaliacoes", icon: Star, iconColor: "#F59E0B", requiredPermission: "avaliacoes.visualizar" },
   ],
 };
 

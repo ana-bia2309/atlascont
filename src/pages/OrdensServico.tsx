@@ -38,6 +38,7 @@ import AtividadesNovaOSSection, { AtividadesNovaOSSectionHandle } from "@/compon
 import TimerOSSection from "@/components/os/TimerOSSection";
 import CronogramaSection from "@/components/os/CronogramaSection";
 import HistoricoOSSection from "@/components/os/HistoricoOSSection";
+import AvaliacaoResumoSection from "@/components/os/AvaliacaoResumoSection";
 import ComentariosOSSection from "@/components/os/ComentariosOSSection";
 import AttachmentFileRow from "@/components/os/AttachmentFileRow";
 import ChecklistOSSection from "@/components/os/ChecklistOSSection";
@@ -2278,6 +2279,9 @@ export default function OrdensServico() {
               )}
               <div className="border-t pt-3">
                 <ComentariosOSSection osId={viewing.id} readOnly={!can("painel_os.editar") && !isTecnicoAssigned(viewing)} />
+              </div>
+              <div className="border-t pt-3">
+                <AvaliacaoResumoSection osId={viewing.id} />
               </div>
               {can("painel_os.visualizar_historico") && (
                 <div className="border-t pt-3">
