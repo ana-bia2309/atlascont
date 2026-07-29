@@ -21,6 +21,7 @@ type AvaliacaoRow = {
   local: string;
   empresa_nome: string | null;
   responsavel_nome: string | null;
+  fiscal_nome: string | null;
   finalizado_em: string | null;
   dias_aguardando: number | null;
   avaliacao_status: "pendente" | "avaliada";
@@ -74,7 +75,7 @@ export default function Avaliacoes() {
       const companyIds = [...new Set((osList || []).map((o: any) => o.company_id).filter(Boolean))];
       const respIds = [...new Set((osList || []).map((o: any) => o.responsible_user_id).filter(Boolean))];
 
-      const [avalRes, blocosRes, companiesRes, profilesRes] = await Promise.all([
+      const [avalRes, blocosRes, companiesRes, profilesRes, notifRes] = await Promise.all([
         osIds.length
           ? (supabase as any).from("avaliacoes_os").select("os_id, status, nota_geral, decisao").in("os_id", osIds)
           : Promise.resolve({ data: [] }),
@@ -87,12 +88,21 @@ export default function Avaliacoes() {
         respIds.length
           ? (supabase as any).from("profiles").select("id, nome").in("id", respIds)
           : Promise.resolve({ data: [] }),
+        osIds.length
+          ? (supabase as any).from("os_fiscais").select("os_id, profile_id, profiles(nome)").in("os_id", osIds)
+          : Promise.resolve({ data: [] }),
       ]);
 
       const avalMap = new Map((avalRes.data || []).map((a: any) => [a.os_id, a]));
       const blocoMap = new Map((blocosRes.data || []).map((b: any) => [b.id, b.nome]));
       const companyMap = new Map((companiesRes.data || []).map((c: any) => [c.id, c.name]));
       const profileMap = new Map((profilesRes.data || []).map((p: any) => [p.id, p.nome]));
+      const fiscalMap = new Map<string, string[]>();
+      (notifRes.data || []).forEach((n: any) => {
+        const arr = fiscalMap.get(n.os_id) || [];
+        if (n.profiles?.nome) arr.push(n.profiles.nome);
+        fiscalMap.set(n.os_id, arr);
+      });
 
       const merged: AvaliacaoRow[] = (osList || []).map((o: any) => {
         const aval: any = avalMap.get(o.id);
@@ -106,6 +116,7 @@ export default function Avaliacoes() {
           local,
           empresa_nome: companyMap.get(o.company_id) || null,
           responsavel_nome: profileMap.get(o.responsible_user_id) || null,
+          fiscal_nome: (fiscalMap.get(o.id) || []).join(", ") || null,
           finalizado_em: o.finalizado_em,
           dias_aguardando: dias,
           avaliacao_status: (aval?.status === "avaliada" ? "avaliada" : "pendente"),
@@ -279,6 +290,7 @@ export default function Avaliacoes() {
                   <th className="px-4 py-3">Local</th>
                   <th className="px-4 py-3">Empresa</th>
                   <th className="px-4 py-3">Responsável</th>
+                  <th className="px-4 py-3">Fiscal</th>
                   <th className="px-4 py-3">Conclusão</th>
                   <th className="px-4 py-3">Dias aguardando</th>
                   <th className="px-4 py-3">Nota</th>
@@ -307,6 +319,7 @@ export default function Avaliacoes() {
                     <td className="px-4 py-3 text-slate-600">
                       <span className="inline-flex items-center gap-1"><User className="h-3.5 w-3.5 text-slate-400" />{r.responsavel_nome || "—"}</span>
                     </td>
+                    <td className="px-4 py-3 text-slate-600">{r.fiscal_nome || "—"}</td>
                     <td className="px-4 py-3 text-slate-500">
                       {r.finalizado_em ? format(new Date(r.finalizado_em), "dd/MM/yyyy", { locale: ptBR }) : "—"}
                     </td>

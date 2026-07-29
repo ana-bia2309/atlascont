@@ -119,7 +119,7 @@ export const PERMISSION_SCREENS = [
   {
     screen: "avaliacoes",
     label: "Avaliações de O.S.",
-    actions: ["visualizar", "avaliar", "reabrir", "exportar"],
+    actions: ["visualizar", "avaliar", "avaliar_qualquer", "reabrir", "exportar"],
   },
 ] as const;
 

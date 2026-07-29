@@ -1,7 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/use-user-role";
 import { usePermissions } from "@/hooks/use-permissions";
 import { toast } from "@/hooks/use-toast";
@@ -11,14 +10,11 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Star, ArrowLeft, ClipboardCheck, Building2, MapPin, Layers, User,
-  Calendar, Save, Send, X, Lock, RotateCcw,
+  Calendar, Save, Send, X, Lock, RotateCcw, ShieldAlert,
 } from "@/lib/icons";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-
-const QUALIDADE_OPTIONS = ["Excelente", "Bom", "Regular", "Ruim", "Péssimo"];
-const SIM_OPTIONS = ["Sim", "Parcialmente", "Não"];
 
 type OSInfo = {
   id: string;
@@ -47,27 +43,20 @@ function StarPicker({ value, onChange, disabled }: { value: number; onChange: (n
           onMouseLeave={() => setHover(0)}
           className={cn("transition-transform", !disabled && "hover:scale-110")}
         >
-          <Star className={cn("h-9 w-9", (hover || value) >= n ? "fill-amber-400 text-amber-400" : "text-slate-200")} />
+          <Star className={cn("h-8 w-8", (hover || value) >= n ? "fill-amber-400 text-amber-400" : "text-slate-200")} />
         </button>
       ))}
     </div>
   );
 }
 
-function QuestionRadio({
-  label, options, value, onChange, disabled,
-}: { label: string; options: string[]; value: string; onChange: (v: string) => void; disabled?: boolean }) {
+function StarQuestion({
+  label, value, onChange, disabled,
+}: { label: string; value: number; onChange: (n: number) => void; disabled?: boolean }) {
   return (
-    <div className="space-y-2">
+    <div className="flex items-center justify-between gap-4 flex-wrap">
       <Label className="text-sm font-semibold text-slate-700">{label}</Label>
-      <RadioGroup value={value} onValueChange={onChange} disabled={disabled} className="flex flex-wrap gap-4">
-        {options.map((opt) => (
-          <div key={opt} className="flex items-center gap-2">
-            <RadioGroupItem value={opt} id={`${label}-${opt}`} />
-            <Label htmlFor={`${label}-${opt}`} className="font-normal text-sm text-slate-600 cursor-pointer">{opt}</Label>
-          </div>
-        ))}
-      </RadioGroup>
+      <StarPicker value={value} onChange={onChange} disabled={disabled} />
     </div>
   );
 }
@@ -75,8 +64,7 @@ function QuestionRadio({
 export default function AvaliacaoDetalhe() {
   const { osId } = useParams<{ osId: string }>();
   const navigate = useNavigate();
-  const { session } = useAuth();
-  const { role, isAdmin } = useUserRole();
+  const { isAdmin } = useUserRole();
   const { can } = usePermissions();
 
   const [loading, setLoading] = useState(true);
@@ -85,28 +73,41 @@ export default function AvaliacaoDetalhe() {
   const [avaliacaoId, setAvaliacaoId] = useState<string | null>(null);
   const [status, setStatus] = useState<"pendente" | "avaliada">("pendente");
   const [profileId, setProfileId] = useState<string | null>(null);
+  const [profileNome, setProfileNome] = useState<string | null>(null);
+  const [fiscalIds, setFiscalIds] = useState<string[]>([]);
+  const [fiscalNomes, setFiscalNomes] = useState<string[]>([]);
 
-  const [notaGeral, setNotaGeral] = useState(0);
-  const [respConforme, setRespConforme] = useState("");
-  const [respQualidade, setRespQualidade] = useState("");
-  const [respAcabamento, setRespAcabamento] = useState("");
-  const [respLimpeza, setRespLimpeza] = useState("");
-  const [respPrazo, setRespPrazo] = useState("");
+  const [notaQualidade, setNotaQualidade] = useState(0);
+  const [notaPrazo, setNotaPrazo] = useState(0);
+  const [notaOrganizacao, setNotaOrganizacao] = useState(0);
+  const [notaAtendimento, setNotaAtendimento] = useState(0);
   const [comentarios, setComentarios] = useState("");
   const [sugestoes, setSugestoes] = useState("");
   const [decisao, setDecisao] = useState("");
   const [justificativa, setJustificativa] = useState("");
 
   const readOnly = status === "avaliada";
+  const podeAvaliarQualquer = can("avaliacoes.avaliar_qualquer");
+  const ehFiscalDesignado = !!profileId && fiscalIds.includes(profileId);
+  const podeEditar = podeAvaliarQualquer || ehFiscalDesignado;
+
+  const notaGeral = useMemo(() => {
+    const notas = [notaQualidade, notaPrazo, notaOrganizacao, notaAtendimento];
+    if (notas.some((n) => !n)) return null;
+    return Math.round((notas.reduce((s, n) => s + n, 0) / 4) * 100) / 100;
+  }, [notaQualidade, notaPrazo, notaOrganizacao, notaAtendimento]);
 
   const fetchData = useCallback(async () => {
     if (!osId) return;
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      let myProfileId: string | null = null;
       if (user) {
-        const { data: profile }: any = await (supabase as any).from("profiles").select("id").eq("user_id", user.id).single();
-        setProfileId(profile?.id || null);
+        const { data: profile }: any = await (supabase as any).from("profiles").select("id, nome").eq("user_id", user.id).single();
+        myProfileId = profile?.id || null;
+        setProfileId(myProfileId);
+        setProfileNome(profile?.nome || null);
       }
 
       const { data: osData, error: osError } = await (supabase as any)
@@ -115,6 +116,11 @@ export default function AvaliacaoDetalhe() {
         .eq("id", osId)
         .single();
       if (osError) throw osError;
+
+      const { data: fiscaisOs } = await (supabase as any)
+        .from("os_fiscais")
+        .select("profile_id, profiles(nome)")
+        .eq("os_id", osId);
 
       const [blocoRes, companyRes, respRes, avalRes] = await Promise.all([
         osData.bloco_id ? (supabase as any).from("blocos").select("nome").eq("id", osData.bloco_id).single() : Promise.resolve({ data: null }),
@@ -136,16 +142,17 @@ export default function AvaliacaoDetalhe() {
         company_id: osData.company_id || null,
       });
 
+      setFiscalIds((fiscaisOs || []).map((f: any) => f.profile_id));
+      setFiscalNomes((fiscaisOs || []).map((f: any) => f.profiles?.nome).filter(Boolean));
+
       if (avalRes.data) {
         const a = avalRes.data;
         setAvaliacaoId(a.id);
         setStatus(a.status === "avaliada" ? "avaliada" : "pendente");
-        setNotaGeral(a.nota_geral || 0);
-        setRespConforme(a.resp_conforme_solicitado || "");
-        setRespQualidade(a.resp_qualidade_execucao || "");
-        setRespAcabamento(a.resp_acabamento || "");
-        setRespLimpeza(a.resp_limpeza_organizacao || "");
-        setRespPrazo(a.resp_prazo_atendido || "");
+        setNotaQualidade(a.nota_qualidade_execucao || 0);
+        setNotaPrazo(a.nota_cumprimento_prazo || 0);
+        setNotaOrganizacao(a.nota_organizacao_limpeza || 0);
+        setNotaAtendimento(a.nota_atendimento_expectativas || 0);
         setComentarios(a.comentarios_fiscal || "");
         setSugestoes(a.sugestoes_melhoria || "");
         setDecisao(a.decisao || "");
@@ -166,12 +173,10 @@ export default function AvaliacaoDetalhe() {
     company_id: os?.company_id ?? null,
     status: rascunho ? "pendente" : "avaliada",
     rascunho,
-    nota_geral: notaGeral || null,
-    resp_conforme_solicitado: respConforme || null,
-    resp_qualidade_execucao: respQualidade || null,
-    resp_acabamento: respAcabamento || null,
-    resp_limpeza_organizacao: respLimpeza || null,
-    resp_prazo_atendido: respPrazo || null,
+    nota_qualidade_execucao: notaQualidade || null,
+    nota_cumprimento_prazo: notaPrazo || null,
+    nota_organizacao_limpeza: notaOrganizacao || null,
+    nota_atendimento_expectativas: notaAtendimento || null,
     comentarios_fiscal: comentarios || null,
     sugestoes_melhoria: sugestoes || null,
     decisao: decisao || null,
@@ -180,7 +185,9 @@ export default function AvaliacaoDetalhe() {
 
   const handleSave = async (rascunho: boolean) => {
     if (!rascunho) {
-      if (!notaGeral) return toast({ title: "Selecione a nota geral (estrelas)", variant: "destructive" });
+      if (!notaQualidade || !notaPrazo || !notaOrganizacao || !notaAtendimento) {
+        return toast({ title: "Preencha as 4 avaliações por estrela", variant: "destructive" });
+      }
       if (!decisao) return toast({ title: "Selecione a decisão de aprovação do serviço", variant: "destructive" });
       if (decisao === "reprovado" && !justificativa.trim()) {
         return toast({ title: "Justificativa obrigatória para reprovação", variant: "destructive" });
@@ -192,6 +199,7 @@ export default function AvaliacaoDetalhe() {
       const payload: any = buildPayload(rascunho);
       if (!rascunho) {
         payload.avaliado_por = profileId;
+        payload.avaliado_por_nome = profileNome;
         payload.avaliado_em = new Date().toISOString();
       }
 
@@ -267,26 +275,45 @@ export default function AvaliacaoDetalhe() {
             <span>{os.finalizado_em ? format(new Date(os.finalizado_em), "dd/MM/yyyy", { locale: ptBR }) : "—"}</span>
           </div>
         </div>
+        {fiscalNomes.length > 0 && (
+          <p className="text-xs text-slate-400 mt-3">Fiscal(is) designado(s) para esta avaliação: <span className="font-medium text-slate-600">{fiscalNomes.join(", ")}</span></p>
+        )}
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-6">
-        <div>
-          <Label className="text-sm font-semibold text-slate-700 mb-2 block">Nota Geral</Label>
-          <StarPicker value={notaGeral} onChange={setNotaGeral} disabled={readOnly} />
+      {!readOnly && !podeEditar && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 flex items-center gap-2 text-sm text-amber-800">
+          <ShieldAlert className="h-4 w-4 shrink-0" />
+          Apenas o fiscal designado para a aprovação do orçamento desta OS (ou um perfil com permissão de avaliar qualquer OS) pode responder esta avaliação.
+        </div>
+      )}
+
+      <div className={cn("rounded-2xl border border-slate-200 bg-white p-6 space-y-6", !readOnly && !podeEditar && "opacity-60 pointer-events-none")}>
+        <div className="space-y-4">
+          <StarQuestion label="Qualidade da execução do serviço" value={notaQualidade} onChange={setNotaQualidade} disabled={readOnly} />
+          <div className="border-t border-slate-50" />
+          <StarQuestion label="Cumprimento do prazo" value={notaPrazo} onChange={setNotaPrazo} disabled={readOnly} />
+          <div className="border-t border-slate-50" />
+          <StarQuestion label="Organização e limpeza após a execução" value={notaOrganizacao} onChange={setNotaOrganizacao} disabled={readOnly} />
+          <div className="border-t border-slate-50" />
+          <StarQuestion label="Atendimento às expectativas" value={notaAtendimento} onChange={setNotaAtendimento} disabled={readOnly} />
         </div>
 
-        <div className="border-t border-slate-100 pt-6 space-y-5">
-          <QuestionRadio label="1. O serviço foi executado conforme solicitado?" options={SIM_OPTIONS} value={respConforme} onChange={setRespConforme} disabled={readOnly} />
-          <QuestionRadio label="2. A qualidade da execução foi satisfatória?" options={QUALIDADE_OPTIONS} value={respQualidade} onChange={setRespQualidade} disabled={readOnly} />
-          <QuestionRadio label="3. O acabamento ficou adequado?" options={QUALIDADE_OPTIONS} value={respAcabamento} onChange={setRespAcabamento} disabled={readOnly} />
-          <QuestionRadio label="4. O local foi entregue limpo e organizado?" options={SIM_OPTIONS} value={respLimpeza} onChange={setRespLimpeza} disabled={readOnly} />
-          <QuestionRadio label="5. O prazo foi atendido?" options={SIM_OPTIONS} value={respPrazo} onChange={setRespPrazo} disabled={readOnly} />
+        <div className="border-t border-slate-100 pt-4 flex items-center justify-between">
+          <Label className="text-sm font-semibold text-slate-700">Nota Geral (calculada automaticamente)</Label>
+          <div className="flex items-center gap-2">
+            <span className="text-2xl font-bold text-slate-900">{notaGeral != null ? notaGeral.toFixed(2) : "—"}</span>
+            <div className="flex items-center gap-0.5">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <Star key={n} className={cn("h-5 w-5", notaGeral != null && Math.round(notaGeral) >= n ? "fill-amber-400 text-amber-400" : "text-slate-200")} />
+              ))}
+            </div>
+          </div>
         </div>
 
         <div className="border-t border-slate-100 pt-6 space-y-4">
           <div>
-            <Label className="text-sm font-semibold text-slate-700">Comentários do Fiscal</Label>
-            <p className="text-xs text-slate-400 mb-1.5">Informe observações, elogios, problemas encontrados ou detalhes relevantes sobre a execução do serviço.</p>
+            <Label className="text-sm font-semibold text-slate-700">Comentários <span className="text-slate-400 font-normal">(opcional)</span></Label>
+            <p className="text-xs text-slate-400 mb-1.5">Observações, elogios, críticas ou sugestões referentes ao serviço executado.</p>
             <Textarea value={comentarios} onChange={(e) => setComentarios(e.target.value)} disabled={readOnly} rows={4} className="rounded-xl" />
           </div>
           <div>
@@ -325,10 +352,10 @@ export default function AvaliacaoDetalhe() {
             <Button variant="outline" className="rounded-xl" onClick={() => navigate("/avaliacoes")}>
               <X className="h-4 w-4 mr-1" /> Cancelar
             </Button>
-            <Button variant="outline" className="rounded-xl" disabled={submitting} onClick={() => handleSave(true)}>
+            <Button variant="outline" className="rounded-xl" disabled={submitting || !podeEditar} onClick={() => handleSave(true)}>
               <Save className="h-4 w-4 mr-1" /> Salvar rascunho
             </Button>
-            <Button className="rounded-xl bg-indigo-600 hover:bg-indigo-700" disabled={submitting} onClick={() => handleSave(false)}>
+            <Button className="rounded-xl bg-indigo-600 hover:bg-indigo-700" disabled={submitting || !podeEditar} onClick={() => handleSave(false)}>
               <Send className="h-4 w-4 mr-1" /> Finalizar avaliação
             </Button>
           </div>

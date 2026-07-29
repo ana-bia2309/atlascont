@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BarChart3, Download, FileText, RefreshCw, Star, TrendingDown, TrendingUp } from "@/lib/icons";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -9,6 +10,9 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { cn } from "@/lib/utils";
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid,
+} from "recharts";
 
 type AvaliacaoCompleta = {
   os_id: string;
@@ -26,6 +30,8 @@ type AvaliacaoCompleta = {
   avaliado_em: string | null;
 };
 
+type Periodo = "dia" | "mes" | "trimestre" | "ano";
+
 function groupAvg(rows: AvaliacaoCompleta[], key: keyof AvaliacaoCompleta) {
   const map = new Map<string, { soma: number; qtd: number; reprovadas: number }>();
   rows.forEach((r) => {
@@ -42,9 +48,23 @@ function groupAvg(rows: AvaliacaoCompleta[], key: keyof AvaliacaoCompleta) {
     .sort((a, b) => b.media - a.media);
 }
 
+function periodoKey(dateStr: string, periodo: Periodo) {
+  const d = new Date(dateStr);
+  if (periodo === "dia") return format(d, "dd/MM/yyyy");
+  if (periodo === "mes") return format(d, "MM/yyyy");
+  if (periodo === "trimestre") return `T${Math.floor(d.getMonth() / 3) + 1}/${d.getFullYear()}`;
+  return String(d.getFullYear());
+}
+
 export default function RelatoriosAvaliacoes() {
-  const [rows, setRows] = useState<AvaliacaoCompleta[]>([]);
+  const [allRows, setAllRows] = useState<AvaliacaoCompleta[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [filtroEmpresa, setFiltroEmpresa] = useState("todos");
+  const [filtroBloco, setFiltroBloco] = useState("todos");
+  const [filtroFiscal, setFiltroFiscal] = useState("todos");
+  const [filtroTipo, setFiltroTipo] = useState("todos");
+  const [periodo, setPeriodo] = useState<Periodo>("mes");
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -97,7 +117,7 @@ export default function RelatoriosAvaliacoes() {
         };
       });
 
-      setRows(merged);
+      setAllRows(merged);
     } catch (err: any) {
       console.error(err);
       toast({ title: "Erro ao carregar relatório", description: err?.message, variant: "destructive" });
@@ -108,10 +128,53 @@ export default function RelatoriosAvaliacoes() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  const empresasDisponiveis = useMemo(() => [...new Set(allRows.map((r) => r.empresa_nome).filter(Boolean))] as string[], [allRows]);
+  const blocosDisponiveis = useMemo(() => [...new Set(allRows.map((r) => r.bloco_nome).filter(Boolean))] as string[], [allRows]);
+  const fiscaisDisponiveis = useMemo(() => [...new Set(allRows.map((r) => r.avaliado_por_nome).filter(Boolean))] as string[], [allRows]);
+  const tiposDisponiveis = useMemo(() => [...new Set(allRows.map((r) => r.tipo_servico).filter(Boolean))] as string[], [allRows]);
+
+  const rows = useMemo(() => allRows.filter((r) =>
+    (filtroEmpresa === "todos" || r.empresa_nome === filtroEmpresa) &&
+    (filtroBloco === "todos" || r.bloco_nome === filtroBloco) &&
+    (filtroFiscal === "todos" || r.avaliado_por_nome === filtroFiscal) &&
+    (filtroTipo === "todos" || r.tipo_servico === filtroTipo)
+  ), [allRows, filtroEmpresa, filtroBloco, filtroFiscal, filtroTipo]);
+
   const porEmpresa = useMemo(() => groupAvg(rows, "empresa_nome"), [rows]);
   const porFiscal = useMemo(() => groupAvg(rows, "avaliado_por_nome"), [rows]);
   const porBloco = useMemo(() => groupAvg(rows, "bloco_nome"), [rows]);
   const porTipo = useMemo(() => groupAvg(rows, "tipo_servico"), [rows]);
+
+  const mediaGeral = useMemo(() => {
+    const validas = rows.filter((r) => r.nota_geral != null);
+    return validas.length ? validas.reduce((s, r) => s + (r.nota_geral || 0), 0) / validas.length : 0;
+  }, [rows]);
+
+  const distribuicaoEstrelas = useMemo(() => {
+    const buckets = [1, 2, 3, 4, 5].map((n) => ({ estrela: `${n} ★`, quantidade: 0 }));
+    rows.forEach((r) => {
+      if (r.nota_geral == null) return;
+      const idx = Math.min(5, Math.max(1, Math.round(r.nota_geral))) - 1;
+      buckets[idx].quantidade += 1;
+    });
+    return buckets;
+  }, [rows]);
+
+  const evolucao = useMemo(() => {
+    const map = new Map<string, { soma: number; qtd: number; ts: number }>();
+    rows.forEach((r) => {
+      if (r.nota_geral == null || !r.avaliado_em) return;
+      const k = periodoKey(r.avaliado_em, periodo);
+      const v = map.get(k) || { soma: 0, qtd: 0, ts: new Date(r.avaliado_em).getTime() };
+      v.soma += r.nota_geral;
+      v.qtd += 1;
+      v.ts = Math.min(v.ts, new Date(r.avaliado_em).getTime());
+      map.set(k, v);
+    });
+    return [...map.entries()]
+      .map(([periodoLabel, v]) => ({ periodo: periodoLabel, media: Math.round((v.soma / v.qtd) * 100) / 100, ts: v.ts }))
+      .sort((a, b) => a.ts - b.ts);
+  }, [rows, periodo]);
 
   const exportExcel = () => {
     const wb = XLSX.utils.book_new();
@@ -137,6 +200,9 @@ export default function RelatoriosAvaliacoes() {
     const wsTipo = XLSX.utils.json_to_sheet(porTipo.map((e) => ({ "Tipo de Serviço": e.nome, "Média": e.media.toFixed(2), Avaliações: e.qtd, Reprovadas: e.reprovadas })));
     XLSX.utils.book_append_sheet(wb, wsTipo, "Média por Tipo");
 
+    const wsEvolucao = XLSX.utils.json_to_sheet(evolucao.map((e) => ({ Período: e.periodo, "Média": e.media })));
+    XLSX.utils.book_append_sheet(wb, wsEvolucao, "Evolução");
+
     XLSX.writeFile(wb, `relatorio-avaliacoes-${format(new Date(), "yyyy-MM-dd")}.xlsx`);
   };
 
@@ -145,7 +211,7 @@ export default function RelatoriosAvaliacoes() {
     doc.setFontSize(16);
     doc.text("Relatório de Avaliações de Serviço", 14, 16);
     doc.setFontSize(10);
-    doc.text(`Gerado em ${format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR })}`, 14, 22);
+    doc.text(`Gerado em ${format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR })} · Nota média: ${mediaGeral.toFixed(2)}`, 14, 22);
 
     autoTable(doc, {
       startY: 28,
@@ -197,32 +263,124 @@ export default function RelatoriosAvaliacoes() {
         </div>
       </div>
 
+      {/* Filtros */}
+      <div className="flex flex-wrap gap-3">
+        <Select value={filtroEmpresa} onValueChange={setFiltroEmpresa}>
+          <SelectTrigger className="w-[180px] rounded-xl"><SelectValue placeholder="Empresa" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todas as Empresas</SelectItem>
+            {empresasDisponiveis.map((e) => <SelectItem key={e} value={e}>{e}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={filtroBloco} onValueChange={setFiltroBloco}>
+          <SelectTrigger className="w-[160px] rounded-xl"><SelectValue placeholder="Bloco" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os Blocos</SelectItem>
+            {blocosDisponiveis.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={filtroFiscal} onValueChange={setFiltroFiscal}>
+          <SelectTrigger className="w-[180px] rounded-xl"><SelectValue placeholder="Fiscal" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os Fiscais</SelectItem>
+            {fiscaisDisponiveis.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={filtroTipo} onValueChange={setFiltroTipo}>
+          <SelectTrigger className="w-[180px] rounded-xl"><SelectValue placeholder="Tipo de Serviço" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os Tipos</SelectItem>
+            {tiposDisponiveis.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={periodo} onValueChange={(v) => setPeriodo(v as Periodo)}>
+          <SelectTrigger className="w-[160px] rounded-xl"><SelectValue placeholder="Agrupar por" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="dia">Por dia</SelectItem>
+            <SelectItem value="mes">Por mês</SelectItem>
+            <SelectItem value="trimestre">Por trimestre</SelectItem>
+            <SelectItem value="ano">Por ano</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       {loading ? (
         <div className="text-center py-16 text-slate-400">Carregando...</div>
       ) : !rows.length ? (
-        <div className="text-center py-16 text-slate-400">Nenhuma avaliação finalizada até o momento.</div>
+        <div className="text-center py-16 text-slate-400">Nenhuma avaliação finalizada para os filtros selecionados.</div>
       ) : (
-        <div className="grid md:grid-cols-2 gap-4">
-          <RankCard title="Ranking de Empresas Contratadas" icon={<TrendingUp className="h-4 w-4 text-emerald-500" />} data={porEmpresa} />
-          <RankCard title="Média por Fiscal" data={porFiscal} />
-          <RankCard title="Média por Bloco" data={porBloco} />
-          <RankCard title="Tipos de Serviço com Mais Reclamações" icon={<TrendingDown className="h-4 w-4 text-rose-500" />} data={[...porTipo].sort((a, b) => b.reprovadas - a.reprovadas)} showReprovadas />
-        </div>
-      )}
-
-      {!loading && rows.length > 0 && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-5">
-          <p className="text-sm font-semibold text-slate-700 mb-3">Comentários e Sugestões dos Fiscais</p>
-          <div className="space-y-3 max-h-96 overflow-y-auto">
-            {rows.filter((r) => r.comentarios_fiscal || r.sugestoes_melhoria).map((r) => (
-              <div key={r.os_id} className="border border-slate-100 rounded-xl p-3 text-sm">
-                <p className="font-semibold text-slate-800">{r.codigo_os} · {r.empresa_nome || "—"}</p>
-                {r.comentarios_fiscal && <p className="text-slate-600 mt-1"><span className="font-medium">Comentário:</span> {r.comentarios_fiscal}</p>}
-                {r.sugestoes_melhoria && <p className="text-slate-600 mt-1"><span className="font-medium">Sugestão:</span> {r.sugestoes_melhoria}</p>}
+        <>
+          <div className="grid md:grid-cols-3 gap-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <p className="text-xs font-semibold uppercase text-slate-400">Índice Geral de Satisfação</p>
+              <div className="flex items-center gap-2 mt-1">
+                <p className="text-3xl font-bold text-slate-900">{mediaGeral.toFixed(2)}</p>
+                <div className="flex items-center gap-0.5">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <Star key={n} className={cn("h-4 w-4", Math.round(mediaGeral) >= n ? "fill-amber-400 text-amber-400" : "text-slate-200")} />
+                  ))}
+                </div>
               </div>
-            ))}
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <p className="text-xs font-semibold uppercase text-slate-400">Total de Avaliações</p>
+              <p className="text-3xl font-bold text-slate-900 mt-1">{rows.length}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <p className="text-xs font-semibold uppercase text-slate-400">Reprovações</p>
+              <p className="text-3xl font-bold text-rose-600 mt-1">{rows.filter((r) => r.decisao === "reprovado").length}</p>
+            </div>
           </div>
-        </div>
+
+          <div className="grid lg:grid-cols-2 gap-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5">
+              <p className="text-sm font-semibold text-slate-700 mb-3">Evolução das Notas</p>
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={evolucao}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+                  <XAxis dataKey="periodo" tick={{ fontSize: 11 }} />
+                  <YAxis domain={[0, 5]} tick={{ fontSize: 11 }} />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="media" stroke="#4F46E5" strokeWidth={2} dot={{ r: 3, fill: "#4F46E5" }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-5">
+              <p className="text-sm font-semibold text-slate-700 mb-3">Distribuição por Estrelas</p>
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={distribuicaoEstrelas}>
+                  <XAxis dataKey="estrela" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                  <Tooltip />
+                  <Bar dataKey="quantidade" fill="#F59E0B" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <RankCard title="Empresas Mais Bem Avaliadas" icon={<TrendingUp className="h-4 w-4 text-emerald-500" />} data={porEmpresa} />
+            <RankCard title="Empresas com Menor Satisfação" icon={<TrendingDown className="h-4 w-4 text-rose-500" />} data={[...porEmpresa].reverse()} showReprovadas />
+            <RankCard title="Média por Fiscal" data={porFiscal} />
+            <RankCard title="Média por Bloco" data={porBloco} />
+            <RankCard title="Serviços Mais Bem Avaliados" data={porTipo} />
+            <RankCard title="Tipos de Serviço com Mais Reclamações" icon={<TrendingDown className="h-4 w-4 text-rose-500" />} data={[...porTipo].sort((a, b) => b.reprovadas - a.reprovadas)} showReprovadas />
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5">
+            <p className="text-sm font-semibold text-slate-700 mb-3">Comentários Recentes dos Fiscais</p>
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {rows.filter((r) => r.comentarios_fiscal || r.sugestoes_melhoria).map((r) => (
+                <div key={r.os_id} className="border border-slate-100 rounded-xl p-3 text-sm">
+                  <p className="font-semibold text-slate-800">{r.codigo_os} · {r.empresa_nome || "—"}</p>
+                  {r.comentarios_fiscal && <p className="text-slate-600 mt-1"><span className="font-medium">Comentário:</span> {r.comentarios_fiscal}</p>}
+                  {r.sugestoes_melhoria && <p className="text-slate-600 mt-1"><span className="font-medium">Sugestão:</span> {r.sugestoes_melhoria}</p>}
+                </div>
+              ))}
+              {!rows.some((r) => r.comentarios_fiscal || r.sugestoes_melhoria) && <p className="text-sm text-slate-400">Nenhum comentário registrado.</p>}
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
