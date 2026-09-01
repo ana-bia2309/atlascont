@@ -113,13 +113,16 @@ export default function Estoque() {
     setLoading(true);
     try {
       const [matsRes, estoqueRes, movsRes, osMatRes] = await Promise.all([
-        (supabase as any).from("materiais").select("id, codigo, descricao, unidade, valor_unitario, tipo_sistema").eq("company_id", companyId).eq("status", "ativo").order("codigo", { ascending: true }),
+        // categoria filtrada no cliente logo abaixo (NEQ do PostgREST excluiria categoria NULL,
+        // e materiais antigos sem categoria definida devem continuar aparecendo como "Material")
+        (supabase as any).from("materiais").select("id, codigo, descricao, unidade, valor_unitario, tipo_sistema, categoria").eq("company_id", companyId).eq("status", "ativo").order("codigo", { ascending: true }),
         (supabase as any).from("estoque").select("*").eq("company_id", companyId),
         (supabase as any).from("estoque_movimentacoes").select("*, materiais(descricao)").eq("company_id", companyId).order("created_at", { ascending: false }).limit(100),
         (supabase as any).from("materiais_os").select("nome_material, quantidade, material_id, ordens_servico!inner(company_id, orcamento_status)").eq("ordens_servico.company_id", companyId).eq("ordens_servico.orcamento_status", "aprovado"),
       ]);
 
-      setMateriais(matsRes.data || []);
+      // Serviços não têm controle de estoque físico — exclui da lista de Entrada/Saída
+      setMateriais((matsRes.data || []).filter((m: any) => m.categoria !== "Serviço"));
 
       const empenhado: Record<string, number> = {};
       (osMatRes.data || []).forEach((m: any) => {

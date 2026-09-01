@@ -4,7 +4,7 @@ import { toast } from "@/hooks/use-toast";
 import { useCompany } from "@/hooks/use-company";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Pencil, Trash2, Save, X, Send, ShoppingCart, Package } from "@/lib/icons";
+import { Plus, Pencil, Trash2, Save, X, Send, ShoppingCart, Package, Wrench, Shield, Hammer } from "@/lib/icons";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -16,23 +16,37 @@ export type LocalMaterial = {
   custo_unitario: number;
   fornecedor?: string;
   data_compra?: string;
+  /** Somente para exibição local antes de salvar — não existe coluna na tabela materiais_os */
+  categoria?: string;
 };
 
 type PersistedMaterial = {
   id: string; os_id: string; nome_material: string; quantidade: number;
   unidade: string; custo_unitario: number; custo_total_item: number;
   fornecedor: string | null; data_compra: string | null;
+  /** Vem via join com materiais(categoria); pode ser null em itens antigos sem material_id vinculado */
+  materiais?: { categoria: string | null } | null;
 };
 
 type DraftMaterial = {
   nome_material: string; quantidade: string; unidade: string;
   custo_unitario: string; fornecedor: string; data_compra: string;
+  categoria: string;
 };
 
 const emptyDraft: DraftMaterial = {
   nome_material: "", quantidade: "1", unidade: "un",
-  custo_unitario: "0", fornecedor: "", data_compra: "",
+  custo_unitario: "0", fornecedor: "", data_compra: "", categoria: "Material",
 };
+
+/** Ícone + rótulo por categoria — usado tanto na lista de seleção quanto nos itens já lançados na OS */
+const CATEGORIA_INFO: Record<string, { label: string; icon: typeof Package; className: string }> = {
+  Material: { label: "Material", icon: Package, className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  Ferramenta: { label: "Ferramenta", icon: Hammer, className: "bg-blue-50 text-blue-700 border-blue-200" },
+  EPI: { label: "EPI", icon: Shield, className: "bg-amber-50 text-amber-700 border-amber-200" },
+  Serviço: { label: "Serviço", icon: Wrench, className: "bg-violet-50 text-violet-700 border-violet-200" },
+};
+const categoriaInfo = (categoria?: string | null) => CATEGORIA_INFO[categoria || "Material"] || CATEGORIA_INFO.Material;
 
 let localIdCounter = 0;
 const nextLocalId = () => `local-${++localIdCounter}`;
@@ -218,6 +232,7 @@ function MaterialForm({
     id: string; codigo: string | null; descricao: string;
     unidade: string | null; valor_unitario: number | null;
     fornecedor: string | null; data_compra: string | null;
+    categoria: string | null;
   }[]>([]);
   const [busca, setBusca] = useState("");
   const [showList, setShowList] = useState(false);
@@ -226,12 +241,13 @@ function MaterialForm({
   const qtdNum = parseFloat(draft.quantidade) || 0;
   const qtdInsuficiente = estoqueInfo !== null && estoqueInfo.disponivel > 0 && qtdNum > estoqueInfo.disponivel;
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const isServico = draft.categoria === "Serviço";
 
   useEffect(() => {
     if (!companyId) return;
     (supabase as any)
       .from("materiais")
-      .select("id, codigo, descricao, unidade, valor_unitario, fornecedor, data_compra")
+      .select("id, codigo, descricao, unidade, valor_unitario, fornecedor, data_compra, categoria")
       .eq("company_id", companyId)
       .eq("status", "ativo")
       .order("descricao")
@@ -262,11 +278,18 @@ function MaterialForm({
       custo_unitario: m.valor_unitario?.toString() || "0",
       fornecedor: m.fornecedor || "",
       data_compra: m.data_compra || "",
+      categoria: m.categoria || "Material",
     });
     setBusca(m.codigo ? `${m.codigo} — ${m.descricao}` : m.descricao);
     setShowList(false);
     setMaterialId(m.id);
     onMaterialSelect?.(m.id);
+
+    // Serviços não têm controle de estoque físico — pula a checagem
+    if (m.categoria === "Serviço") {
+      setEstoqueInfo(null);
+      return;
+    }
 
     const { data } = await (supabase as any)
       .from("estoque")
@@ -277,7 +300,7 @@ function MaterialForm({
   };
 
   const limpar = () => {
-    setDraft({ ...draft, nome_material: "", custo_unitario: "0", unidade: "un", fornecedor: "", data_compra: "" });
+    setDraft({ ...draft, nome_material: "", custo_unitario: "0", unidade: "un", fornecedor: "", data_compra: "", categoria: "Material" });
     setBusca(""); setEstoqueInfo(null); setMaterialId(null);
     onMaterialSelect?.(null);
   };
@@ -285,7 +308,7 @@ function MaterialForm({
   return (
     <div className="rounded-md border bg-muted/20 p-3 space-y-2">
       <div className="relative" ref={dropdownRef}>
-        <label className="text-xs text-muted-foreground">Buscar material (nome ou código)</label>
+        <label className="text-xs text-muted-foreground">Buscar material ou serviço (nome ou código)</label>
         <Input
           value={busca}
           onChange={e => { setBusca(e.target.value); setShowList(true); setDraft({ ...draft, nome_material: "" }); setEstoqueInfo(null); }}
@@ -294,26 +317,33 @@ function MaterialForm({
             if (e.key === "Enter" && filtrados.length > 0) selecionarMaterial(filtrados[0]);
             if (e.key === "Escape") setShowList(false);
           }}
-          placeholder="Clique para ver todos os materiais..."
+          placeholder="Clique para ver materiais e serviços cadastrados..."
           className="h-8 text-sm"
         />
         {showList && filtrados.length > 0 && (
           <div className="absolute z-50 w-full mt-1 rounded-md border bg-popover shadow-md max-h-[200px] overflow-y-auto">
-            {filtrados.map(m => (
-              <button key={m.id}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-accent flex items-center gap-2"
-                onMouseDown={e => { e.preventDefault(); selecionarMaterial(m); }}>
-                {m.codigo && <span className="font-mono text-xs text-muted-foreground">{m.codigo}</span>}
-                <span className="flex-1">{m.descricao}</span>
-                {m.unidade && <span className="text-xs text-muted-foreground">{m.unidade}</span>}
-                {m.valor_unitario != null && <span className="text-xs text-primary">R$ {Number(m.valor_unitario).toFixed(2)}</span>}
-              </button>
-            ))}
+            {filtrados.map(m => {
+              const info = categoriaInfo(m.categoria);
+              const Icon = info.icon;
+              return (
+                <button key={m.id}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-accent flex items-center gap-2"
+                  onMouseDown={e => { e.preventDefault(); selecionarMaterial(m); }}>
+                  <span className={cn("inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold border shrink-0", info.className)}>
+                    <Icon className="h-2.5 w-2.5" /> {info.label}
+                  </span>
+                  {m.codigo && <span className="font-mono text-xs text-muted-foreground">{m.codigo}</span>}
+                  <span className="flex-1 truncate">{m.descricao}</span>
+                  {m.unidade && <span className="text-xs text-muted-foreground">{m.unidade}</span>}
+                  {m.valor_unitario != null && <span className="text-xs text-primary">R$ {Number(m.valor_unitario).toFixed(2)}</span>}
+                </button>
+              );
+            })}
           </div>
         )}
         {showList && busca.length > 0 && filtrados.length === 0 && (
           <div className="absolute z-50 w-full mt-1 rounded-md border bg-popover shadow-md px-3 py-2 text-sm text-muted-foreground">
-            Nenhum material encontrado
+            Nenhum material ou serviço encontrado
           </div>
         )}
       </div>
@@ -348,6 +378,13 @@ function MaterialForm({
               </span>
             )}
           </span>
+        </div>
+      )}
+
+      {estoqueInfo === null && draft.nome_material && isServico && (
+        <div className="flex items-center gap-2 rounded-md px-3 py-2 text-xs font-medium border bg-violet-50 border-violet-200 text-violet-700">
+          <Wrench className="h-3.5 w-3.5" />
+          <span>Serviço — não controla estoque</span>
         </div>
       )}
 
@@ -409,8 +446,8 @@ const MateriaisSection = forwardRef<MateriaisSectionHandle, MateriaisSectionProp
     const fetchPersisted = useCallback(async () => {
       if (!osId) { setPersisted([]); return; }
       setLoading(true);
-      const { data, error } = await supabase
-        .from("materiais_os").select("*").eq("os_id", osId).order("created_at");
+      const { data, error } = await (supabase as any)
+        .from("materiais_os").select("*, materiais(categoria)").eq("os_id", osId).order("created_at");
       if (error) toast({ title: "Erro ao carregar materiais", description: error.message, variant: "destructive" });
       else setPersisted((data as PersistedMaterial[]) || []);
       if (osId) {
@@ -437,17 +474,17 @@ const MateriaisSection = forwardRef<MateriaisSectionHandle, MateriaisSectionProp
     });
 
     const addLocal = () => {
-      if (!draft.nome_material.trim()) { toast({ title: "Selecione um material", variant: "destructive" }); return; }
+      if (!draft.nome_material.trim()) { toast({ title: "Selecione um material ou serviço", variant: "destructive" }); return; }
       const p = buildPayload();
-      setLocal(prev => [...prev, { _localId: nextLocalId(), ...p, fornecedor: p.fornecedor || undefined, data_compra: p.data_compra || undefined }]);
+      setLocal(prev => [...prev, { _localId: nextLocalId(), ...p, fornecedor: p.fornecedor || undefined, data_compra: p.data_compra || undefined, categoria: draft.categoria }]);
       setDraft(emptyDraft); setAdding(false);
     };
 
     const updateLocal = (localId: string) => {
-      if (!draft.nome_material.trim()) { toast({ title: "Selecione um material", variant: "destructive" }); return; }
+      if (!draft.nome_material.trim()) { toast({ title: "Selecione um material ou serviço", variant: "destructive" }); return; }
       const p = buildPayload();
       setLocal(prev => prev.map(m => m._localId === localId
-        ? { ...m, ...p, fornecedor: p.fornecedor || undefined, data_compra: p.data_compra || undefined } : m));
+        ? { ...m, ...p, fornecedor: p.fornecedor || undefined, data_compra: p.data_compra || undefined, categoria: draft.categoria } : m));
       setEditingKey(null); setDraft(emptyDraft);
     };
 
@@ -463,15 +500,15 @@ const MateriaisSection = forwardRef<MateriaisSectionHandle, MateriaisSectionProp
     };
 
     const addPersisted = async () => {
-      if (!osId || !draft.nome_material.trim()) { toast({ title: "Selecione um material", variant: "destructive" }); return; }
+      if (!osId || !draft.nome_material.trim()) { toast({ title: "Selecione um material ou serviço", variant: "destructive" }); return; }
       const { error } = await (supabase as any).from("materiais_os").insert({ os_id: osId, company_id: companyId, ...buildPayload() });
-      if (error) { toast({ title: "Erro ao adicionar material", description: error.message, variant: "destructive" }); return; }
+      if (error) { toast({ title: "Erro ao adicionar item", description: error.message, variant: "destructive" }); return; }
       setDraft(emptyDraft); setAdding(false);
       await resetOrcamentoStatus(); fetchPersisted();
     };
 
     const updatePersisted = async (id: string) => {
-      if (!osId || !draft.nome_material.trim()) { toast({ title: "Selecione um material", variant: "destructive" }); return; }
+      if (!osId || !draft.nome_material.trim()) { toast({ title: "Selecione um material ou serviço", variant: "destructive" }); return; }
       const { error } = await (supabase as any).from("materiais_os").update(buildPayload()).eq("id", id).eq("company_id", companyId);
       if (error) { toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" }); return; }
       setEditingKey(null); setDraft(emptyDraft);
@@ -496,7 +533,7 @@ const MateriaisSection = forwardRef<MateriaisSectionHandle, MateriaisSectionProp
 
     const startEdit = (key: string, m: any) => {
       setEditingKey(key); setAdding(false);
-      setDraft({ nome_material: m.nome_material, quantidade: String(m.quantidade), unidade: m.unidade || "un", custo_unitario: String(m.custo_unitario), fornecedor: m.fornecedor || "", data_compra: m.data_compra || "" });
+      setDraft({ nome_material: m.nome_material, quantidade: String(m.quantidade), unidade: m.unidade || "un", custo_unitario: String(m.custo_unitario), fornecedor: m.fornecedor || "", data_compra: m.data_compra || "", categoria: m.categoria || "Material" });
     };
 
     const cancelEdit = () => { setEditingKey(null); setAdding(false); setDraft(emptyDraft); };
@@ -505,11 +542,12 @@ const MateriaisSection = forwardRef<MateriaisSectionHandle, MateriaisSectionProp
       key: string; nome_material: string; quantidade: number; unidade: string;
       custo_unitario: number; custo_total_item: number;
       fornecedor: string | null; data_compra: string | null;
+      categoria: string;
     };
 
     const items: DisplayItem[] = [
-      ...persisted.map(m => ({ key: m.id, nome_material: m.nome_material, quantidade: m.quantidade, unidade: m.unidade, custo_unitario: m.custo_unitario, custo_total_item: m.custo_total_item, fornecedor: m.fornecedor, data_compra: m.data_compra })),
-      ...local.map(m => ({ key: m._localId, nome_material: m.nome_material, quantidade: m.quantidade, unidade: m.unidade, custo_unitario: m.custo_unitario, custo_total_item: m.quantidade * m.custo_unitario, fornecedor: m.fornecedor || null, data_compra: m.data_compra || null })),
+      ...persisted.map(m => ({ key: m.id, nome_material: m.nome_material, quantidade: m.quantidade, unidade: m.unidade, custo_unitario: m.custo_unitario, custo_total_item: m.custo_total_item, fornecedor: m.fornecedor, data_compra: m.data_compra, categoria: m.materiais?.categoria || "Material" })),
+      ...local.map(m => ({ key: m._localId, nome_material: m.nome_material, quantidade: m.quantidade, unidade: m.unidade, custo_unitario: m.custo_unitario, custo_total_item: m.quantidade * m.custo_unitario, fornecedor: m.fornecedor || null, data_compra: m.data_compra || null, categoria: m.categoria || "Material" })),
     ];
 
     const totalGeral = items.reduce((s, m) => s + m.custo_total_item, 0);
@@ -521,11 +559,11 @@ const MateriaisSection = forwardRef<MateriaisSectionHandle, MateriaisSectionProp
 
     return (
       <div className="rounded-xl border-2 border-primary/20 bg-card shadow-sm overflow-hidden">
-        {/* Header com botão "Adicionar material" sempre visível */}
+        {/* Header com botão "Adicionar item" sempre visível */}
         <div className="flex items-center justify-between px-4 py-3 bg-primary/5 border-b border-primary/10 sticky top-0 z-10">
           <div className="flex items-center gap-2">
             <ShoppingCart className="h-4 w-4 text-primary" />
-            <h3 className="text-sm font-semibold">Materiais Utilizados</h3>
+            <h3 className="text-sm font-semibold">Materiais e Serviços Utilizados</h3>
             {items.length > 0 && (
               <span className="text-xs bg-primary/10 text-primary font-medium px-2 py-0.5 rounded-full">
                 {items.length} {items.length === 1 ? "item" : "itens"}
@@ -540,7 +578,7 @@ const MateriaisSection = forwardRef<MateriaisSectionHandle, MateriaisSectionProp
           ) : items.length === 0 && !adding ? (
             <div className="flex flex-col items-center py-6 text-muted-foreground">
               <Package className="h-8 w-8 mb-2 opacity-30" />
-              <p className="text-xs">Nenhum material registrado.</p>
+              <p className="text-xs">Nenhum material ou serviço registrado.</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -553,15 +591,26 @@ const MateriaisSection = forwardRef<MateriaisSectionHandle, MateriaisSectionProp
                 ) : (
                   <div key={m.key} className="group flex items-center gap-3 rounded-lg border bg-background px-4 py-3 hover:bg-muted/40 transition-all">
                     <span className="text-xs font-mono text-muted-foreground w-5 shrink-0">{idx + 1}</span>
-                    <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-                      <Package className="h-4 w-4 text-primary" />
-                    </div>
+                    {(() => {
+                      const info = categoriaInfo(m.categoria);
+                      const Icon = info.icon;
+                      return (
+                        <div className={cn("w-8 h-8 rounded-md flex items-center justify-center shrink-0", info.className.replace(/border-\S+/, ""))}>
+                          <Icon className="h-4 w-4" />
+                        </div>
+                      );
+                    })()}
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm truncate">{m.nome_material}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="font-semibold text-sm truncate">{m.nome_material}</p>
+                        <span className={cn("inline-flex items-center rounded-full px-1.5 py-0 text-[10px] font-semibold border shrink-0", categoriaInfo(m.categoria).className)}>
+                          {categoriaInfo(m.categoria).label}
+                        </span>
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {m.quantidade} {m.unidade}
                         {m.custo_unitario > 0 && <> × R$ {Number(m.custo_unitario).toFixed(2)}</>}
-                        {m.fornecedor && <> · {m.fornecedor}</>}
+                        {m.fornecedor && <> · {m.categoria === "Serviço" ? "Empresa: " : ""}{m.fornecedor}</>}
                         {m.data_compra && <> · {fmtDate(m.data_compra)}</>}
                       </p>
                     </div>
@@ -588,11 +637,11 @@ const MateriaisSection = forwardRef<MateriaisSectionHandle, MateriaisSectionProp
             </div>
           )}
 
-          {/* Botão Adicionar material — no fluxo natural, abaixo da lista */}
+          {/* Botão Adicionar item — no fluxo natural, abaixo da lista */}
           {!readOnly && !adding && !editingKey && (
             <Button variant="outline" size="sm" onClick={() => { setAdding(true); setDraft(emptyDraft); }}
               className="w-full h-9 text-sm gap-1.5 border-primary/30 text-primary hover:bg-primary/10 mt-1">
-              <Plus className="h-4 w-4" /> Adicionar material
+              <Plus className="h-4 w-4" /> Adicionar item
             </Button>
           )}
 

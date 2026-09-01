@@ -1102,16 +1102,16 @@ export default function OrdensServico() {
       return;
     }
 
-    // Valida estoque dos materiais
+    // Valida estoque dos materiais (serviços não entram nessa checagem — não têm estoque físico)
     const { data: materiaisOs } = await (supabase as any)
       .from("materiais_os")
-      .select("nome_material, materiais(id)")
+      .select("nome_material, materiais(id, categoria)")
       .eq("os_id", os.id);
 
     if (materiaisOs && materiaisOs.length > 0) {
       const semEstoque: string[] = [];
       for (const m of materiaisOs) {
-        if (!m.materiais?.id) continue;
+        if (!m.materiais?.id || m.materiais?.categoria === "Serviço") continue;
         const { data: est } = await (supabase as any)
           .from("estoque")
           .select("quantidade_disponivel")

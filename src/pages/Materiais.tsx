@@ -20,7 +20,7 @@ const SISTEMA_OPTIONS = [
 ];
 
 const UNIDADE_OPTIONS = [
-  "un", "cx", "kg", "g", "l", "ml", "m", "m²", "m³", "pc", "par", "rolo", "outro"
+  "un", "cx", "kg", "g", "l", "ml", "m", "m²", "m³", "pc", "par", "rolo", "serviço", "outro"
 ];
 
 type Material = {
@@ -244,6 +244,7 @@ export default function Materiais() {
               <SelectItem value="Material">📦 Material</SelectItem>
               <SelectItem value="Ferramenta">🔧 Ferramenta</SelectItem>
               <SelectItem value="EPI">🦺 EPI</SelectItem>
+              <SelectItem value="Serviço">🛠️ Serviço</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -297,9 +298,10 @@ export default function Materiais() {
                     "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border mt-0.5",
                     (m as any).categoria === "Ferramenta" && "bg-blue-50 text-blue-700 border-blue-200",
                     (m as any).categoria === "EPI" && "bg-amber-50 text-amber-700 border-amber-200",
+                    (m as any).categoria === "Serviço" && "bg-violet-50 text-violet-700 border-violet-200",
                     (!((m as any).categoria) || (m as any).categoria === "Material") && "bg-emerald-50 text-emerald-700 border-emerald-200",
                   )}>
-                    {(m as any).categoria === "Ferramenta" ? "🔧 Ferramenta" : (m as any).categoria === "EPI" ? "🦺 EPI" : "📦 Material"}
+                    {(m as any).categoria === "Ferramenta" ? "🔧 Ferramenta" : (m as any).categoria === "EPI" ? "🦺 EPI" : (m as any).categoria === "Serviço" ? "🛠️ Serviço" : "📦 Material"}
                   </span>
                 </TableCell>
                 <TableCell>{m.unidade || "—"}</TableCell>
@@ -392,13 +394,14 @@ export default function Materiais() {
                     <SelectItem value="Material">📦 Material</SelectItem>
                     <SelectItem value="Ferramenta">🔧 Ferramenta</SelectItem>
                     <SelectItem value="EPI">🦺 EPI</SelectItem>
+                    <SelectItem value="Serviço">🛠️ Serviço</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
             <div>
-              <label className="text-sm font-medium mb-1 block">Fornecedor</label>
+              <label className="text-sm font-medium mb-1 block">Fornecedor{(form as any).categoria === "Serviço" ? " / Empresa prestadora" : ""}</label>
               <Input value={form.fornecedor} onChange={e => setForm(f => ({ ...f, fornecedor: e.target.value }))} placeholder="Ex: Distribuidora XYZ" />
             </div>
 

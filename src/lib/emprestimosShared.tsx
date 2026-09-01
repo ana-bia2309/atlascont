@@ -181,7 +181,7 @@ export function useMateriaisDisponiveis(companyId: string | null) {
         if (!companyId) return;
         const [matsRes, estoqueRes, osMatRes] = await Promise.all([
             (supabase as any).from("materiais")
-                .select("id, codigo, descricao, unidade, valor_unitario, tipo_sistema")
+                .select("id, codigo, descricao, unidade, valor_unitario, tipo_sistema, categoria")
                 .eq("company_id", companyId).eq("status", "ativo").order("descricao"),
             (supabase as any).from("estoque")
                 .select("material_id, quantidade_disponivel")
@@ -202,7 +202,10 @@ export function useMateriaisDisponiveis(companyId: string | null) {
             if (m.material_id) empenhado[m.material_id] = (empenhado[m.material_id] || 0) + Number(m.quantidade || 0);
         });
 
-        const lista: MaterialDisponivel[] = (matsRes.data || []).map((m: any) => {
+        // Serviços não são itens emprestáveis — exclui da lista de empréstimo de ferramentas
+        const lista: MaterialDisponivel[] = (matsRes.data || [])
+            .filter((m: any) => m.categoria !== "Serviço")
+            .map((m: any) => {
             const total = estoqueMap[m.id] || 0;
             const emp = empenhado[m.id] || 0;
             return {
