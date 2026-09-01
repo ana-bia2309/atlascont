@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/use-company";
+import { usePermissions } from "@/hooks/use-permissions";
 import { toast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -52,6 +53,7 @@ function StarsDisplay({ value }: { value: number | null }) {
 
 export default function Avaliacoes() {
   const { companyId } = useCompany();
+  const { can } = usePermissions();
   const navigate = useNavigate();
   const [rows, setRows] = useState<AvaliacaoRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,7 +64,22 @@ export default function Avaliacoes() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: osList, error } = await (supabase as any)
+      const podeVerTudo = can("avaliacoes.avaliar_qualquer");
+
+      let myProfileId: string | null = null;
+      if (!podeVerTudo) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await (supabase as any)
+            .from("profiles")
+            .select("id")
+            .eq("user_id", user.id)
+            .single();
+          myProfileId = profile?.id || null;
+        }
+      }
+
+      const { data: osListRaw, error } = await (supabase as any)
         .from("ordens_servico")
         .select("id, codigo_os, titulo, andar, sala, bloco_id, company_id, responsible_user_id, finalizado_em, tipo_servico")
         .eq("status", "Concluída")
@@ -70,10 +87,27 @@ export default function Avaliacoes() {
 
       if (error) throw error;
 
-      const osIds = (osList || []).map((o: any) => o.id);
-      const blocoIds = [...new Set((osList || []).map((o: any) => o.bloco_id).filter(Boolean))];
-      const companyIds = [...new Set((osList || []).map((o: any) => o.company_id).filter(Boolean))];
-      const respIds = [...new Set((osList || []).map((o: any) => o.responsible_user_id).filter(Boolean))];
+      let osList = osListRaw || [];
+
+      if (!podeVerTudo) {
+        const idsIniciais = osList.map((o: any) => o.id);
+        if (!myProfileId || idsIniciais.length === 0) {
+          osList = [];
+        } else {
+          const { data: meusFiscais } = await (supabase as any)
+            .from("os_fiscais")
+            .select("os_id")
+            .in("os_id", idsIniciais)
+            .eq("profile_id", myProfileId);
+          const meusIds = new Set((meusFiscais || []).map((f: any) => f.os_id));
+          osList = osList.filter((o: any) => meusIds.has(o.id));
+        }
+      }
+
+      const osIds = osList.map((o: any) => o.id);
+      const blocoIds = [...new Set(osList.map((o: any) => o.bloco_id).filter(Boolean))];
+      const companyIds = [...new Set(osList.map((o: any) => o.company_id).filter(Boolean))];
+      const respIds = [...new Set(osList.map((o: any) => o.responsible_user_id).filter(Boolean))];
 
       const [avalRes, blocosRes, companiesRes, profilesRes, notifRes] = await Promise.all([
         osIds.length
