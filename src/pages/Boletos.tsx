@@ -515,7 +515,7 @@ export default function Boletos() {
       <div className="rounded-md border overflow-auto">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-muted/70 hover:bg-muted/70">
               <TableHead>Descrição</TableHead>
               <TableHead>Favorecido</TableHead>
               <TableHead>Banco / Categoria</TableHead>

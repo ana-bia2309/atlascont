@@ -443,7 +443,7 @@ const gerarExcel = (pedidosList: Pedido[]) => {
           <div className="rounded-md border overflow-auto">
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="bg-muted/70 hover:bg-muted/70">
                   <TableHead>Número</TableHead><TableHead>Solicitante</TableHead><TableHead>Responsável</TableHead>
                   <TableHead>Prazo</TableHead><TableHead>Itens</TableHead><TableHead>Status</TableHead>
                   <TableHead>Data</TableHead><TableHead className="text-right">Ações</TableHead>

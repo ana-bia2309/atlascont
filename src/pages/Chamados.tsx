@@ -460,7 +460,7 @@ export default function Chamados() {
       <div className="rounded-md border overflow-auto">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-muted/70 hover:bg-muted/70">
               {can("painel_os.excluir") && (
                 <TableHead className="w-[40px]">
                   <Checkbox
