@@ -35,6 +35,8 @@ type Chamado = {
   sala: string | null;
   os_id: string | null;
   justificativa_recusa: string | null;
+  analisado_em: string | null;
+  analisado_por_nome: string | null;
 };
 
 type Ativo = { id: string; nome: string; codigo_identificacao?: string | null };
@@ -237,7 +239,7 @@ export default function PortalCliente() {
       const [profileRes, chamadosRes, ativosRes, blocosRes] = await Promise.all([
         (supabase as any).from("profiles").select("id, nome").eq("user_id", session.user.id).maybeSingle(),
         (supabase as any).from("chamados")
-          .select("id, codigo, status, descricao_problema, created_at, ativo_id, ativo_nome, ativo_codigo, bloco_id, bloco_nome, andar, sala, os_id, justificativa_recusa, solicitante_id")
+          .select("id, codigo, status, descricao_problema, created_at, ativo_id, ativo_nome, ativo_codigo, bloco_id, bloco_nome, andar, sala, os_id, justificativa_recusa, solicitante_id, analisado_em, analisado_por_nome")
           .eq("company_id", companyId)
           .order("created_at", { ascending: false }),
         (supabase as any).from("ativos").select("id, nome, codigo_identificacao").eq("company_id", companyId).order("nome"),
@@ -582,9 +584,38 @@ export default function PortalCliente() {
                 </div>
               )}
               {viewing.created_at && (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Calendar className="h-3.5 w-3.5" />
-                  Aberto em {format(new Date(viewing.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                <div className="rounded-lg border p-3 space-y-3">
+                  <p className="text-xs font-medium text-muted-foreground">Andamento</p>
+                  <div className="space-y-2.5">
+                    <div className="flex items-start gap-2.5">
+                      <span className="h-2 w-2 rounded-full bg-info mt-1.5 shrink-0" />
+                      <div className="text-xs">
+                        <p className="font-medium text-foreground">Aberto</p>
+                        <p className="text-muted-foreground">{format(new Date(viewing.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+                      </div>
+                    </div>
+                    {viewing.analisado_em && (
+                      <div className="flex items-start gap-2.5">
+                        <span className="h-2 w-2 rounded-full bg-info mt-1.5 shrink-0" />
+                        <div className="text-xs">
+                          <p className="font-medium text-foreground">Analisado</p>
+                          <p className="text-muted-foreground">
+                            {format(new Date(viewing.analisado_em), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                            {viewing.analisado_por_nome && ` · ${viewing.analisado_por_nome}`}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    {viewing.status === "Encerrado" && viewing.analisado_em && (
+                      <div className="flex items-start gap-2.5">
+                        <span className={cn("h-2 w-2 rounded-full mt-1.5 shrink-0", viewing.os_id ? "bg-success" : "bg-destructive")} />
+                        <div className="text-xs">
+                          <p className="font-medium text-foreground">{viewing.os_id ? "Aprovado — O.S. gerada" : "Recusado"}</p>
+                          <p className="text-muted-foreground">{format(new Date(viewing.analisado_em), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
