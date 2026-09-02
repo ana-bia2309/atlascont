@@ -748,9 +748,9 @@ export default function Ativos() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              {Array.from({ length: 6 }).map((_, i) => (
+              Array.from({ length: 6 }).map((_, i) => (
                 <TableRow key={i}><TableCell colSpan={6} className="py-3"><Skeleton className="h-6 w-full" /></TableCell></TableRow>
-              ))}
+              ))
             ) : filtered.length === 0 ? (
               <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum ativo encontrado</TableCell></TableRow>
             ) : filtered.map(a => (
