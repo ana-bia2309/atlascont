@@ -30,6 +30,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Plus, Pencil, Trash2, CalendarIcon, RefreshCw, Search, X, Eye, CheckCircle2, Paperclip, Download as DownloadIcon, SlidersHorizontal, Star, StarOff, Wrench, Package, FileText } from "@/lib/icons";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import MateriaisSection, { MateriaisSectionHandle } from "@/components/os/MateriaisSection";
 import AnexosSection, { AnexosSectionHandle } from "@/components/os/AnexosSection";
@@ -1430,7 +1431,12 @@ export default function OrdensServico() {
       </div>
 
       {loading ? (
-        <p className="text-muted-foreground">Carregando...</p>
+        <div className="space-y-2">
+          <Skeleton className="h-12 w-full rounded-lg" />
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-16 w-full rounded-lg" />
+          ))}
+        </div>
       ) : filteredOrdens.length === 0 ? (
         <p className="text-muted-foreground">
           {hasActiveFilters ? "Nenhuma O.S. encontrada com os filtros aplicados." : "Nenhuma ordem de serviço cadastrada."}

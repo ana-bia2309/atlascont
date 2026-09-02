@@ -14,6 +14,7 @@ import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -481,7 +482,13 @@ export default function Chamados() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={can("painel_os.excluir") ? 8 : 7} className="text-center text-sm text-muted-foreground py-6">Carregando...</TableCell></TableRow>
+              Array.from({ length: 6 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell colSpan={can("painel_os.excluir") ? 8 : 7} className="py-3">
+                    <Skeleton className="h-6 w-full" />
+                  </TableCell>
+                </TableRow>
+              ))
             ) : filtered.length === 0 ? (
               <TableRow><TableCell colSpan={can("painel_os.excluir") ? 8 : 7} className="text-center text-sm text-muted-foreground py-8">Nenhum chamado encontrado.</TableCell></TableRow>
             ) : filtered.map(c => (
