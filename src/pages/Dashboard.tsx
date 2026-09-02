@@ -22,6 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import DashboardHealthScore from "@/components/dashboard/DashboardHealthScore";
 import DashboardSatisfactionScore from "@/components/dashboard/DashboardSatisfactionScore";
 import DashboardRiskHeatmap from "@/components/dashboard/DashboardRiskHeatmap";
+import DashboardFunilChamados from "@/components/dashboard/DashboardFunilChamados";
 import { addPdfHeader, getAtlasCompanyInfo } from "@/lib/pdfHeader";
 type AtividadeGlobal = {
   id: string;
@@ -551,6 +552,7 @@ useRealtime(
         <DashboardHealthScore rows={rawRows} ordensPreventivasCount={ordensPreventivasCount} />
         <DashboardSatisfactionScore />
         <DashboardRiskHeatmap />
+        <DashboardFunilChamados />
           {/* ── Cards principais ── */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
             {cards.map((c) => (
