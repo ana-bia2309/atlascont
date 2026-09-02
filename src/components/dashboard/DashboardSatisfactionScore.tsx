@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { TrendingUp, TrendingDown, Minus } from "@/lib/icons";
+import { useCompany } from "@/hooks/use-company";
+import { TrendingUp, TrendingDown, Minus, Star } from "@/lib/icons";
 
 type AvalRow = { nota_geral: number | null; avaliado_em: string | null };
 
@@ -104,12 +105,15 @@ function GaugeCanvas({ scorePct, color }: { scorePct: number; color: string }) {
 }
 
 export default function DashboardSatisfactionScore() {
+  const { companyId } = useCompany();
   const [rows, setRows] = useState<AvalRow[]>([]);
 
   useEffect(() => {
+    if (!companyId) return;
     (supabase as any).from("avaliacoes_os").select("nota_geral, avaliado_em").eq("status", "avaliada")
+      .eq("company_id", companyId)
       .then(({ data }: any) => setRows(data || []));
-  }, []);
+  }, [companyId]);
 
   const stats = useMemo(() => {
     const validas = rows.filter((r) => r.nota_geral != null);
@@ -129,7 +133,12 @@ export default function DashboardSatisfactionScore() {
 
     const tendencia = mediaMesAtual != null && mediaMesAnterior != null ? mediaMesAtual - mediaMesAnterior : null;
 
-    return { media, total: validas.length, tendencia };
+    const distribuicao = [5, 4, 3, 2, 1].map((estrela) => {
+      const qtd = validas.filter((r) => Math.round(r.nota_geral || 0) === estrela).length;
+      return { estrela, qtd, pct: Math.round((qtd / validas.length) * 100) };
+    });
+
+    return { media, total: validas.length, tendencia, distribuicao };
   }, [rows]);
 
   if (!stats) return null;
@@ -181,6 +190,20 @@ export default function DashboardSatisfactionScore() {
             )}
           </div>
         </div>
+      </div>
+
+      <div className="mt-4 pt-4 border-t space-y-1.5">
+        {stats.distribuicao.map(({ estrela, qtd, pct }) => (
+          <div key={estrela} className="flex items-center gap-2 text-xs">
+            <span className="flex items-center gap-0.5 w-8 shrink-0 text-muted-foreground">
+              {estrela}<Star className="h-3 w-3 fill-current" />
+            </span>
+            <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+              <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+            </div>
+            <span className="w-16 shrink-0 text-right text-muted-foreground">{pct}% ({qtd})</span>
+          </div>
+        ))}
       </div>
     </div>
   );

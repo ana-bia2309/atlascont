@@ -62,6 +62,7 @@ export default function Avaliacoes() {
   const [filterSearch, setFilterSearch] = useState("");
 
   const fetchData = useCallback(async () => {
+    if (!companyId) return;
     setLoading(true);
     try {
       const podeVerTudo = can("avaliacoes.avaliar_qualquer");
@@ -83,6 +84,7 @@ export default function Avaliacoes() {
         .from("ordens_servico")
         .select("id, codigo_os, titulo, andar, sala, bloco_id, company_id, responsible_user_id, finalizado_em, tipo_servico")
         .eq("status", "Concluída")
+        .eq("company_id", companyId)
         .order("finalizado_em", { ascending: false });
 
       if (error) throw error;

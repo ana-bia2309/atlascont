@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useCompany } from "@/hooks/use-company";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -59,6 +60,7 @@ function periodoKey(dateStr: string, periodo: Periodo) {
 export default function RelatoriosAvaliacoes() {
   const [allRows, setAllRows] = useState<AvaliacaoCompleta[]>([]);
   const [loading, setLoading] = useState(true);
+  const { companyId } = useCompany();
 
   const [filtroEmpresa, setFiltroEmpresa] = useState("todos");
   const [filtroBloco, setFiltroBloco] = useState("todos");
@@ -67,12 +69,14 @@ export default function RelatoriosAvaliacoes() {
   const [periodo, setPeriodo] = useState<Periodo>("mes");
 
   const fetchData = useCallback(async () => {
+    if (!companyId) return;
     setLoading(true);
     try {
       const { data: avals, error } = await (supabase as any)
         .from("avaliacoes_os")
         .select("os_id, nota_geral, decisao, comentarios_fiscal, sugestoes_melhoria, avaliado_por_nome, avaliado_em")
         .eq("status", "avaliada")
+        .eq("company_id", companyId)
         .order("avaliado_em", { ascending: false });
       if (error) throw error;
 
@@ -124,7 +128,7 @@ export default function RelatoriosAvaliacoes() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [companyId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
