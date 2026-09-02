@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import DashboardHealthScore from "@/components/dashboard/DashboardHealthScore";
 import DashboardSatisfactionScore from "@/components/dashboard/DashboardSatisfactionScore";
+import DashboardRiskHeatmap from "@/components/dashboard/DashboardRiskHeatmap";
 import { addPdfHeader, getAtlasCompanyInfo } from "@/lib/pdfHeader";
 type AtividadeGlobal = {
   id: string;
@@ -527,6 +528,7 @@ useRealtime(
         <>
         <DashboardHealthScore rows={rawRows} ordensPreventivasCount={ordensPreventivasCount} />
         <DashboardSatisfactionScore />
+        <DashboardRiskHeatmap />
           {/* ── Cards principais ── */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
             {cards.map((c) => (
