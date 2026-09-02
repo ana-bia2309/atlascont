@@ -53,7 +53,7 @@ function StarsDisplay({ value }: { value: number | null }) {
 
 export default function Avaliacoes() {
   const { companyId } = useCompany();
-  const { can } = usePermissions();
+  const { can, loading: permLoading } = usePermissions();
   const navigate = useNavigate();
   const [rows, setRows] = useState<AvaliacaoRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,7 +62,7 @@ export default function Avaliacoes() {
   const [filterSearch, setFilterSearch] = useState("");
 
   const fetchData = useCallback(async () => {
-    if (!companyId) return;
+    if (!companyId || permLoading) return;
     setLoading(true);
     try {
       const podeVerTudo = can("avaliacoes.avaliar_qualquer");
@@ -169,7 +169,7 @@ export default function Avaliacoes() {
     } finally {
       setLoading(false);
     }
-  }, [companyId]);
+  }, [companyId, permLoading]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
