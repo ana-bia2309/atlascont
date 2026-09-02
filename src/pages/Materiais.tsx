@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, Pencil, Trash2, RefreshCw, Search, X, Package, ChevronLeft, Hash, FileText } from "@/lib/icons";
 import * as XLSX from "xlsx";
 import { cn } from "@/lib/utils";
@@ -284,7 +285,9 @@ export default function Materiais() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <TableRow key={i}><TableCell colSpan={8} className="py-3"><Skeleton className="h-6 w-full" /></TableCell></TableRow>
+              ))}
             ) : filtered.length === 0 ? (
               <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum material encontrado</TableCell></TableRow>
             ) : filtered.map(m => (

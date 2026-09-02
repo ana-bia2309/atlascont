@@ -19,6 +19,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getOrcamentoStatusLabel, getOrcamentoStatusVariant } from "@/lib/orcamento-status";
 
 type Aprovacao = {
@@ -396,7 +397,15 @@ export default function Aprovacoes() {
 
       {/* Lista */}
       {loading ? (
-        <p className="text-slate-500 text-sm">Carregando...</p>
+        <div className="space-y-6">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="bg-white rounded-2xl border shadow-sm p-5 space-y-3">
+              <Skeleton className="h-6 w-48" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-2/3" />
+            </div>
+          ))}
+        </div>
       ) : filtered.length === 0 ? (
         <div className="bg-white p-12 text-center rounded-2xl border border-slate-100 shadow-sm">
           <FolderSearch className="h-12 w-12 text-slate-300 mx-auto mb-3" />

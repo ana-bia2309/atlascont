@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Pencil, Trash2, RefreshCw, Eye, Search, X, Box, CheckCircle2, AlertTriangle, Wrench, Tags, Upload } from "@/lib/icons";
 import * as XLSX from "xlsx";
@@ -747,7 +748,9 @@ export default function Ativos() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <TableRow key={i}><TableCell colSpan={6} className="py-3"><Skeleton className="h-6 w-full" /></TableCell></TableRow>
+              ))}
             ) : filtered.length === 0 ? (
               <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum ativo encontrado</TableCell></TableRow>
             ) : filtered.map(a => (

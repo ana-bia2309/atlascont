@@ -4,6 +4,7 @@ import { useRealtime } from "@/hooks/use-realtime";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
@@ -482,7 +483,21 @@ if (editing) {
       </div>
 
       {loading ? (
-        <p className="text-muted-foreground">Carregando...</p>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="rounded-xl border bg-card p-5 space-y-3">
+              <Skeleton className="h-5 w-32" />
+              <Skeleton className="h-[260px] w-full rounded-full max-w-[260px] mx-auto" />
+            </div>
+            <div className="rounded-xl border bg-card p-5 space-y-3">
+              <Skeleton className="h-5 w-32" />
+              <Skeleton className="h-[260px] w-full" />
+            </div>
+          </div>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full rounded-lg" />
+          ))}
+        </div>
       ) : filtered.length === 0 && !hasActiveFilter ? (
         <div className="rounded-lg border border-dashed bg-card p-12 text-center">
           <DollarSign className="mx-auto h-10 w-10 text-muted-foreground/50 mb-3" />
