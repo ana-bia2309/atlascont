@@ -22,3 +22,14 @@ export function getOrcamentoStatusBadgeClass(status: string | null | undefined):
     default: return "bg-amber-50 text-amber-700 border-amber-200";
   }
 }
+// Variant do <Badge> do design system — mesmo vocabulário de cor usado em
+// Aprovações, OS, Chamados etc. Use este em telas novas.
+export function getOrcamentoStatusVariant(
+  status: string | null | undefined,
+): "success" | "destructive" | "warning" {
+  switch (status) {
+    case "aprovado": return "success";
+    case "reprovado": return "destructive";
+    default: return "warning";
+  }
+}

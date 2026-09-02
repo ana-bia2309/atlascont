@@ -43,9 +43,16 @@ export default {
           DEFAULT: "hsl(var(--popover))",
           foreground: "hsl(var(--popover-foreground))",
         },
-        card: {
+               card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
+        },
+        success: "hsl(var(--success))",
+        warning: "hsl(var(--warning))",
+        info: "hsl(var(--info))",
+        navy: {
+          DEFAULT: "hsl(var(--navy))",
+          mid: "hsl(var(--navy-mid))",
         },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",

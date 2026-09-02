@@ -33,6 +33,12 @@
     --sidebar-ring: 243 75% 59%;
     --success: 160 84% 39%;
     --warning: 38 92% 50%;
+        --info: 217 91% 60%;
+
+    /* Paleta "Ardósia com toque violeta" dos relatórios PDF — tokens disponíveis
+       para uso pontual (ex.: um card ou destaque), sem aplicar na sidebar. */
+    --navy: 247 27% 28%;
+    --navy-mid: 249 21% 49%;
   }
 
   .dark {
