@@ -105,9 +105,9 @@ const TIPO_SERVICO_OPTIONS = ["Elétrica", "Hidráulica", "Civil", "Climatizaç�
 const NATUREZA_SERVICO_OPTIONS = ["Instalação", "Manutenção"];
 const PRIORIDADE_COLORS: Record<string, string> = {
   "Baixa": "bg-zinc-100 text-zinc-600 border-zinc-200",
-  "Média": "bg-blue-50 text-blue-700 border-blue-200",
-  "Alta": "bg-amber-50 text-amber-700 border-amber-200",
-  "Crítica": "bg-red-50 text-red-700 border-red-200",
+  "Média": "bg-info/10 text-info border-info/20",
+  "Alta": "bg-warning/10 text-warning border-warning/20",
+  "Crítica": "bg-destructive/10 text-destructive border-destructive/20",
 };
 
 const PRIORIDADE_ICONS: Record<string, string> = {
@@ -150,8 +150,8 @@ function AtivoStatusBadge({ ativoId, nome }: { ativoId: string; nome: string }) 
       <span className="font-medium">{nome}</span>
       {status && (
         <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${status === "indisponivel"
-          ? "bg-red-50 text-red-700 border-red-200"
-          : "bg-emerald-50 text-emerald-700 border-emerald-200"
+          ? "bg-destructive/10 text-destructive border-destructive/20"
+          : "bg-success/10 text-success border-success/20"
           }`}>
           {status === "indisponivel" ? "🔴 Indisponível" : "🟢 Disponível"}
         </span>
@@ -1609,9 +1609,9 @@ export default function OrdensServico() {
                         {(os as any).orcamento_status && (
                           <span className={cn(
                             "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border",
-                            (os as any).orcamento_status === "aprovado" && "bg-emerald-50 text-emerald-700 border-emerald-200",
-                            (os as any).orcamento_status === "reprovado" && "bg-red-50 text-red-700 border-red-200",
-                            (os as any).orcamento_status === "pendente" && "bg-amber-50 text-amber-700 border-amber-200",
+                            (os as any).orcamento_status === "aprovado" && "bg-success/10 text-success border-success/20",
+                            (os as any).orcamento_status === "reprovado" && "bg-destructive/10 text-destructive border-destructive/20",
+                            (os as any).orcamento_status === "pendente" && "bg-warning/10 text-warning border-warning/20",
                           )}>
                             {(os as any).orcamento_status === "aprovado" && "✅ Orç. Aprovado"}
                             {(os as any).orcamento_status === "reprovado" && "❌ Orç. Reprovado"}
@@ -1745,7 +1745,7 @@ export default function OrdensServico() {
             <div className="flex-1 overflow-y-auto px-8 py-6 space-y-5">
 
               {isTecnico && editing && (
-                <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-md p-2">
+                <p className="text-xs text-warning bg-warning/10 border border-warning/20 rounded-md p-2">
                   Técnico: você pode alterar apenas o status e adicionar fotos.
                 </p>
               )}

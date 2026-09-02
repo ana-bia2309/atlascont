@@ -35,9 +35,9 @@ type Boleto = {
 };
 
 const STATUS_OPTIONS = [
-  { value: "pendente", label: "🟡 Pendente", color: "bg-amber-50 text-amber-700 border-amber-200" },
-  { value: "pago", label: "✅ Pago", color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-  { value: "vencido", label: "🔴 Vencido", color: "bg-red-50 text-red-700 border-red-200" },
+  { value: "pendente", label: "🟡 Pendente", color: "bg-warning/10 text-warning border-warning/20" },
+  { value: "pago", label: "✅ Pago", color: "bg-success/10 text-success border-success/20" },
+  { value: "vencido", label: "🔴 Vencido", color: "bg-destructive/10 text-destructive border-destructive/20" },
   { value: "cancelado", label: "⛔ Cancelado", color: "bg-zinc-100 text-zinc-600 border-zinc-200" },
 ];
 

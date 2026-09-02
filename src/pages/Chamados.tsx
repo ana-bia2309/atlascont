@@ -56,9 +56,9 @@ const STATUS_ENCERRADO = "Encerrado";
 
 const statusColor = (s: string | null) => {
   switch (s) {
-    case "Concluído": return "bg-emerald-500/15 text-emerald-700 border-emerald-500/30";
-    case "Em andamento": return "bg-amber-500/15 text-amber-700 border-amber-500/30";
-    case "Aberto": return "bg-sky-500/15 text-sky-700 border-sky-500/30";
+    case "Concluído": return "bg-success/15 text-success border-success/30";
+    case "Em andamento": return "bg-warning/15 text-warning border-warning/30";
+    case "Aberto": return "bg-info/15 text-info border-info/30";
     case "Encerrado": return "bg-zinc-200 text-zinc-700 border-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700";
     default: return "bg-muted text-muted-foreground border-border";
   }

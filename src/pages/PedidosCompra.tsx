@@ -52,11 +52,11 @@ type Profile = {
 };
 
 const STATUS_OPTIONS = [
-  { value: "pendente", label: "🟡 Pendente", color: "bg-amber-50 text-amber-700 border-amber-200" },
-  { value: "em_compra", label: "🔵 Em Compra", color: "bg-blue-50 text-blue-700 border-blue-200" },
-  { value: "comprado", label: "🟢 Comprado", color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-  { value: "recebido", label: "✅ Armazenado", color: "bg-green-50 text-green-700 border-green-200" },
-  { value: "cancelado", label: "🔴 Cancelado", color: "bg-red-50 text-red-700 border-red-200" },
+  { value: "pendente", label: "🟡 Pendente", color: "bg-warning/10 text-warning border-warning/20" },
+  { value: "em_compra", label: "🔵 Em Compra", color: "bg-info/10 text-info border-info/20" },
+  { value: "comprado", label: "🟢 Comprado", color: "bg-success/10 text-success border-success/20" },
+  { value: "recebido", label: "✅ Armazenado", color: "bg-success/10 text-success border-success/20" },
+  { value: "cancelado", label: "🔴 Cancelado", color: "bg-destructive/10 text-destructive border-destructive/20" },
 ];
 
 export default function PedidosCompra() {

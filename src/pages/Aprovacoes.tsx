@@ -18,6 +18,8 @@ import {
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { getOrcamentoStatusLabel, getOrcamentoStatusVariant } from "@/lib/orcamento-status";
 
 type Aprovacao = {
   id: string;
@@ -405,15 +407,15 @@ export default function Aprovacoes() {
           {filtered.map((a) => {
             const totalCalc = a.materiais.reduce((s, m) => s + Number(m.custo_total_item), 0);
             const statusKey = a.orcamento_status || "pendente";
+            // Label mantido igual ao original ("Pendente"), diferente do label
+            // padrão de getOrcamentoStatusLabel ("Em Análise") usado no PDF —
+            // só a cor foi unificada com o resto do sistema, o texto não mudou.
             const statusLabel = statusKey === "aprovado" ? "Aprovado" : statusKey === "reprovado" ? "Reprovado" : "Pendente";
-            const statusBadgeClass =
-              statusKey === "aprovado" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
-              statusKey === "reprovado" ? "bg-rose-50 text-rose-700 border-rose-200" :
-              "bg-amber-50 text-amber-700 border-amber-200";
+            const statusVariant = getOrcamentoStatusVariant(a.orcamento_status);
             const cardBorderClass =
-              statusKey === "aprovado" ? "border-emerald-100 hover:border-emerald-200" :
-              statusKey === "reprovado" ? "border-rose-100 hover:border-rose-200" :
-              "border-amber-100 hover:border-amber-200";
+              statusKey === "aprovado" ? "border-success/30 hover:border-success/50" :
+              statusKey === "reprovado" ? "border-destructive/30 hover:border-destructive/50" :
+              "border-warning/30 hover:border-warning/50";
 
             return (
               <div key={a.id} className={cn("bg-white rounded-2xl border shadow-sm overflow-hidden hover:shadow-md transition-all duration-200", cardBorderClass)}>
@@ -436,9 +438,9 @@ export default function Aprovacoes() {
                         </div>
                       )}
 
-                      <span className={cn("px-3 py-1 rounded-full text-xs font-bold border uppercase tracking-wider", statusBadgeClass)}>
+                      <Badge variant={statusVariant} className="rounded-full text-xs font-bold uppercase tracking-wider px-3 py-1">
                         {statusLabel}
-                      </span>
+                      </Badge>
                     </div>
 
                     <div className="flex flex-col items-start sm:items-end gap-2 text-sm text-slate-500">
