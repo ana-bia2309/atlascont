@@ -13,6 +13,7 @@ import {
   FileCheck2, RefreshCw, Search, Clock, CheckCircle2, XCircle,
   Layers, ExternalLink, Building2, MapPin, ShieldCheck,
   CalendarIcon, Info, FolderSearch, Filter, X, FileText,
+  Download, ClipboardList, ArrowRight,
 } from "@/lib/icons";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -40,6 +41,10 @@ type Aprovacao = {
     observacoes_fiscais?: string | null;
     aprovado_por_nome?: string | null;
     aprovado_em?: string | null;
+    observacoes?: string | null;
+    data_inicio?: string | null;
+    data_termino?: string | null;
+    custo_total?: number | null;
   } | null;
   materiais: {
     id: string;
@@ -114,7 +119,7 @@ export default function Aprovacoes() {
     const enriched = await Promise.all((notifs || []).map(async (n: any) => {
       const [osRes, matRes] = await Promise.all([
         (supabase as any).from("ordens_servico")
-          .select("codigo_os, status, bloco_id, andar, sala, numero_os_externo, equipamentos, responsible_user_id, observacoes_fiscais, orcamento_status, aprovado_por_nome, aprovado_em")
+          .select("codigo_os, status, bloco_id, andar, sala, numero_os_externo, equipamentos, responsible_user_id, observacoes_fiscais, orcamento_status, aprovado_por_nome, aprovado_em, observacoes, data_inicio, data_termino, custo_total")
           .eq("id", n.os_id).single(),
         (supabase as any).from("materiais_os").select("*").eq("os_id", n.os_id),
       ]);
@@ -212,6 +217,31 @@ export default function Aprovacoes() {
       toast({ title: "Erro ao processar", description: e.message, variant: "destructive" });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const downloadOrcamentoPdf = async (a: Aprovacao) => {
+    toast({ title: "Gerando PDF..." });
+    try {
+      const { generateOrcamentoPDF } = await import("@/lib/generateOrcamentoPDF");
+      await generateOrcamentoPDF({
+        codigo_os: a.os?.codigo_os || null,
+        orcamento_status: a.orcamento_status || null,
+        bloco_nome: a.os?.bloco_nome || null,
+        andar: a.os?.andar || null,
+        sala: a.os?.sala || null,
+        objeto: a.os?.observacoes || null,
+        data_inicio: a.os?.data_inicio || null,
+        data_termino: a.os?.data_termino || null,
+        custo_total: a.os?.custo_total ?? null,
+        materiais: a.materiais,
+        aprovado_por_nome: a.os?.aprovado_por_nome || null,
+        aprovado_em: a.os?.aprovado_em || null,
+        observacoes_fiscais: a.os?.observacoes_fiscais || null,
+      });
+      toast({ title: "PDF gerado!" });
+    } catch (err: any) {
+      toast({ title: "Erro ao gerar PDF", description: err.message, variant: "destructive" });
     }
   };
 
@@ -421,14 +451,24 @@ export default function Aprovacoes() {
                           R$ {totalCalc.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </strong>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setMemorialAprovacao(a)}
-                        className="h-7 gap-1.5 text-xs rounded-lg border-slate-200 text-slate-600 hover:bg-slate-50"
-                      >
-                        <FileText className="h-3.5 w-3.5" /> Ver Memorial de Cálculo
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setMemorialAprovacao(a)}
+                          className="h-7 gap-1.5 text-xs rounded-lg border-slate-200 text-slate-600 hover:bg-slate-50"
+                        >
+                          <FileText className="h-3.5 w-3.5" /> Ver Memorial de Cálculo
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => downloadOrcamentoPdf(a)}
+                          className="h-7 gap-1.5 text-xs rounded-lg border-slate-200 text-slate-600 hover:bg-slate-50"
+                        >
+                          <Download className="h-3.5 w-3.5" /> Baixar PDF
+                        </Button>
+                      </div>
                     </div>
                   </div>
 
@@ -437,7 +477,7 @@ export default function Aprovacoes() {
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="p-1.5 bg-slate-100 text-slate-500 rounded-lg"><Building2 className="h-4 w-4" /></div>
                       <div className="truncate">
-                        <p className="text-[10px] uppercase font-bold text-slate-400 leading-none mb-0.5">Unidade</p>
+                        <p className="text-[10px] uppercase font-bold text-slate-400 leading-none mb-0.5">Unidade de Manutenção</p>
                         <p className="font-semibold text-slate-700 truncate" title={a.os?.bloco_nome || ""}>{a.os?.bloco_nome || "—"}</p>
                       </div>
                     </div>
@@ -463,6 +503,33 @@ export default function Aprovacoes() {
                       </div>
                     </div>
                   </div>
+
+                  {(a.os?.observacoes || a.os?.data_inicio || a.os?.data_termino) && (
+                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3 bg-white p-3.5 rounded-xl border border-slate-100 shadow-sm text-sm">
+                      {a.os?.observacoes && (
+                        <div className="sm:col-span-2 flex items-start gap-2.5 min-w-0">
+                          <div className="p-1.5 bg-slate-100 text-slate-500 rounded-lg mt-0.5"><ClipboardList className="h-4 w-4" /></div>
+                          <div className="min-w-0">
+                            <p className="text-[10px] uppercase font-bold text-slate-400 leading-none mb-0.5">Objeto</p>
+                            <p className="font-medium text-slate-700 text-sm">{a.os.observacoes}</p>
+                          </div>
+                        </div>
+                      )}
+                      {(a.os?.data_inicio || a.os?.data_termino) && (
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="p-1.5 bg-slate-100 text-slate-500 rounded-lg"><CalendarIcon className="h-4 w-4" /></div>
+                          <div className="min-w-0">
+                            <p className="text-[10px] uppercase font-bold text-slate-400 leading-none mb-0.5">Prazo</p>
+                            <p className="font-semibold text-slate-700 text-sm flex items-center gap-1.5 flex-wrap">
+                              <span>{a.os?.data_inicio ? format(new Date(a.os.data_inicio), "dd/MM/yyyy") : "—"}</span>
+                              <ArrowRight className="h-3 w-3 text-slate-400" />
+                              <span>{a.os?.data_termino ? format(new Date(a.os.data_termino), "dd/MM/yyyy") : "—"}</span>
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {a.mensagem && (
                     <div className="mt-3 flex items-center gap-2.5 text-xs text-slate-600 bg-slate-100/50 p-2.5 rounded-lg border border-slate-100">
