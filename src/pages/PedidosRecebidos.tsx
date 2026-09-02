@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { RefreshCw, Search, ShoppingCart, Package, Clock, Filter, Trash2, Eye, FileText, X } from "@/lib/icons";
+import { RefreshCw, Search, ShoppingCart, Package, PackageCheck, Clock, Filter, Trash2, Eye, FileText, X } from "@/lib/icons";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -33,6 +33,9 @@ type Pedido = {
   created_at: string;
   solicitante_nome?: string;
   responsavel_nome?: string;
+  estoque_entrada_por?: string | null;
+  estoque_entrada_em?: string | null;
+  estoque_entrada_por_nome?: string | null;
   itens: PedidoItem[];
 };
 
@@ -40,7 +43,7 @@ const STATUS_OPTIONS = [
   { value: "pendente", label: "🟡 Pendente", color: "bg-amber-50 text-amber-700 border-amber-200" },
   { value: "em_compra", label: "🔵 Em Compra", color: "bg-blue-50 text-blue-700 border-blue-200" },
   { value: "comprado", label: "🟢 Comprado", color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-  { value: "recebido", label: "✅ Recebido", color: "bg-green-50 text-green-700 border-green-200" },
+  { value: "recebido", label: "✅ Armazenado", color: "bg-green-50 text-green-700 border-green-200" },
   { value: "cancelado", label: "🔴 Cancelado", color: "bg-red-50 text-red-700 border-red-200" },
 ];
 
@@ -60,6 +63,8 @@ export default function PedidosRecebidos() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerPedido, setDrawerPedido] = useState<Pedido | null>(null);
   const [companyNome, setCompanyNome] = useState("Atlas Control");
+  const [entradaPedido, setEntradaPedido] = useState<Pedido | null>(null);
+  const [entradaSaving, setEntradaSaving] = useState(false);
 
   useEffect(() => {
     if (!companyId) return;
@@ -84,6 +89,7 @@ export default function PedidosRecebidos() {
         ...p,
         solicitante_nome: profilesMap[p.solicitante_id] || "—",
         responsavel_nome: profilesMap[p.responsavel_id] || "—",
+        estoque_entrada_por_nome: p.estoque_entrada_por ? (profilesMap[p.estoque_entrada_por] || "—") : null,
         itens: p.pedidos_compra_itens || [],
       })));
     } finally {
@@ -128,6 +134,32 @@ export default function PedidosRecebidos() {
       toast({ title: "Erro ao atualizar", description: e.message, variant: "destructive" });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDarEntradaEstoque = async () => {
+    if (!entradaPedido) return;
+    setEntradaSaving(true);
+    try {
+      const { data, error } = await (supabase as any).rpc("dar_entrada_estoque_pedido", {
+        p_pedido_id: entradaPedido.id,
+      });
+      if (error) throw error;
+      toast({
+        title: "Entrada no estoque realizada com sucesso.",
+        description: `O pedido ${data?.numero || entradaPedido.numero} foi atualizado para "Armazenado".`,
+      });
+      setEntradaPedido(null);
+      if (drawerPedido?.id === entradaPedido.id) setDrawerOpen(false);
+      fetchData();
+    } catch (e: any) {
+      toast({
+        title: "Não foi possível realizar a entrada no estoque. Nenhum item foi alterado.",
+        description: e.message,
+        variant: "destructive",
+      });
+    } finally {
+      setEntradaSaving(false);
     }
   };
 
@@ -248,7 +280,7 @@ ${p.observacoes ? `<div class="section"><div class="section-title">Observações
           <CardContent className="px-4 pb-4"><span className="text-3xl font-bold text-amber-700">{stats.pendentes}</span></CardContent></Card>
         <Card className="border-blue-200 bg-blue-50/30"><CardHeader className="pb-1 pt-4 px-4"><CardTitle className="text-xs text-blue-600">🔵 Em Compra</CardTitle></CardHeader>
           <CardContent className="px-4 pb-4"><span className="text-3xl font-bold text-blue-700">{stats.em_compra}</span></CardContent></Card>
-        <Card className="border-emerald-200 bg-emerald-50/30"><CardHeader className="pb-1 pt-4 px-4"><CardTitle className="text-xs text-emerald-600">✅ Recebidos</CardTitle></CardHeader>
+        <Card className="border-emerald-200 bg-emerald-50/30"><CardHeader className="pb-1 pt-4 px-4"><CardTitle className="text-xs text-emerald-600">✅ Armazenados</CardTitle></CardHeader>
           <CardContent className="px-4 pb-4"><span className="text-3xl font-bold text-emerald-700">{stats.recebidos}</span></CardContent></Card>
       </div>
 
@@ -313,6 +345,16 @@ ${p.observacoes ? `<div class="section"><div class="section-title">Observações
                       <div className="flex justify-end gap-1">
                         <Button variant="ghost" size="icon" className="h-7 w-7" title="Visualizar" onClick={() => { setDrawerPedido(p); setDrawerOpen(true); }}><Eye className="h-3.5 w-3.5" /></Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7" title="Baixar PDF" onClick={() => gerarPDF(p)}><FileText className="h-3.5 w-3.5" /></Button>
+                        {p.status === "comprado" ? (
+                          <Button variant="ghost" size="sm" className="h-7 text-xs text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 gap-1"
+                            onClick={() => setEntradaPedido(p)}>
+                            <PackageCheck className="h-3.5 w-3.5" /> Dar Entrada no Estoque
+                          </Button>
+                        ) : p.status === "recebido" ? (
+                          <span className="text-xs text-muted-foreground px-2 flex items-center gap-1">
+                            <PackageCheck className="h-3.5 w-3.5" /> Entrada realizada
+                          </span>
+                        ) : null}
                         <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setSelected(p); setNovoStatus(p.status); setStatusDialog(true); }}>Atualizar Status</Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" title="Excluir"
                           onClick={() => { setConfirmDeleteId(p.id); setConfirmDeleteNumero(p.numero || `PED-${p.id.slice(0,6).toUpperCase()}`); }}>
@@ -349,13 +391,26 @@ ${p.observacoes ? `<div class="section"><div class="section-title">Observações
               </div>
             </div>
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 {getStatusBadge(drawerPedido.status)}
-                <Button variant="outline" size="sm" className="h-7 text-xs"
-                  onClick={() => { setSelected(drawerPedido); setNovoStatus(drawerPedido.status); setStatusDialog(true); }}>
-                  Atualizar Status
-                </Button>
+                <div className="flex items-center gap-2">
+                  {drawerPedido.status === "comprado" && (
+                    <Button variant="outline" size="sm" className="h-7 text-xs text-emerald-700 border-emerald-200 hover:bg-emerald-50 gap-1"
+                      onClick={() => setEntradaPedido(drawerPedido)}>
+                      <PackageCheck className="h-3.5 w-3.5" /> Dar Entrada no Estoque
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" className="h-7 text-xs"
+                    onClick={() => { setSelected(drawerPedido); setNovoStatus(drawerPedido.status); setStatusDialog(true); }}>
+                    Atualizar Status
+                  </Button>
+                </div>
               </div>
+              {drawerPedido.status === "recebido" && drawerPedido.estoque_entrada_em && (
+                <div className="rounded-md bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-800">
+                  Entrada no estoque realizada{drawerPedido.estoque_entrada_por_nome ? ` por ${drawerPedido.estoque_entrada_por_nome}` : ""} em {format(new Date(drawerPedido.estoque_entrada_em), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}.
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1"><p className="text-xs text-muted-foreground">Solicitante</p><p className="text-sm font-medium">{drawerPedido.solicitante_nome}</p></div>
                 <div className="space-y-1"><p className="text-xs text-muted-foreground">Responsável</p><p className="text-sm font-medium">{drawerPedido.responsavel_nome}</p></div>
@@ -409,6 +464,29 @@ ${p.observacoes ? `<div class="section"><div class="section-title">Observações
           <DialogFooter>
             <Button variant="outline" onClick={() => setStatusDialog(false)}>Cancelar</Button>
             <Button onClick={handleUpdateStatus} disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Dar Entrada no Estoque */}
+      <Dialog open={!!entradaPedido} onOpenChange={o => { if (!o && !entradaSaving) setEntradaPedido(null); }}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader><DialogTitle>Dar entrada no estoque</DialogTitle></DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">Deseja realmente dar entrada no estoque dos itens deste pedido?</p>
+            <div className="rounded-md bg-muted/50 border p-3 text-sm space-y-1">
+              <p><span className="text-muted-foreground">Pedido:</span> <strong className="font-mono">{entradaPedido?.numero}</strong></p>
+              <p><span className="text-muted-foreground">Itens:</span> <strong>{(entradaPedido?.itens || []).length} item(s)</strong></p>
+            </div>
+            <div className="rounded-md bg-blue-50 border border-blue-200 p-3 text-xs text-blue-800">
+              O estoque de cada material será atualizado com a quantidade do pedido e o status mudará para "Armazenado".
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEntradaPedido(null)} disabled={entradaSaving}>Cancelar</Button>
+            <Button onClick={handleDarEntradaEstoque} disabled={entradaSaving} className="bg-emerald-600 hover:bg-emerald-700">
+              {entradaSaving ? "Processando..." : "Confirmar entrada"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
