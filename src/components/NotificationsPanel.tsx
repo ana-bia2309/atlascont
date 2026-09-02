@@ -95,7 +95,6 @@ export function NotificationsPanel() {
       .from("os_notifications")
       .select("id, os_id, read, created_at")
       .eq("user_id", profileId)
-      .eq("company_id", profileData.company_id)
       .order("created_at", { ascending: false })
       .limit(20);
     if (!data) return;
@@ -137,8 +136,8 @@ export function NotificationsPanel() {
       (supabase as any).from("ordens_servico").select("id, codigo_os, prazo, status")
         .eq("company_id", companyId).not("status", "in", "(Concluída,Cancelada,Encerrado)")
         .lt("prazo", hoje).not("prazo", "is", null).limit(10),
-      (supabase as any).from("os_notifications").select("id, os_id, ordens_servico(codigo_os, orcamento_status)")
-        .eq("company_id", companyId).limit(20),
+      (supabase as any).from("os_notifications").select("id, os_id, ordens_servico!inner(codigo_os, orcamento_status)")
+        .eq("ordens_servico.company_id", companyId).limit(20),
       (supabase as any).from("ordens_preventivas").select("id, codigo_op, data_inicio")
         .eq("company_id", companyId).not("status", "in", "(Concluída,Cancelada)")
         .lt("data_inicio", hoje).not("data_inicio", "is", null).limit(10),

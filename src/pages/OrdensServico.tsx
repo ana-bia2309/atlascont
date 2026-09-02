@@ -1439,7 +1439,7 @@ export default function OrdensServico() {
         <div className="rounded-lg overflow-auto">
           <Table className="border-separate border-spacing-y-2">
             <TableHeader>
-              <TableRow>
+              <TableRow className="bg-muted/70 hover:bg-muted/70 border-b-0 [&>th]:border-y [&>th]:border-border [&>th:first-child]:border-l [&>th:first-child]:rounded-l-lg [&>th:last-child]:border-r [&>th:last-child]:rounded-r-lg">
                 {can("painel_os.excluir") && !isTecnico && (
                   <TableHead className="w-[40px]">
                     <Checkbox
