@@ -17,9 +17,9 @@ function getGreeting() {
   return "Boa noite. Os serviços operam normalmente.";
 }
 
-// ── Gradiente de texto reutilizável (Atlas blue → purple) ────────────────────
+// ── Gradiente de texto reutilizável (Atlas navy → indigo) ────────────────────
 const gradientTextStyle: React.CSSProperties = {
-  background: "linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%)",
+  background: "linear-gradient(135deg, #5B4FE0 0%, #3A355C 100%)",
   WebkitBackgroundClip: "text",
   WebkitTextFillColor: "transparent",
   backgroundClip: "text",
@@ -112,8 +112,8 @@ export default function Login() {
                 }}
               />
               <div className="flex items-center gap-3">
-                <div className="h-[2px] w-8 bg-[#3B82F6]" />
-                <span className="font-mono text-xs font-semibold uppercase tracking-[0.25em] text-[#3B82F6] sm:text-sm">
+                <div className="h-[2px] w-8 bg-[#5B4FE0]" />
+                <span className="font-mono text-xs font-semibold uppercase tracking-[0.25em] text-[#5B4FE0] sm:text-sm">
                   Engenharia &amp; Operações
                 </span>
               </div>
@@ -149,7 +149,7 @@ export default function Login() {
             }}
           >
             {/* Cabeçalho + saudação dinâmica */}
-            <div className="mb-6 flex items-center gap-2 text-sm font-medium text-[#8B5CF6]">
+            <div className="mb-6 flex items-center gap-2 text-sm font-medium text-[#6C6498]">
               <Sparkles className="h-4 w-4 shrink-0" />
               <span>{getGreeting()}</span>
             </div>
@@ -254,7 +254,7 @@ export default function Login() {
                     <button
                       type="button"
                       onClick={() => setForgotMode(true)}
-                      className="text-xs font-medium text-[#3B82F6] transition-colors hover:text-[#8B5CF6]"
+                      className="text-xs font-medium text-[#5B4FE0] transition-colors hover:text-[#6C6498]"
                     >
                       Recuperar
                     </button>
@@ -327,12 +327,12 @@ export default function Login() {
         }
         .input-elegant:focus {
           background: #ffffff;
-          border-color: #3B82F6;
-          box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+          border-color: #5B4FE0;
+          box-shadow: 0 0 0 4px rgba(91, 79, 224, 0.12);
           outline: none;
         }
         .btn-gradient {
-          background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
+          background: linear-gradient(135deg, #5B4FE0 0%, #3A355C 100%);
           background-size: 200% auto;
           transition: 0.4s ease;
         }

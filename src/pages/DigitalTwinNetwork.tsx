@@ -29,9 +29,10 @@ export default function DigitalTwinNetwork({ className = "" }: { className?: str
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
     // Cores alinhadas à identidade visual do Atlas Control
-    const colorBlue = new THREE.Color("#3B82F6");
-    const colorPurple = new THREE.Color("#8B5CF6");
-    const colorLight = new THREE.Color("#94A3B8");
+    // (mesma paleta "Ardósia com toque violeta" usada nos relatórios PDF e no restante do app)
+    const colorBlue = new THREE.Color("#5B4FE0"); // indigo primário
+    const colorPurple = new THREE.Color("#6C6498"); // navy-mid
+    const colorLight = new THREE.Color("#9A93C4"); // navy-mid clareado, pra manter contraste no fundo claro do login
 
     // ── Nós (infraestrutura) ────────────────────────────────────────────────
     const nodeCount = 400;
@@ -95,7 +96,7 @@ export default function DigitalTwinNetwork({ className = "" }: { className?: str
 
     // ── Linhas de conexão ────────────────────────────────────────────────────
     const lineMaterial = new THREE.LineBasicMaterial({
-      color: 0x94a3b8,
+      color: 0x6c6498,
       transparent: true,
       opacity: 0.15,
     });
@@ -126,7 +127,7 @@ export default function DigitalTwinNetwork({ className = "" }: { className?: str
     // ── Pacotes de dados (luzes viajando pelas conexões) ────────────────────
     const packetCount = 40;
     const packetGeo = new THREE.SphereGeometry(0.15, 8, 8);
-    const packetMat = new THREE.MeshBasicMaterial({ color: 0x3b82f6 });
+    const packetMat = new THREE.MeshBasicMaterial({ color: 0x5b4fe0 });
     const packets: {
       mesh: THREE.Mesh;
       currentNode: number;
