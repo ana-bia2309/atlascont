@@ -438,7 +438,7 @@ useRealtime(
   const cards = [
     { label: "Total de O.S.", value: stats.total, icon: ClipboardList, color: "from-blue-50 to-white border-blue-200", iconColor: "text-blue-600", to: "/ordens-servico" },
     { label: "Em Aberto", value: openCount, icon: Play, color: "from-sky-50 to-white border-sky-200", iconColor: "text-sky-600", to: "/ordens-servico" },
-    { label: "Atrasadas", value: atrasadas, icon: AlertTriangle, color: "from-red-50 to-white border-red-200", iconColor: "text-red-600", to: "/ordens-servico?atrasada=true" },
+    { label: "Atrasadas", value: atrasadas, icon: AlertTriangle, color: "from-red-50 to-white border-red-200", iconColor: "text-red-600", to: "/ordens-servico?atrasada=true", variant: "alert" as const },
     { label: "Concluídas no Mês", value: concluidasMes, icon: CheckCircle2, color: "from-emerald-50 to-white border-emerald-200", iconColor: "text-emerald-600", to: "/ordens-servico?status=Concluída" },
     { label: "Preventivas", value: preventivaCount, icon: ShieldCheck, color: "from-indigo-50 to-white border-indigo-200", iconColor: "text-indigo-600", to: "/ordens-preventivas" },
     { label: "Corretivas", value: corretivaCount, icon: Wrench, color: "from-orange-50 to-white border-orange-200", iconColor: "text-orange-600", to: "/ordens-servico?origem=Corretiva" },
@@ -559,19 +559,27 @@ useRealtime(
         <DashboardFunilChamados />
           {/* ── Cards principais ── */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
-            {cards.map((c) => (
-              <div
-                key={c.label}
-                onClick={() => navigate(c.to)}
-                className={`rounded-xl border bg-gradient-to-br ${c.color} p-4 flex flex-col gap-2 cursor-pointer hover:scale-[1.03] hover:shadow-lg transition-all duration-200`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">{c.label}</span>
-                  <c.icon className={`h-4 w-4 ${c.iconColor}`} />
+            {cards.map((c) => {
+              const isAlert = "variant" in c && c.variant === "alert" && Number(c.value) > 0;
+              return (
+                <div
+                  key={c.label}
+                  onClick={() => navigate(c.to)}
+                  className={cn(
+                    "rounded-xl border p-4 flex flex-col gap-2 cursor-pointer transition-all duration-200",
+                    isAlert
+                      ? "bg-red-600 border-red-600 shadow-md hover:shadow-lg hover:scale-[1.03]"
+                      : `bg-gradient-to-br ${c.color} hover:scale-[1.03] hover:shadow-lg`
+                  )}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className={cn("text-xs", isAlert ? "text-red-50" : "text-muted-foreground")}>{c.label}</span>
+                    <c.icon className={cn("h-4 w-4", isAlert ? "text-white" : c.iconColor)} />
+                  </div>
+                  <span className={cn("text-2xl font-bold tracking-tight", isAlert && "text-white")}>{c.value}</span>
                 </div>
-                <span className="text-2xl font-bold tracking-tight">{c.value}</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* ── Indicadores de desempenho ── */}
