@@ -109,6 +109,7 @@ const relatoriosGroup: MenuGroup = {
     { title: "Materiais por O.S.", url: "/relatorio-materiais-os", icon: Package, iconColor: "#8B5CF6" },
     { title: "Consolidado de Materiais", url: "/relatorio-consolidado-materiais", icon: TrendingUp, iconColor: "#F59E0B" },
     { title: "Relatório de Avaliações", url: "/relatorio-avaliacoes", icon: Star, iconColor: "#F59E0B", requiredPermission: "avaliacoes.visualizar" },
+    { title: "Desempenho por Técnico", url: "/relatorio-tecnicos", icon: User, iconColor: "#0EA5E9" },
   ],
 };
 
@@ -140,8 +141,10 @@ const configGroup: MenuGroup = {
   items: [
     { title: "Definições de SLA", url: "/sla", icon: Timer, requiredPermission: "sla.visualizar" },
     { title: "Tipos de Sistema", url: "/tipos-sistema", icon: Settings2, requiredPermission: "sla.visualizar" },
+    { title: "Tipos de Atividade", url: "/tipos-atividade", icon: Settings2 },
     { title: "Campos Obrigatórios O.S.", url: "/os-campos-config", icon: Settings2 },
     { title: "Regras de Prioridade", url: "/regras-prioridade", icon: Timer },
+    { title: "Modelos de Checklist", url: "/checklist-templates", icon: ListChecks, requiredPermission: "checklist_templates.visualizar" },
   ],
 };
 

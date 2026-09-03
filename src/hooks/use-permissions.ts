@@ -36,6 +36,12 @@ export const PERMISSION_SCREENS = [
 },
 
 {
+  screen: "checklist_templates",
+  label: "Modelos de Checklist",
+  actions: ["visualizar", "criar", "editar", "excluir"],
+},
+
+{
   screen: "ordens_preventivas",
   label: "Ordens Preventivas",
   actions: ["visualizar", "criar", "editar", "excluir"],
