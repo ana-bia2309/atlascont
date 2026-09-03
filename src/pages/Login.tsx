@@ -18,8 +18,12 @@ function getGreeting() {
 }
 
 // ── Gradiente de texto reutilizável (Atlas navy → indigo) ────────────────────
+// #5B4FE0 é um acento intencionalmente mais claro que --primary, só usado
+// aqui na tela de login para o brilho/glow do hero — não tem equivalente no
+// design system principal. O ponto de chegada do gradiente (--primary) e o
+// --navy-mid abaixo são os mesmos tokens usados no resto do app.
 const gradientTextStyle: React.CSSProperties = {
-  background: "linear-gradient(135deg, #5B4FE0 0%, #3A355C 100%)",
+  background: "linear-gradient(135deg, #5B4FE0 0%, hsl(var(--primary)) 100%)",
   WebkitBackgroundClip: "text",
   WebkitTextFillColor: "transparent",
   backgroundClip: "text",
@@ -149,7 +153,7 @@ export default function Login() {
             }}
           >
             {/* Cabeçalho + saudação dinâmica */}
-            <div className="mb-6 flex items-center gap-2 text-sm font-medium text-[#6C6498]">
+            <div className="mb-6 flex items-center gap-2 text-sm font-medium" style={{ color: "hsl(var(--navy-mid))" }}>
               <Sparkles className="h-4 w-4 shrink-0" />
               <span>{getGreeting()}</span>
             </div>
@@ -254,7 +258,7 @@ export default function Login() {
                     <button
                       type="button"
                       onClick={() => setForgotMode(true)}
-                      className="text-xs font-medium text-[#5B4FE0] transition-colors hover:text-[#6C6498]"
+                      className="text-xs font-medium text-[#5B4FE0] transition-colors hover:text-[hsl(var(--navy-mid))]"
                     >
                       Recuperar
                     </button>
@@ -332,7 +336,7 @@ export default function Login() {
           outline: none;
         }
         .btn-gradient {
-          background: linear-gradient(135deg, #5B4FE0 0%, #3A355C 100%);
+          background: linear-gradient(135deg, #5B4FE0 0%, hsl(var(--primary)) 100%);
           background-size: 200% auto;
           transition: 0.4s ease;
         }
