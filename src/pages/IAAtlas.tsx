@@ -322,7 +322,12 @@ export default function IAAtlas() {
       });
 
       const data = await response.json();
-      const raw = data.choices?.[0]?.message?.content || "Erro ao processar.";
+      // A claude-proxy retorna a resposta nativa da API da Anthropic
+      // (data.content: [{type:"text", text:"..."}]), não o formato da OpenAI
+      // (data.choices[0].message.content) que o código lia antes -- por isso
+      // toda chamada caía no fallback "Erro ao processar.", mesmo quando a
+      // IA respondia certinho (confirmado vendo a resposta crua no Network).
+      const raw = data.content?.filter((b: any) => b.type === "text").map((b: any) => b.text).join("\n") || "Erro ao processar.";
       const excelData = parseExcel(raw) ?? undefined;
       const pdfData = parsePdf(raw) ?? undefined;
       const msgContent = cleanContent(raw) || (excelData
