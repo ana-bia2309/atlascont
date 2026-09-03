@@ -15,6 +15,7 @@ import { RefreshCw, Search, X, FileText, Download, Eye, Filter, ClipboardList } 
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
+import { STATUS_OPTIONS, getStatusColor } from "@/lib/os-status";
 
 type OSRow = {
   id: string;
@@ -53,21 +54,6 @@ type Material = {
 type Profile = { id: string; nome: string };
 type Bloco = { id: string; nome: string | null };
 type Ativo = { id: string; nome: string };
-
-const STATUS_OPTIONS = [
-  "Não Iniciada", "Em Triagem", "Em Execução", "Aguardando Material",
-  "Aguardando Acesso", "Concluída", "Cancelada",
-];
-
-const statusColor = (s: string | null) => {
-  switch (s) {
-    case "Concluída": return "bg-emerald-50 text-emerald-700 border-emerald-200";
-    case "Em Execução": return "bg-sky-50 text-sky-700 border-sky-200";
-    case "Cancelada": return "bg-destructive/15 text-destructive border-destructive/30";
-    case "Não Iniciada": return "bg-zinc-100 text-zinc-600 border-zinc-200";
-    default: return "bg-amber-50 text-amber-700 border-amber-200";
-  }
-};
 
 const fmtDate = (d: string | null) => {
   if (!d) return "—";
@@ -142,7 +128,7 @@ export default function RelatorioGeralOS() {
 
   const filtered = useMemo(() => {
     return osList.filter(os => {
-      if (filterStatus !== "__all__" && os.status !== filterStatus) return false;
+      if (filterStatus !== "__all__" && (os.status || "").trim().toLowerCase() !== filterStatus.trim().toLowerCase()) return false;
       if (filterTecnico !== "__all__" && os.responsible_user_id !== filterTecnico) return false;
       if (filterBloco !== "__all__" && os.bloco_id !== filterBloco) return false;
       if (filterAtivo !== "__all__" && os.ativo_id !== filterAtivo) return false;
@@ -367,7 +353,7 @@ export default function RelatorioGeralOS() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <span className="font-mono text-xs font-semibold text-muted-foreground">{os.codigo_os || "—"}</span>
-                      <Badge variant="outline" className={cn("text-xs border", statusColor(os.status))}>
+                      <Badge variant="outline" className={cn("text-xs border", getStatusColor(os.status))}>
                         {os.status || "—"}
                       </Badge>
                       {os.prioridade && (
@@ -415,7 +401,7 @@ export default function RelatorioGeralOS() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 flex-wrap">
               <span className="font-mono">{viewing?.codigo_os}</span>
-              {viewing && <Badge variant="outline" className={cn("text-xs border", statusColor(viewing.status))}>{viewing.status}</Badge>}
+              {viewing && <Badge variant="outline" className={cn("text-xs border", getStatusColor(viewing.status))}>{viewing.status}</Badge>}
               {viewing?.origem === "Portal do Cliente" && (
                 <Badge variant="outline" className="text-xs border bg-violet-50 text-violet-700 border-violet-200">
                   🌐 Portal do Cliente

@@ -136,7 +136,7 @@ export default function ActivityTimerControls({
 
       if (error) throw error;
 
-      await supabase.from("ordens_servico").update({ status: "Em andamento" } as any).eq("id", osId);
+      await supabase.from("ordens_servico").update({ status: "Em execução" } as any).eq("id", osId);
       onUpdate();
     } catch (error: any) {
       toast({ title: "Erro ao iniciar timer da atividade", description: error.message, variant: "destructive" });
