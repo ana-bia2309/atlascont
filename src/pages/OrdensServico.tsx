@@ -241,6 +241,7 @@ export default function OrdensServico() {
   const [filterAtrasada, setFilterAtrasada] = useState<boolean>(searchParams.get("atrasada") === "true");
   const [filterCodigo, setFilterCodigo] = useState("");
   const [sortAsc, setSortAsc] = useState(false);
+  const [sortColumn, setSortColumn] = useState<"data" | "prazo" | "custo" | "prioridade">("data");
   const [filterAndar, setFilterAndar] = useState("__all__");
   const [filterSala, setFilterSala] = useState("__all__");
   const [filterTipoServico, setFilterTipoServico] = useState("__all__");
@@ -360,7 +361,7 @@ export default function OrdensServico() {
           .select("*")
           .eq("company_id", companyId)
           .not("origem", "in", "(Preventiva,Chamado)")
-          .order("created_at", { ascending: sortAsc }),
+          .order("created_at", { ascending: false }),
 
         (supabase as any)
           .from("blocos")
@@ -502,7 +503,7 @@ export default function OrdensServico() {
       setCamposObrigatorios((camposConfig || []).map((c: any) => c.campo));
     }
     setLoading(false);
-  }, [companyId, sortAsc]);
+  }, [companyId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useRealtime(
@@ -574,6 +575,40 @@ export default function OrdensServico() {
     const todayStr = new Date().toISOString().slice(0, 10);
     return ordens.filter((os) => !isFinishedStatus(os.status) && os.prazo && os.prazo < todayStr).length;
   }, [ordens]);
+
+  const sortedOrdens = useMemo(() => {
+    const dir = sortAsc ? 1 : -1;
+    const prioridadeRank = (p: string | null) => {
+      const idx = PRIORIDADE_OPTIONS.indexOf(p || "Média");
+      return idx === -1 ? PRIORIDADE_OPTIONS.indexOf("Média") : idx;
+    };
+    return [...filteredOrdens].sort((a, b) => {
+      let cmp = 0;
+      if (sortColumn === "prazo") {
+        const av = a.prazo || "9999-12-31";
+        const bv = b.prazo || "9999-12-31";
+        cmp = av < bv ? -1 : av > bv ? 1 : 0;
+      } else if (sortColumn === "custo") {
+        cmp = (a.custo_total || 0) - (b.custo_total || 0);
+      } else if (sortColumn === "prioridade") {
+        cmp = prioridadeRank(a.prioridade) - prioridadeRank(b.prioridade);
+      } else {
+        const av = a.created_at || "";
+        const bv = b.created_at || "";
+        cmp = av < bv ? -1 : av > bv ? 1 : 0;
+      }
+      return cmp * dir;
+    });
+  }, [filteredOrdens, sortColumn, sortAsc]);
+
+  const toggleSort = (col: "data" | "prazo" | "custo" | "prioridade") => {
+    if (sortColumn === col) {
+      setSortAsc((prev) => !prev);
+    } else {
+      setSortColumn(col);
+      setSortAsc(col === "prazo"); // Prazo começa ascendente (mais urgente primeiro); as demais, descendente
+    }
+  };
   const activeFilterCount = [filterBlocoId !== "__all__", filterStatus !== "__all__", filterPrioridade !== "__all__", filterAtrasada, filterCodigo.trim() !== "", filterAndar !== "__all__", filterSala !== "__all__", filterTipoServico !== "__all__", !!filterDateFrom, !!filterDateTo].filter(Boolean).length;
 
   const clearFilters = () => {
@@ -1333,8 +1368,14 @@ export default function OrdensServico() {
               </SelectContent>
             </Select>
           </div>
-          <Button variant="outline" size="sm" onClick={() => setSortAsc(prev => !prev)} className="gap-1.5" title="Ordenar por data">
-            {sortAsc ? <span>↑ Mais antigas</span> : <span>↓ Mais recentes</span>}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => toggleSort("data")}
+            className={cn("gap-1.5", sortColumn === "data" && "border-primary text-primary")}
+            title="Ordenar por data"
+          >
+            {sortColumn === "data" && sortAsc ? <span>↑ Mais antigas</span> : <span>↓ Mais recentes</span>}
           </Button>
           <Button variant="outline" size="sm" onClick={() => setAdvancedOpen(!advancedOpen)} className="gap-1.5">
             <SlidersHorizontal className="h-4 w-4" />
@@ -1483,17 +1524,32 @@ export default function OrdensServico() {
                 <TableHead className="w-[100px] font-semibold text-slate-700">OS Externa</TableHead>
                 <TableHead className="w-[120px] font-semibold text-slate-700">Local</TableHead>
                 <TableHead className="w-[220px] font-semibold text-slate-700">Equipamentos</TableHead>
-                <TableHead className="w-[110px] font-semibold text-slate-700">Prioridade</TableHead>
+                <TableHead
+                  className="w-[110px] font-semibold text-slate-700 cursor-pointer select-none hover:text-primary"
+                  onClick={() => toggleSort("prioridade")}
+                >
+                  Prioridade {sortColumn === "prioridade" && (sortAsc ? "↑" : "↓")}
+                </TableHead>
                 <TableHead className="w-[130px] font-semibold text-slate-700">Status</TableHead>
                 <TableHead className="w-[90px] font-semibold text-slate-700">SLA</TableHead>
-                <TableHead className="w-[150px] font-semibold text-slate-700">Prazo</TableHead>
-                <TableHead className="w-[100px] font-semibold text-slate-700">Custo</TableHead>
+                <TableHead
+                  className="w-[150px] font-semibold text-slate-700 cursor-pointer select-none hover:text-primary"
+                  onClick={() => toggleSort("prazo")}
+                >
+                  Prazo {sortColumn === "prazo" && (sortAsc ? "↑" : "↓")}
+                </TableHead>
+                <TableHead
+                  className="w-[100px] font-semibold text-slate-700 cursor-pointer select-none hover:text-primary"
+                  onClick={() => toggleSort("custo")}
+                >
+                  Custo {sortColumn === "custo" && (sortAsc ? "↑" : "↓")}
+                </TableHead>
                 <TableHead className="w-[120px] font-semibold text-slate-700">Auxiliares</TableHead>
                 <TableHead className="w-[180px] text-center font-semibold text-slate-700">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredOrdens.map((os) => {
+              {sortedOrdens.map((os) => {
                 const locParts = [
                   os.bloco_id ? blocosMap[os.bloco_id] : null,
                   os.andar ? `${os.andar}º andar` : null,
