@@ -305,6 +305,13 @@ export default function RelatorioGeralOS() {
               {blocos.map(b => <SelectItem key={b.id} value={b.id}>{b.nome}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Select value={filterAtivo} onValueChange={setFilterAtivo}>
+            <SelectTrigger className="w-44"><SelectValue placeholder="Ativo" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">Todos os ativos</SelectItem>
+              {ativos.map(a => <SelectItem key={a.id} value={a.id}>{a.nome}</SelectItem>)}
+            </SelectContent>
+          </Select>
           <Select value={filterOrigem} onValueChange={setFilterOrigem}>
             <SelectTrigger className="w-40"><SelectValue placeholder="Origem" /></SelectTrigger>
             <SelectContent>

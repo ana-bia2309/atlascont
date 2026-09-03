@@ -154,9 +154,6 @@ export default function Dashboard() {
   const [profilesMap, setProfilesMap] = useState<Map<string, string>>(new Map());
   const [ordensPreventivasCount, setOrdensPreventivasCount] = useState(0);
 
-  // Filters
-  const [filterOrigem, setFilterOrigem] = useState("__all__");
-  const [filterStatus, setFilterStatus] = useState("__all__");
   const { companyId } = useCompany();
 
   const fetchStats = useCallback(async () => {
@@ -326,21 +323,6 @@ useRealtime(
 );
 
   // ── Filtered rows for dashboard sections ──
-  const filteredRows = useMemo(() => {
-    return rawRows.filter((r: any) => {
-      if (filterOrigem !== "__all__" && r.origem !== filterOrigem) return false;
-      if (filterStatus !== "__all__") {
-        const st = (r.status || "").toLowerCase().trim();
-        if (filterStatus === "Pendente" && (st === "concluída" || st === "concluida" || st === "cancelada")) return false;
-        if (filterStatus === "Concluída" && st !== "concluída" && st !== "concluida") return false;
-        if (filterStatus === "Atrasada") {
-          const todayStr = new Date().toISOString().slice(0, 10);
-          if (isFinishedStatus(r.status) || !r.prazo || r.prazo >= todayStr) return false;
-        }
-      }
-      return true;
-    });
-  }, [rawRows, filterOrigem, filterStatus]);
 
   const openCount = stats.naoIniciadas + stats.emTriagem + stats.aguardandoMaterial + stats.aguardandoAcesso + stats.emExecucao;
   const todayStr = new Date().toISOString().slice(0, 10);
