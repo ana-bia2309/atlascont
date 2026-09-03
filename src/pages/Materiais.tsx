@@ -4,6 +4,7 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
@@ -12,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, Pencil, Trash2, RefreshCw, Search, X, Package, ChevronLeft, Hash, FileText, TrendingUp } from "@/lib/icons";
 import * as XLSX from "xlsx";
 import { cn } from "@/lib/utils";
-import { logActivity } from "@/lib/activity-log";
+import { logActivity, computeDiff } from "@/lib/activity-log";
 import ReajusteValoresModal from "@/components/materiais/ReajusteValoresModal";
 
 const SISTEMA_OPTIONS = [
@@ -48,6 +49,7 @@ const emptyForm = {
   fornecedor: "",
   status: "ativo",
   categoria: "Material",
+  justificativa: "",
 };
 
 export default function Materiais() {
@@ -91,6 +93,10 @@ export default function Materiais() {
       toast({ title: "Descrição é obrigatória", variant: "destructive" });
       return;
     }
+    if (!form.justificativa.trim()) {
+      toast({ title: "Justificativa é obrigatória", variant: "destructive" });
+      return;
+    }
     if (!companyId) return;
     setSaving(true);
     try {
@@ -111,7 +117,15 @@ export default function Materiais() {
         };
         const { error } = await (supabase as any).from("materiais").update(payload).eq("id", editing.id);
         if (error) { toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" }); return; }
-        logActivity({ actionType: "edicao", module: "Materiais", description: `Editou material` }); toast({ title: "Material atualizado" });
+        const diff = computeDiff(editing as any, payload);
+        logActivity({
+          actionType: "edicao",
+          module: "Materiais",
+          description: `Editou material ${editing.codigo || ""} — Justificativa: ${form.justificativa.trim()}`,
+          oldValue: diff?.old_value,
+          newValue: { ...(diff?.new_value || {}), justificativa: form.justificativa.trim() },
+        });
+        toast({ title: "Material atualizado" });
       } else {
         // Novo — gera código automático
         const { data: codigoData, error: codigoError } = await (supabase as any)
@@ -134,6 +148,12 @@ export default function Materiais() {
         };
         const { error } = await (supabase as any).from("materiais").insert(payload);
         if (error) { toast({ title: "Erro ao cadastrar", description: error.message, variant: "destructive" }); return; }
+        logActivity({
+          actionType: "criacao",
+          module: "Materiais",
+          description: `Cadastrou material ${codigoData} — Justificativa: ${form.justificativa.trim()}`,
+          newValue: { ...payload, justificativa: form.justificativa.trim() },
+        });
         toast({ title: `Material cadastrado — código ${codigoData}` });
       }
       setOpen(false); setEditing(null); setForm(emptyForm); fetchData();
@@ -160,6 +180,7 @@ export default function Materiais() {
       fornecedor: m.fornecedor || "",
       status: m.status,
       categoria: (m as any).categoria || "Material",
+      justificativa: "",
     });
     setOpen(true);
   };
@@ -435,6 +456,22 @@ export default function Materiais() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-1 block">
+                Justificativa {editing ? "da alteração" : "do cadastro"} *
+              </label>
+              <Textarea
+                value={form.justificativa}
+                onChange={e => setForm(f => ({ ...f, justificativa: e.target.value }))}
+                placeholder={
+                  editing
+                    ? "Ex: Correção de valor conforme nova cotação do fornecedor."
+                    : "Ex: Novo material necessário para a manutenção do sistema de ar-condicionado."
+                }
+                rows={2}
+              />
             </div>
           </div>
           <Button className="w-full" onClick={handleSave} disabled={saving}>
