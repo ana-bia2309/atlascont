@@ -109,7 +109,7 @@ const PRIORIDADE_OPTIONS = ["Baixa", "Média", "Alta", "Crítica"];
 const TIPO_SERVICO_OPTIONS = ["Elétrica", "Hidráulica", "Civil", "Climatização", "Outros"];
 const NATUREZA_SERVICO_OPTIONS = ["Instalação", "Manutenção"];
 const PRIORIDADE_COLORS: Record<string, string> = {
-  "Baixa": "bg-zinc-100 text-zinc-600 border-zinc-200",
+  "Baixa": "bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800/50 dark:text-zinc-300 dark:border-zinc-700",
   "Média": "bg-info/10 text-info border-info/20",
   "Alta": "bg-warning/10 text-warning border-warning/20",
   "Crítica": "bg-destructive/10 text-destructive border-destructive/20",
@@ -1360,7 +1360,7 @@ export default function OrdensServico() {
                 "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold border transition-colors",
                 filterAtrasada
                   ? "bg-red-600 text-white border-red-600"
-                  : "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
+                  : "bg-red-50 text-red-700 border-red-200 hover:bg-red-100 dark:bg-red-950/50 dark:text-red-300 dark:border-red-800 dark:hover:bg-red-950/80"
               )}
               title={filterAtrasada ? "Clique para remover o filtro de atrasadas" : "Clique para ver só as atrasadas"}
             >

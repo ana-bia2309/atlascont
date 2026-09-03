@@ -86,9 +86,9 @@ function DashboardAtividades({ atividades, navigate }: { atividades: AtividadeGl
       </div>
       <span className={cn(
         "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold border shrink-0",
-        a.status === "Concluído" && "bg-emerald-50 text-emerald-700 border-emerald-200",
-        a.status === "Em andamento" && "bg-sky-50 text-sky-700 border-sky-200",
-        a.status === "Não iniciado" && "bg-zinc-100 text-zinc-600 border-zinc-200",
+        a.status === "Concluído" && "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800",
+        a.status === "Em andamento" && "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/50 dark:text-sky-300 dark:border-sky-800",
+        a.status === "Não iniciado" && "bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800/50 dark:text-zinc-300 dark:border-zinc-700",
       )}>{a.status}</span>
     </div>
   );
@@ -98,7 +98,7 @@ function DashboardAtividades({ atividades, navigate }: { atividades: AtividadeGl
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
       <div className="rounded-xl border bg-card p-4">
-        <h3 className="text-sm font-semibold flex items-center gap-2 mb-3 text-red-600">
+        <h3 className="text-sm font-semibold flex items-center gap-2 mb-3 text-red-600 dark:text-red-400">
           🔴 Atividades Atrasadas
           {atrasadas.length > 0 && <span className="text-xs bg-red-500/15 rounded-full px-2 py-0.5">{atrasadas.length}</span>}
         </h3>
@@ -109,7 +109,7 @@ function DashboardAtividades({ atividades, navigate }: { atividades: AtividadeGl
         )}
       </div>
       <div className="rounded-xl border bg-card p-4">
-        <h3 className="text-sm font-semibold flex items-center gap-2 mb-3 text-yellow-600">
+        <h3 className="text-sm font-semibold flex items-center gap-2 mb-3 text-yellow-600 dark:text-yellow-400">
           🟡 Hoje você precisa fazer
           {hojeList.length > 0 && <span className="text-xs bg-yellow-500/15 rounded-full px-2 py-0.5">{hojeList.length}</span>}
         </h3>
@@ -120,7 +120,7 @@ function DashboardAtividades({ atividades, navigate }: { atividades: AtividadeGl
         )}
       </div>
       <div className="rounded-xl border bg-card p-4">
-        <h3 className="text-sm font-semibold flex items-center gap-2 mb-3 text-sky-600">
+        <h3 className="text-sm font-semibold flex items-center gap-2 mb-3 text-sky-600 dark:text-sky-400">
           🔵 Próximas Atividades
         </h3>
         {proximas.length === 0 ? (
@@ -436,13 +436,13 @@ useRealtime(
   // Unique responsáveis for filter
 
   const cards = [
-    { label: "Total de O.S.", value: stats.total, icon: ClipboardList, color: "from-blue-50 to-white border-blue-200", iconColor: "text-blue-600", to: "/ordens-servico" },
-    { label: "Em Aberto", value: openCount, icon: Play, color: "from-sky-50 to-white border-sky-200", iconColor: "text-sky-600", to: "/ordens-servico" },
-    { label: "Atrasadas", value: atrasadas, icon: AlertTriangle, color: "from-red-50 to-white border-red-200", iconColor: "text-red-600", to: "/ordens-servico?atrasada=true", variant: "alert" as const },
-    { label: "Concluídas no Mês", value: concluidasMes, icon: CheckCircle2, color: "from-emerald-50 to-white border-emerald-200", iconColor: "text-emerald-600", to: "/ordens-servico?status=Concluída" },
-    { label: "Preventivas", value: preventivaCount, icon: ShieldCheck, color: "from-indigo-50 to-white border-indigo-200", iconColor: "text-indigo-600", to: "/ordens-preventivas" },
-    { label: "Corretivas", value: corretivaCount, icon: Wrench, color: "from-orange-50 to-white border-orange-200", iconColor: "text-orange-600", to: "/ordens-servico?origem=Corretiva" },
-    { label: "Atividades Hoje", value: atividadesHoje, icon: CalendarClock, color: "from-purple-50 to-white border-purple-200", iconColor: "text-purple-600", to: "/cronogramas" },
+    { label: "Total de O.S.", value: stats.total, icon: ClipboardList, color: "from-blue-50 to-white border-blue-200 dark:from-blue-950/40 dark:to-transparent dark:border-blue-800", iconColor: "text-blue-600 dark:text-blue-400", to: "/ordens-servico" },
+    { label: "Em Aberto", value: openCount, icon: Play, color: "from-sky-50 to-white border-sky-200 dark:from-sky-950/40 dark:to-transparent dark:border-sky-800", iconColor: "text-sky-600 dark:text-sky-400", to: "/ordens-servico" },
+    { label: "Atrasadas", value: atrasadas, icon: AlertTriangle, color: "from-red-50 to-white border-red-200 dark:from-red-950/40 dark:to-transparent dark:border-red-800", iconColor: "text-red-600 dark:text-red-400", to: "/ordens-servico?atrasada=true", variant: "alert" as const },
+    { label: "Concluídas no Mês", value: concluidasMes, icon: CheckCircle2, color: "from-emerald-50 to-white border-emerald-200 dark:from-emerald-950/40 dark:to-transparent dark:border-emerald-800", iconColor: "text-emerald-600 dark:text-emerald-400", to: "/ordens-servico?status=Concluída" },
+    { label: "Preventivas", value: preventivaCount, icon: ShieldCheck, color: "from-indigo-50 to-white border-indigo-200 dark:from-indigo-950/40 dark:to-transparent dark:border-indigo-800", iconColor: "text-indigo-600 dark:text-indigo-400", to: "/ordens-preventivas" },
+    { label: "Corretivas", value: corretivaCount, icon: Wrench, color: "from-orange-50 to-white border-orange-200 dark:from-orange-950/40 dark:to-transparent dark:border-orange-800", iconColor: "text-orange-600 dark:text-orange-400", to: "/ordens-servico?origem=Corretiva" },
+    { label: "Atividades Hoje", value: atividadesHoje, icon: CalendarClock, color: "from-purple-50 to-white border-purple-200 dark:from-purple-950/40 dark:to-transparent dark:border-purple-800", iconColor: "text-purple-600 dark:text-purple-400", to: "/cronogramas" },
   ];
 
   return (
@@ -683,10 +683,10 @@ useRealtime(
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {(["Baixa", "Média", "Alta", "Crítica"] as const).map((prio) => {
                 const styles: Record<string, string> = {
-                  Baixa: "from-zinc-50 to-white border-zinc-200",
-                  Média: "from-blue-50 to-white border-blue-200",
-                  Alta: "from-amber-50 to-white border-amber-200",
-                  Crítica: "from-red-50 to-white border-red-200",
+                  Baixa: "from-zinc-50 to-white border-zinc-200 dark:from-zinc-800/40 dark:to-transparent dark:border-zinc-700",
+                  Média: "from-blue-50 to-white border-blue-200 dark:from-blue-950/40 dark:to-transparent dark:border-blue-800",
+                  Alta: "from-amber-50 to-white border-amber-200 dark:from-amber-950/40 dark:to-transparent dark:border-amber-800",
+                  Crítica: "from-red-50 to-white border-red-200 dark:from-red-950/40 dark:to-transparent dark:border-red-800",
                 };
                 return (
                   <div
@@ -719,17 +719,17 @@ useRealtime(
                   <Timer className="h-5 w-5 text-primary" /> SLA das O.S. em Aberto
                 </h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  <div onClick={() => navigate("/ordens-servico")} className="rounded-lg border bg-gradient-to-br from-emerald-50 to-white border-emerald-200 p-4 cursor-pointer hover:scale-[1.03] hover:shadow-lg transition-all duration-200">
+                  <div onClick={() => navigate("/ordens-servico")} className="rounded-lg border bg-gradient-to-br from-emerald-50 to-white border-emerald-200 dark:from-emerald-950/40 dark:to-transparent dark:border-emerald-800 p-4 cursor-pointer hover:scale-[1.03] hover:shadow-lg transition-all duration-200">
                     <span className="text-xs text-muted-foreground block">Dentro do Prazo</span>
-                    <span className="text-2xl font-bold text-emerald-600">{slaStats.dentro_do_prazo}</span>
+                    <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{slaStats.dentro_do_prazo}</span>
                   </div>
-                  <div onClick={() => navigate("/ordens-servico")} className="rounded-lg border bg-gradient-to-br from-amber-50 to-white border-amber-200 p-4 cursor-pointer hover:scale-[1.03] hover:shadow-lg transition-all duration-200">
+                  <div onClick={() => navigate("/ordens-servico")} className="rounded-lg border bg-gradient-to-br from-amber-50 to-white border-amber-200 dark:from-amber-950/40 dark:to-transparent dark:border-amber-800 p-4 cursor-pointer hover:scale-[1.03] hover:shadow-lg transition-all duration-200">
                     <span className="text-xs text-muted-foreground block">Em Risco</span>
-                    <span className="text-2xl font-bold text-amber-600">{slaStats.em_risco}</span>
+                    <span className="text-2xl font-bold text-amber-600 dark:text-amber-400">{slaStats.em_risco}</span>
                   </div>
-                  <div onClick={() => navigate("/ordens-servico")} className="rounded-lg border bg-gradient-to-br from-red-50 to-white border-red-200 p-4 cursor-pointer hover:scale-[1.03] hover:shadow-lg transition-all duration-200">
+                  <div onClick={() => navigate("/ordens-servico")} className="rounded-lg border bg-gradient-to-br from-red-50 to-white border-red-200 dark:from-red-950/40 dark:to-transparent dark:border-red-800 p-4 cursor-pointer hover:scale-[1.03] hover:shadow-lg transition-all duration-200">
                     <span className="text-xs text-muted-foreground block">SLA Estourado</span>
-                    <span className="text-2xl font-bold text-red-600">{slaStats.atrasada}</span>
+                    <span className="text-2xl font-bold text-red-600 dark:text-red-400">{slaStats.atrasada}</span>
                   </div>
                 </div>
               </div>
@@ -797,10 +797,10 @@ useRealtime(
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {[
-                { label: "Total", value: cronoStats.total, style: "from-blue-50 to-white border-blue-200", filter: "" },
-                { label: "Em Andamento", value: cronoStats.emAndamento, style: "from-sky-50 to-white border-sky-200", filter: "?status=Em andamento" },
-                { label: "Concluídos", value: cronoStats.concluidos, style: "from-emerald-50 to-white border-emerald-200", filter: "?status=Concluído" },
-                { label: "Atrasados", value: cronoStats.atrasados, style: "from-red-50 to-white border-red-200", filter: "?status=Atrasado" },
+                { label: "Total", value: cronoStats.total, style: "from-blue-50 to-white border-blue-200 dark:from-blue-950/40 dark:to-transparent dark:border-blue-800", filter: "" },
+                { label: "Em Andamento", value: cronoStats.emAndamento, style: "from-sky-50 to-white border-sky-200 dark:from-sky-950/40 dark:to-transparent dark:border-sky-800", filter: "?status=Em andamento" },
+                { label: "Concluídos", value: cronoStats.concluidos, style: "from-emerald-50 to-white border-emerald-200 dark:from-emerald-950/40 dark:to-transparent dark:border-emerald-800", filter: "?status=Concluído" },
+                { label: "Atrasados", value: cronoStats.atrasados, style: "from-red-50 to-white border-red-200 dark:from-red-950/40 dark:to-transparent dark:border-red-800", filter: "?status=Atrasado" },
               ].map((item) => (
                 <div key={item.label} onClick={() => navigate(`/cronogramas${item.filter}`)} className={`rounded-lg border bg-gradient-to-br ${item.style} p-4 cursor-pointer hover:scale-[1.03] hover:shadow-lg transition-all duration-200`}>
                   <span className="text-xs text-muted-foreground block">{item.label}</span>
