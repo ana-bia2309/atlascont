@@ -173,6 +173,7 @@ export const ROUTE_TO_SCREEN: Record<string, string> = {
   "/chamados-os": "chamados_os",
   "/chamados-externos": "chamados_externos",
   "/materiais": "materiais",
+  "/historico-reajustes": "materiais",
   "/estoque": "estoque",
   "/pedidos-compra": "pedidos_compra",
   "/pedidos-recebidos": "pedidos_compra",

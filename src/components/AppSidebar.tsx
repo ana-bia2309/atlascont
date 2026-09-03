@@ -125,6 +125,7 @@ const almoxarifadoGroup: MenuGroup = {
   id: "almoxarifado", title: "Almoxarifado", icon: Package, iconColor: "#8B5CF6", menuKey: "menu.almoxarifado",
   items: [
     { title: "Cadastro de Materiais", url: "/materiais", icon: Package, iconColor: "#8B5CF6", requiredPermission: "materiais.visualizar" },
+    { title: "Histórico de Reajustes", url: "/historico-reajustes", icon: Clock, iconColor: "#8B5CF6", requiredPermission: "materiais.visualizar" },
     { title: "Estoque", url: "/estoque", icon: Package, iconColor: "#10B981", requiredPermission: "estoque.visualizar" },
     { title: "Pedidos de Compra", url: "/pedidos-compra", icon: ShoppingCart, requiredPermission: "pedidos_compra.visualizar" },
     { title: "Pedidos Recebidos", url: "/pedidos-recebidos", icon: ShoppingCart, requiredPermission: "pedidos_compra.visualizar" },

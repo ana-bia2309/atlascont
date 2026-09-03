@@ -45,6 +45,7 @@ export const MENU_ITEMS_TREE: MenuTreeItem[] = [
     label: "Almoxarifado",
     children: [
       { key: "menu.almoxarifado.materiais", label: "Cadastro de Materiais" },
+      { key: "menu.almoxarifado.historico-reajustes", label: "Histórico de Reajustes" },
       { key: "menu.almoxarifado.estoque", label: "Estoque" },
       { key: "menu.almoxarifado.pedidos-compra", label: "Pedidos de Compra" },
       { key: "menu.almoxarifado.pedidos-recebidos", label: "Pedidos Recebidos" },
@@ -92,6 +93,7 @@ export const ROUTE_TO_MENU_KEY: Record<string, string> = {
   "/controle-acesso": "menu.cadastros.controle-acesso",
   "/perfis-acesso": "menu.cadastros.perfis",
   "/materiais": "menu.almoxarifado.materiais",
+  "/historico-reajustes": "menu.almoxarifado.historico-reajustes",
   "/estoque": "menu.almoxarifado.estoque",
   "/pedidos-compra": "menu.almoxarifado.pedidos-compra",
  "/pedidos-recebidos": "menu.almoxarifado.pedidos-recebidos",

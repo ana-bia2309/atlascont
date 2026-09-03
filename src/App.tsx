@@ -1,4 +1,5 @@
 import Materiais from "@/pages/Materiais";
+import HistoricoReajustes from "@/pages/HistoricoReajustes";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { SpeedInsights } from "@vercel/speed-insights/react"
@@ -96,6 +97,7 @@ const App = () => (
               <Route path="/relatorio-ativos" element={<RelatorioAtivos />} />
               <Route path="/controle-acesso" element={<ControleAcesso />} />
               <Route path="/materiais" element={<Materiais />} />
+              <Route path="/historico-reajustes" element={<HistoricoReajustes />} />
               <Route path="/historico-atividades" element={<HistoricoAtividades />} />
               <Route path="/perfis-acesso" element={<PerfisAcesso />} />
               <Route path="/sla" element={<SlaDefinicoes />} />
