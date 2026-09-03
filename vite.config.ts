@@ -30,7 +30,11 @@ export default defineConfig(({ mode }) => ({
         ],
       },
       workbox: {
-        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+        // Aumentado de 6 para 12 MB -- o bundle principal (6.33 MB) passou
+        // do limite anterior depois das dependencias adicionadas hoje
+        // (react-markdown etc), quebrando o build inteiro na Vercel.
+        // 12 MB da folga real pro app crescer sem quebrar de novo.
+        maximumFileSizeToCacheInBytes: 12 * 1024 * 1024,
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         runtimeCaching: [
           {
