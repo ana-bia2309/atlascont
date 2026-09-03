@@ -50,7 +50,7 @@ import { format } from "date-fns";
 import SignatureCanvas from "react-signature-canvas";
 import { cn } from "@/lib/utils";
 import { logActivity, computeDiff } from "@/lib/activity-log";
-import { computeSlaStatus, formatSlaDeadline } from "@/lib/sla-utils";
+import { computeSlaStatus, formatSlaDeadline, computePrazoStatus } from "@/lib/sla-utils";
 import { STATUS_OPTIONS, getStatusColor, isFinishedStatus } from "@/lib/os-status";
 import AtivoQuickModal from "@/components/os/AtivoQuickModal";
 import AtivoDisponibilidadeSection from "@/components/os/AtivoDisponibilidadeSection";
@@ -569,6 +569,11 @@ export default function OrdensServico() {
   }, [ordens, filterBlocoId, filterStatus, filterPrioridade, filterAtrasada, filterCodigo, filterAndar, filterSala, filterTipoServico, filterDateFrom, filterDateTo]);
 
   const hasActiveFilters = filterBlocoId !== "__all__" || filterStatus !== "__all__" || filterPrioridade !== "__all__" || filterAtrasada || filterCodigo.trim() !== "" || filterAndar !== "__all__" || filterSala !== "__all__" || filterTipoServico !== "__all__" || !!filterDateFrom || !!filterDateTo;
+
+  const atrasadasCount = useMemo(() => {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    return ordens.filter((os) => !isFinishedStatus(os.status) && os.prazo && os.prazo < todayStr).length;
+  }, [ordens]);
   const activeFilterCount = [filterBlocoId !== "__all__", filterStatus !== "__all__", filterPrioridade !== "__all__", filterAtrasada, filterCodigo.trim() !== "", filterAndar !== "__all__", filterSala !== "__all__", filterTipoServico !== "__all__", !!filterDateFrom, !!filterDateTo].filter(Boolean).length;
 
   const clearFilters = () => {
@@ -1249,7 +1254,24 @@ export default function OrdensServico() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Ordens de Serviço</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold">Ordens de Serviço</h1>
+          {atrasadasCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setFilterAtrasada((prev) => !prev)}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold border transition-colors",
+                filterAtrasada
+                  ? "bg-red-600 text-white border-red-600"
+                  : "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
+              )}
+              title={filterAtrasada ? "Clique para remover o filtro de atrasadas" : "Clique para ver só as atrasadas"}
+            >
+              ⚠️ {atrasadasCount} atrasada{atrasadasCount !== 1 ? "s" : ""}
+            </button>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" onClick={fetchData} title="Atualizar">
             <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
@@ -1639,7 +1661,20 @@ export default function OrdensServico() {
 
                     {/* Prazo + Datas */}
                     <TableCell>
-                      <span className="text-sm">{fmtDate(os.prazo) || "—"}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm">{fmtDate(os.prazo) || "—"}</span>
+                        {(() => {
+                          const prazoInfo = computePrazoStatus(os.prazo, os.status);
+                          return prazoInfo.label ? (
+                            <span
+                              className={cn("inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold border whitespace-nowrap", prazoInfo.colorClass)}
+                              title={prazoInfo.label}
+                            >
+                              {prazoInfo.status === "atrasado" ? "⚠️" : "⏰"} {prazoInfo.label}
+                            </span>
+                          ) : null;
+                        })()}
+                      </div>
                       {(os.data_inicio || os.data_termino) && (
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {os.data_inicio && `Início: ${fmtDate(os.data_inicio)}`}

@@ -80,3 +80,53 @@ export function formatSlaDeadline(iso: string | null): string {
     return "—";
   }
 }
+
+export type PrazoStatus = "atrasado" | "vencendo" | "no_prazo" | "sem_prazo";
+
+export interface PrazoInfo {
+  status: PrazoStatus;
+  label: string | null;
+  colorClass: string;
+  diasRestantes: number | null;
+}
+
+const VENCENDO_DIAS = 2; // prazo nos próximos N dias conta como "vencendo"
+
+/**
+ * Status do campo `prazo` (data simples, dd) de uma O.S. — distinto do SLA
+ * (que usa `sla_prazo_limite`, um timestamp preciso). Só sinaliza quando
+ * está atrasado ou perto de vencer; não gera badge para o caso normal,
+ * pra não poluir a lista.
+ */
+export function computePrazoStatus(
+  prazo: string | null | undefined,
+  osStatus: string | null | undefined,
+): PrazoInfo {
+  if (isFinishedStatus(osStatus) || !prazo) {
+    return { status: "sem_prazo", label: null, colorClass: "", diasRestantes: null };
+  }
+
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const dataPrazo = new Date(prazo + "T00:00:00");
+  const diasRestantes = Math.round((dataPrazo.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diasRestantes < 0) {
+    return {
+      status: "atrasado",
+      label: diasRestantes === -1 ? "Atrasada há 1 dia" : `Atrasada há ${Math.abs(diasRestantes)} dias`,
+      colorClass: "bg-red-50 text-red-700 border-red-200",
+      diasRestantes,
+    };
+  }
+
+  if (diasRestantes <= VENCENDO_DIAS) {
+    return {
+      status: "vencendo",
+      label: diasRestantes === 0 ? "Vence hoje" : diasRestantes === 1 ? "Vence amanhã" : `Vence em ${diasRestantes} dias`,
+      colorClass: "bg-amber-50 text-amber-700 border-amber-200",
+      diasRestantes,
+    };
+  }
+
+  return { status: "no_prazo", label: null, colorClass: "", diasRestantes };
+}
