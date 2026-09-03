@@ -317,7 +317,7 @@ export default function IAAtlas() {
             ...messages.map(m => ({ role: m.role, content: m.content })),
             { role: "user", content: userContent },
           ],
-          max_tokens: 2000,
+          max_tokens: 8000,
         }),
       });
 
