@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Pencil, Trash2, CalendarIcon, RefreshCw, Search, X, Eye, CheckCircle2, Paperclip, Download as DownloadIcon, SlidersHorizontal, Star, StarOff, Wrench, Package, FileText } from "@/lib/icons";
+import { Plus, Pencil, Trash2, CalendarIcon, RefreshCw, Search, X, Eye, CheckCircle2, Paperclip, Download as DownloadIcon, SlidersHorizontal, Star, StarOff, Wrench, Package, FileText, MoreVertical } from "@/lib/icons";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -46,6 +46,9 @@ import ChecklistOSSection from "@/components/os/ChecklistOSSection";
 import AtividadesUsuarioSection from "@/components/os/AtividadesUsuarioSection";
 import ColaboradoresOSSection from "@/components/os/ColaboradoresOSSection";
 import MultiUserSelect from "@/components/os/MultiUserSelect";
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import * as XLSX from "xlsx";
 import SignatureCanvas from "react-signature-canvas";
@@ -1775,12 +1778,16 @@ export default function OrdensServico() {
 
                     {/* SLA */}
                     <TableCell>
-                      <span
-                        className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border", sla.colorClass)}
-                        title={sla.prazoLimite ? `Limite: ${formatSlaDeadline(sla.prazoLimite)}` : undefined}
-                      >
-                        {sla.label}
-                      </span>
+                      {sla.status === "sem_sla" ? (
+                        <span className="text-sm text-muted-foreground">—</span>
+                      ) : (
+                        <span
+                          className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border", sla.colorClass)}
+                          title={sla.prazoLimite ? `Limite: ${formatSlaDeadline(sla.prazoLimite)}` : undefined}
+                        >
+                          {sla.label}
+                        </span>
+                      )}
                     </TableCell>
 
                     {/* Prazo + Datas */}
@@ -1856,27 +1863,39 @@ export default function OrdensServico() {
                           </Button>
                         )}
 
-                        <Button variant="ghost" size="icon" onClick={() => setViewing(os)} title="Ver detalhes">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => openMemorial(os)} title="Memorial de Cálculo">
-                          <FileText className="h-4 w-4" />
-                        </Button>
-                        {can("painel_os.baixar") && (
-                          <Button variant="ghost" size="icon" onClick={() => downloadPdf(os)} title="Baixar PDF">
-                            <DownloadIcon className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {(can("painel_os.editar") || isTecnicoAssigned(os)) && !isFinishedStatus(os.status) && (
-                          <Button variant="ghost" size="icon" onClick={() => openEdit(os)} title="Editar">
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {can("painel_os.excluir") && !isTecnico && (
-                          <Button variant="ghost" size="icon" onClick={() => setDeleteId(os.id)} title="Excluir">
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        )}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" title="Mais ações">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setViewing(os)}>
+                              <Eye className="mr-2 h-4 w-4" /> Ver detalhes
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openMemorial(os)}>
+                              <FileText className="mr-2 h-4 w-4" /> Memorial de Cálculo
+                            </DropdownMenuItem>
+                            {can("painel_os.baixar") && (
+                              <DropdownMenuItem onClick={() => downloadPdf(os)}>
+                                <DownloadIcon className="mr-2 h-4 w-4" /> Baixar PDF
+                              </DropdownMenuItem>
+                            )}
+                            {(can("painel_os.editar") || isTecnicoAssigned(os)) && !isFinishedStatus(os.status) && (
+                              <DropdownMenuItem onClick={() => openEdit(os)}>
+                                <Pencil className="mr-2 h-4 w-4" /> Editar
+                              </DropdownMenuItem>
+                            )}
+                            {can("painel_os.excluir") && !isTecnico && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => setDeleteId(os.id)} className="text-destructive focus:text-destructive">
+                                  <Trash2 className="mr-2 h-4 w-4" /> Excluir
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </TableCell>
                   </TableRow>
