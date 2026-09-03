@@ -8,6 +8,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/use-company";
+import ReactMarkdown from "react-markdown";
 
 type Message = {
   id: string;
@@ -428,7 +429,13 @@ export default function IAAtlas() {
                   ? "bg-gradient-to-br from-violet-500 to-purple-600 text-white rounded-br-sm"
                   : "bg-card border rounded-bl-sm shadow-sm"
               )}>
-                <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                {msg.role === "assistant" ? (
+                  <div className="prose prose-sm dark:prose-invert max-w-none leading-relaxed prose-headings:mt-3 prose-headings:mb-1.5 prose-p:my-1.5 prose-ul:my-1.5 prose-li:my-0.5">
+                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                )}
                 {msg.excelData && (
                   <button onClick={() => downloadExcel(msg.excelData!.titulo, msg.excelData!.rows)}
                     className="mt-3 flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-2 rounded-lg w-full justify-center transition-colors">
