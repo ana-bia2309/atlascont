@@ -23,6 +23,7 @@ import DashboardHealthScore from "@/components/dashboard/DashboardHealthScore";
 import DashboardSatisfactionScore from "@/components/dashboard/DashboardSatisfactionScore";
 import DashboardRiskHeatmap from "@/components/dashboard/DashboardRiskHeatmap";
 import DashboardFunilChamados from "@/components/dashboard/DashboardFunilChamados";
+import DashboardWeather from "@/components/dashboard/DashboardWeather";
 import { addPdfHeader, getAtlasCompanyInfo } from "@/lib/pdfHeader";
 type AtividadeGlobal = {
   id: string;
@@ -447,7 +448,10 @@ useRealtime(
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold">Dashboard</h1>
+          <DashboardWeather />
+        </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" className="gap-2" onClick={async () => {
             const doc = new jsPDF();
