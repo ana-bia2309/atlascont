@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Pencil, Trash2, RefreshCw, Search, X, Package, ChevronLeft, Hash, FileText, TrendingUp } from "@/lib/icons";
+import { Plus, Pencil, Trash2, RefreshCw, Search, X, Package, ChevronLeft, Hash, FileText, TrendingUp, SearchX } from "@/lib/icons";
+import { EmptyState } from "@/components/ui/empty-state";
 import * as XLSX from "xlsx";
 import { cn } from "@/lib/utils";
 import { logActivity, computeDiff } from "@/lib/activity-log";
@@ -322,7 +323,25 @@ export default function Materiais() {
                 <TableRow key={i}><TableCell colSpan={8} className="py-3"><Skeleton className="h-6 w-full" /></TableCell></TableRow>
               ))
             ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum material encontrado</TableCell></TableRow>
+              <TableRow>
+                <TableCell colSpan={8}>
+                  {hasFilters ? (
+                    <EmptyState
+                      icon={SearchX}
+                      title="Nenhum material encontrado"
+                      description="Nenhum material bate com os filtros aplicados."
+                      action={{ label: "Limpar filtros", onClick: () => { setFilterSearch(""); setFilterStatus("all"); setFilterSistema("all"); setFilterCategoria("all"); } }}
+                    />
+                  ) : (
+                    <EmptyState
+                      icon={Package}
+                      title="Nenhum material cadastrado"
+                      description="Quando você cadastrar o primeiro material, ele aparece aqui."
+                      action={{ label: "Novo Material", onClick: openNew }}
+                    />
+                  )}
+                </TableCell>
+              </TableRow>
             ) : filtered.map(m => (
               <TableRow key={m.id}>
                 <TableCell>

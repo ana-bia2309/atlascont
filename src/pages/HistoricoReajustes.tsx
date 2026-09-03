@@ -16,8 +16,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  RefreshCw, Search, X, Clock, ChevronLeft, ChevronRight, FileText, TrendingUp, TrendingDown,
+  RefreshCw, Search, X, Clock, ChevronLeft, ChevronRight, FileText, TrendingUp, TrendingDown, SearchX,
 } from "@/lib/icons";
+import { EmptyState } from "@/components/ui/empty-state";
 import * as XLSX from "xlsx";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -357,8 +358,13 @@ export default function HistoricoReajustes() {
               ))
             ) : rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  {hasFilters ? "Nenhum reajuste encontrado com os filtros aplicados." : "Nenhum reajuste registrado ainda."}
+                <TableCell colSpan={7}>
+                  <EmptyState
+                    icon={hasFilters ? SearchX : Clock}
+                    title="Nenhum reajuste encontrado"
+                    description={hasFilters ? "Nenhum reajuste bate com os filtros aplicados." : "Ainda não foi feito nenhum reajuste de valores em lote."}
+                    action={hasFilters ? { label: "Limpar filtros", onClick: clearFilters } : undefined}
+                  />
                 </TableCell>
               </TableRow>
             ) : rows.map((r) => (

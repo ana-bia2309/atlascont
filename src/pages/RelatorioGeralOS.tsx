@@ -11,7 +11,8 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
-import { RefreshCw, Search, X, FileText, Download, Eye, Filter, ClipboardList } from "@/lib/icons";
+import { RefreshCw, Search, X, FileText, Download, Eye, Filter, ClipboardList, SearchX } from "@/lib/icons";
+import { EmptyState } from "@/components/ui/empty-state";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
@@ -342,7 +343,12 @@ export default function RelatorioGeralOS() {
       {loading ? (
         <p className="text-muted-foreground text-center py-12">Carregando...</p>
       ) : filtered.length === 0 ? (
-        <p className="text-muted-foreground text-center py-12">Nenhuma O.S. encontrada.</p>
+        <EmptyState
+          icon={hasFilters ? SearchX : ClipboardList}
+          title="Nenhuma O.S. encontrada"
+          description={hasFilters ? "Nenhuma ordem de serviço bate com os filtros aplicados." : "Ainda não há ordens de serviço registradas."}
+          action={hasFilters ? { label: "Limpar filtros", onClick: clearFilters } : undefined}
+        />
       ) : (
         <div className="space-y-2">
           {filtered.map(os => {

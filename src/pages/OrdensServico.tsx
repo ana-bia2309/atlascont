@@ -28,7 +28,8 @@ import {
 } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Pencil, Trash2, CalendarIcon, RefreshCw, Search, X, Eye, CheckCircle2, Paperclip, Download as DownloadIcon, SlidersHorizontal, Star, StarOff, Wrench, Package, FileText, MoreVertical } from "@/lib/icons";
+import { Plus, Pencil, Trash2, CalendarIcon, RefreshCw, Search, X, Eye, CheckCircle2, Paperclip, Download as DownloadIcon, SlidersHorizontal, Star, StarOff, Wrench, Package, FileText, MoreVertical, ClipboardList, SearchX } from "@/lib/icons";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -1572,9 +1573,21 @@ export default function OrdensServico() {
           ))}
         </div>
       ) : filteredOrdens.length === 0 ? (
-        <p className="text-muted-foreground">
-          {hasActiveFilters ? "Nenhuma O.S. encontrada com os filtros aplicados." : "Nenhuma ordem de serviço cadastrada."}
-        </p>
+        hasActiveFilters ? (
+          <EmptyState
+            icon={SearchX}
+            title="Nenhuma O.S. encontrada"
+            description="Nenhuma ordem de serviço bate com os filtros aplicados. Tente ajustar ou limpar os filtros."
+            action={{ label: "Limpar filtros", onClick: clearFilters }}
+          />
+        ) : (
+          <EmptyState
+            icon={ClipboardList}
+            title="Nenhuma ordem de serviço cadastrada"
+            description="Quando você criar a primeira O.S., ela aparece aqui."
+            action={can("painel_os.criar") ? { label: "Nova O.S.", onClick: openCreate } : undefined}
+          />
+        )
       ) : (
         <div className="rounded-lg overflow-auto">
           <Table className="border-separate border-spacing-y-2">
