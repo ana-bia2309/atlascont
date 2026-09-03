@@ -9,10 +9,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Pencil, Trash2, RefreshCw, Search, X, Package, ChevronLeft, Hash, FileText } from "@/lib/icons";
+import { Plus, Pencil, Trash2, RefreshCw, Search, X, Package, ChevronLeft, Hash, FileText, TrendingUp } from "@/lib/icons";
 import * as XLSX from "xlsx";
 import { cn } from "@/lib/utils";
 import { logActivity } from "@/lib/activity-log";
+import ReajusteValoresModal from "@/components/materiais/ReajusteValoresModal";
 
 const SISTEMA_OPTIONS = [
   "Ar-condicionado", "Bombeamento hidráulico", "Bebedouro", "Elétrico",
@@ -62,6 +63,7 @@ export default function Materiais() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterSistema, setFilterSistema] = useState("all");
   const [filterCategoria, setFilterCategoria] = useState("all");
+  const [reajusteOpen, setReajusteOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -193,6 +195,16 @@ export default function Materiais() {
           </div>
         </div>
         <div className="flex gap-2">
+          {can("materiais.reajustar") && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => setReajusteOpen(true)}
+            >
+              <TrendingUp className="h-4 w-4" /> Reajuste de Valores
+            </Button>
+          )}
           <Button variant="outline" size="sm" className="gap-2" onClick={() => {
             const rows = filtered.map(m => ({
               "Código": m.codigo || "",
@@ -430,6 +442,13 @@ export default function Materiais() {
           </Button>
         </DialogContent>
       </Dialog>
+
+      <ReajusteValoresModal
+        open={reajusteOpen}
+        onOpenChange={setReajusteOpen}
+        materiais={list}
+        onSuccess={fetchData}
+      />
     </div>
   );
 }

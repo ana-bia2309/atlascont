@@ -104,7 +104,7 @@ export const PERMISSION_SCREENS = [
   {
     screen: "materiais",
     label: "Almoxarifado — Materiais",
-    actions: ["visualizar", "criar", "editar", "excluir", "exportar"],
+    actions: ["visualizar", "criar", "editar", "excluir", "exportar", "reajustar"],
   },
   {
     screen: "estoque",
@@ -144,6 +144,7 @@ export const ACTION_LABELS: Record<string, string> = {
   editar_atividades: "Editar atividades",
   visualizar_historico: "Visualizar histórico",
   analisar: "Analisar",
+  reajustar: "Reajustar valores em lote",
 };
 
 export type PermissionKey = string;
