@@ -17,7 +17,7 @@ import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from "@/components/ui/table";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -47,6 +47,7 @@ import AtividadesUsuarioSection from "@/components/os/AtividadesUsuarioSection";
 import ColaboradoresOSSection from "@/components/os/ColaboradoresOSSection";
 import MultiUserSelect from "@/components/os/MultiUserSelect";
 import { format } from "date-fns";
+import * as XLSX from "xlsx";
 import SignatureCanvas from "react-signature-canvas";
 import { cn } from "@/lib/utils";
 import { logActivity, computeDiff } from "@/lib/activity-log";
@@ -197,6 +198,9 @@ export default function OrdensServico() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
+  const [bulkStatusValue, setBulkStatusValue] = useState<string>("");
+  const [bulkStatusSaving, setBulkStatusSaving] = useState(false);
   const [editing, setEditing] = useState<OrdemServico | null>(null);
   const [viewing, setViewing] = useState<OrdemServico | null>(null);
   const [assinaturaOpen, setAssinaturaOpen] = useState(false);
@@ -901,8 +905,8 @@ export default function OrdensServico() {
         }
       }
 
-      // Registra clima quando OS vai para Em Execução
-      if (status === "Em Execução" && editing?.status !== "Em Execução") {
+      // Registra clima quando OS vai para Em execução
+      if (status === "Em execução" && editing?.status !== "Em execução") {
         import("@/lib/registrarClima").then(({ registrarClimaOS }) => {
           if (editing?.id) registrarClimaOS(editing.id);
         });
@@ -1092,6 +1096,60 @@ export default function OrdensServico() {
     }
     setBulkDeleteOpen(false);
   };
+
+  const handleBulkStatusChange = async () => {
+    if (selectedIds.size === 0 || !bulkStatusValue) return;
+    if (!can("painel_os.editar")) {
+      toast({ title: "Sem permissão para editar O.S.", variant: "destructive" });
+      setBulkStatusOpen(false);
+      return;
+    }
+    setBulkStatusSaving(true);
+    const ids = Array.from(selectedIds);
+    const { error } = await (supabase as any)
+      .from("ordens_servico")
+      .update({ status: bulkStatusValue })
+      .in("id", ids)
+      .eq("company_id", companyId);
+    setBulkStatusSaving(false);
+    if (error) {
+      toast({ title: "Erro ao mudar status", description: error.message, variant: "destructive" });
+      return;
+    }
+    logActivity({
+      actionType: "edicao",
+      module: "Ordens de Serviço",
+      description: `Mudou status de ${ids.length} O.S. em lote para "${bulkStatusValue}"`,
+    });
+    toast({ title: `${ids.length} O.S. atualizada(s) para "${bulkStatusValue}"` });
+    setSelectedIds(new Set());
+    setBulkStatusOpen(false);
+    setBulkStatusValue("");
+    fetchData();
+  };
+
+  const handleBulkExportExcel = () => {
+    const selected = ordens.filter((os) => selectedIds.has(os.id));
+    if (selected.length === 0) return;
+    const rows = selected.map((os) => ({
+      "Código": os.codigo_os || "—",
+      "Título": os.equipamentos || "—",
+      "Status": os.status || "—",
+      "Prioridade": os.prioridade || "—",
+      "Bloco": blocosMap[os.bloco_id || ""] || "—",
+      "Técnico": os.responsible_user_id ? (profilesMap[os.responsible_user_id] || "—") : "—",
+      "Data Abertura": fmtDate(os.created_at),
+      "Prazo": fmtDate(os.prazo),
+      "Data Conclusão": fmtDate(os.finalizado_em || os.data_termino),
+      "Custo Total (R$)": os.custo_total || 0,
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws["!cols"] = Object.keys(rows[0] || {}).map((k) => ({ wch: Math.min(Math.max(k.length + 4, 12), 40) }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "O.S. Selecionadas");
+    XLSX.writeFile(wb, `os-selecionadas-${format(new Date(), "yyyyMMdd")}.xlsx`);
+    toast({ title: `${selected.length} O.S. exportada(s) para Excel` });
+  };
   const handleSalvarAssinatura = async () => {
     if (!viewing || !sigCanvasRef.current) return;
     if (sigCanvasRef.current.isEmpty()) {
@@ -1121,7 +1179,7 @@ export default function OrdensServico() {
     const { error } = await (supabase as any)
       .from("ordens_servico")
       .update({
-        status: "Em Execução",
+        status: "Em execução",
         finalizado_por: null,
         finalizado_em: null,
         editado_por: profileId,
@@ -1133,7 +1191,7 @@ export default function OrdensServico() {
       toast({ title: "Erro ao reabrir", description: error.message, variant: "destructive" });
       return;
     }
-    await logHistoricoOS(os.id, "Reabertura", `Reabriu O.S. ${os.codigo_os || os.id}`, { status: os.status }, { status: "Em Execução" });
+    await logHistoricoOS(os.id, "Reabertura", `Reabriu O.S. ${os.codigo_os || os.id}`, { status: os.status }, { status: "Em execução" });
     toast({ title: `O.S. ${os.codigo_os || ""} reaberta!` });
     fetchData();
   };
@@ -1311,6 +1369,16 @@ export default function OrdensServico() {
           <Button variant="outline" size="icon" onClick={fetchData} title="Atualizar">
             <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
           </Button>
+          {selectedIds.size > 0 && (
+            <Button variant="outline" onClick={handleBulkExportExcel} title="Exportar selecionadas para Excel">
+              <FileText className="mr-2 h-4 w-4" /> Exportar ({selectedIds.size})
+            </Button>
+          )}
+          {selectedIds.size > 0 && can("painel_os.editar") && !isTecnico && (
+            <Button variant="outline" onClick={() => setBulkStatusOpen(true)}>
+              <CheckCircle2 className="mr-2 h-4 w-4" /> Mudar status ({selectedIds.size})
+            </Button>
+          )}
           {selectedIds.size > 0 && can("painel_os.excluir") && !isTecnico && (
             <Button variant="destructive" onClick={() => setBulkDeleteOpen(true)}>
               <Trash2 className="mr-2 h-4 w-4" /> Excluir selecionadas ({selectedIds.size})
@@ -2448,7 +2516,37 @@ export default function OrdensServico() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Anexos Modal */}
+      {/* Bulk status change */}
+      <Dialog open={bulkStatusOpen} onOpenChange={(open) => { setBulkStatusOpen(open); if (!open) setBulkStatusValue(""); }}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Mudar status de {selectedIds.size} O.S.</DialogTitle>
+            <DialogDescription>
+              O novo status será aplicado a todas as O.S. selecionadas.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Select value={bulkStatusValue} onValueChange={setBulkStatusValue}>
+              <SelectTrigger><SelectValue placeholder="Selecione o novo status" /></SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.filter((s) => s !== "Concluída").map((s) => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              "Concluída" não está na lista aqui de propósito — finalizar uma O.S. envolve checagens
+              de estoque e orçamento que precisam ser feitas uma a uma, pelo botão "Finalizar" de cada O.S.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkStatusOpen(false)} disabled={bulkStatusSaving}>Cancelar</Button>
+            <Button onClick={handleBulkStatusChange} disabled={!bulkStatusValue || bulkStatusSaving}>
+              {bulkStatusSaving ? "Aplicando..." : "Aplicar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog open={!!anexosModalOsId} onOpenChange={(open) => !open && setAnexosModalOsId(null)}>
         <DialogContent className="sm:max-w-[440px] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
