@@ -8,6 +8,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { RefreshCw, Search, X, FileText, Download, Filter, Package, ChevronDown, ChevronRight } from "@/lib/icons";
+import { STATUS_OPTIONS } from "@/lib/os-status";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
@@ -108,7 +109,7 @@ export default function RelatorioMateriais() {
     return osList.filter(os => {
       const mats = materiaisByOs[os.id] || [];
       if (mats.length === 0) return false;
-      if (filterStatus !== "__all__" && os.status !== filterStatus) return false;
+      if (filterStatus !== "__all__" && (os.status || "").trim().toLowerCase() !== filterStatus.trim().toLowerCase()) return false;
       if (filterTecnico !== "__all__" && os.responsible_user_id !== filterTecnico) return false;
       if (filterDateFrom && os.created_at && os.created_at < filterDateFrom) return false;
       if (filterDateTo && os.created_at && os.created_at.slice(0, 10) > filterDateTo) return false;
@@ -347,7 +348,7 @@ export default function RelatorioMateriais() {
             <SelectTrigger className="w-44"><SelectValue placeholder="Status" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">Todos os status</SelectItem>
-              {["Não Iniciada","Em Execução","Concluída","Cancelada"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              {STATUS_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
             </SelectContent>
           </Select>
           <Select value={filterTecnico} onValueChange={setFilterTecnico}>

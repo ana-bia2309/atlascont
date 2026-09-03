@@ -5,6 +5,7 @@ import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RefreshCw, Search, X, FileText, Download, Package, ChevronDown, ChevronRight, TrendingUp } from "@/lib/icons";
+import { STATUS_OPTIONS } from "@/lib/os-status";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
@@ -126,7 +127,7 @@ export default function RelatorioConsolidadoMateriais() {
     let list = consolidado.map(m => ({
       ...m,
       ocorrencias: m.ocorrencias.filter(o => {
-        if (filterStatus !== "__all__" && o.status !== filterStatus) return false;
+        if (filterStatus !== "__all__" && (o.status || "").trim().toLowerCase() !== filterStatus.trim().toLowerCase()) return false;
         if (filterTecnico !== "__all__" && o.tecnico !== profilesMap[filterTecnico]) return false;
         if (filterDateFrom && o.data && o.data.slice(0, 10) < filterDateFrom) return false;
         if (filterDateTo && o.data && o.data.slice(0, 10) > filterDateTo) return false;
@@ -328,7 +329,7 @@ export default function RelatorioConsolidadoMateriais() {
           <SelectTrigger className="w-44"><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="__all__">Todos os status</SelectItem>
-            {["Não Iniciada","Em Execução","Concluída","Cancelada"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+            {STATUS_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={filterTecnico} onValueChange={setFilterTecnico}>
