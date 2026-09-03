@@ -1156,9 +1156,20 @@ for (const mestre of existentesArr) {
 
                   {/* Equipamentos vinculados */}
                   <div className="px-4 pl-5 py-3 border-b border-border/60">
-                    <p className="text-[10.5px] font-bold tracking-wider uppercase text-muted-foreground inline-flex items-center gap-1.5 mb-2.5">
-                      <Wrench className="h-3 w-3" /> Equipamentos vinculados
-                    </p>
+                    <div className="flex items-center justify-between mb-2.5">
+                      <p className="text-[10.5px] font-bold tracking-wider uppercase text-muted-foreground inline-flex items-center gap-1.5">
+                        <Wrench className="h-3 w-3" /> Equipamentos vinculados
+                      </p>
+                      {can("preventivas.criar") && (
+                        <button
+                          onClick={() => { setAtivoDialogPlanoId(p.id); setSelectedAtivoId(""); setAtivoDialogOpen(true); }}
+                          className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-primary hover:underline"
+                          title="Vincular ativo a este plano"
+                        >
+                          <Plus className="h-3 w-3" /> Vincular
+                        </button>
+                      )}
+                    </div>
                     {planoAtivos.length === 0 ? (
                       <p className="text-xs text-muted-foreground italic">Nenhum equipamento vinculado.</p>
                     ) : (

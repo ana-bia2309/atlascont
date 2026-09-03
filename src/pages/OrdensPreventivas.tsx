@@ -233,14 +233,6 @@ export default function OrdensPreventivas() {
 
   const [bulkDeleteOpen, setBulkDeleteOpen] =
     useState(false);
-    const [editMode, setEditMode] = useState(false);
-  const [editForm, setEditForm] = useState({
-    responsible_user_id: "",
-    prazo: "",
-    observacoes: "",
-    prioridade: "",
-  });
-  const [savingEdit, setSavingEdit] = useState(false);
   const [qrScannerOpen, setQrScannerOpen] = useState(false);
 const [qrResolveRef] = useState<{ resolve: ((ok: boolean) => void) | null }>({ resolve: null });
 
