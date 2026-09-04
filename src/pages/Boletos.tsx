@@ -579,7 +579,7 @@ export default function Boletos() {
                   {b.data_pagamento ? (
                     <div className="text-xs">
                       <p>{format(parseISO(b.data_pagamento), "dd/MM/yyyy")}</p>
-                      {b.valor_pago && <p className="text-emerald-700 font-medium">R$ {Number(b.valor_pago).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>}
+                      {b.valor_pago != null && <p className="text-emerald-700 font-medium">R$ {Number(b.valor_pago).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>}
                       {b.comprovante_url && (
                         <a href={b.comprovante_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1">
                           <Download className="h-3 w-3" /> Comprovante
