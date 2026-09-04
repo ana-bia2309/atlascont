@@ -48,7 +48,7 @@ type MaterialConsolidado = {
 
 const fmtDate = (d: string | null) => {
   if (!d) return "—";
-  try { return format(new Date(d), "dd/MM/yyyy"); } catch { return "—"; }
+  try { return format(/^\d{4}-\d{2}-\d{2}$/.test(d) ? new Date(d + "T00:00:00") : new Date(d), "dd/MM/yyyy"); } catch { return "—"; }
 };
 
 export default function RelatorioConsolidadoMateriais() {

@@ -532,9 +532,9 @@ export default function Aprovacoes() {
                           <div className="min-w-0">
                             <p className="text-[10px] uppercase font-bold text-slate-400 leading-none mb-0.5">Prazo</p>
                             <p className="font-semibold text-slate-700 text-sm flex items-center gap-1.5 flex-wrap">
-                              <span>{a.os?.data_inicio ? format(new Date(a.os.data_inicio), "dd/MM/yyyy") : "—"}</span>
+                              <span>{a.os?.data_inicio ? format(new Date(a.os.data_inicio + "T00:00:00"), "dd/MM/yyyy") : "—"}</span>
                               <ArrowRight className="h-3 w-3 text-slate-400" />
-                              <span>{a.os?.data_termino ? format(new Date(a.os.data_termino), "dd/MM/yyyy") : "—"}</span>
+                              <span>{a.os?.data_termino ? format(new Date(a.os.data_termino + "T00:00:00"), "dd/MM/yyyy") : "—"}</span>
                             </p>
                           </div>
                         </div>

@@ -370,7 +370,7 @@ useRealtime(
     });
     if (concluidas.length === 0) return null;
     const totalDias = concluidas.reduce((sum: number, r: any) => {
-      const dias = differenceInCalendarDays(new Date(r.finalizado_em), new Date(r.data_inicio));
+      const dias = differenceInCalendarDays(new Date(r.finalizado_em), new Date(r.data_inicio + "T00:00:00"));
       return sum + Math.max(dias, 0);
     }, 0);
     return Math.round(totalDias / concluidas.length);

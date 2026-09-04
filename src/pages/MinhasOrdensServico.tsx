@@ -297,7 +297,7 @@ const companyId = profile.company_id;
                     </Badge>
                   </TableCell>
                   <TableCell className="text-xs">
-                    {os.prazo ? new Date(os.prazo).toLocaleDateString("pt-BR") : "—"}
+                    {os.prazo ? new Date(os.prazo + "T00:00:00").toLocaleDateString("pt-BR") : "—"}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">

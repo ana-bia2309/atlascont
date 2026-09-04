@@ -150,7 +150,8 @@ export default function RelatorioSaudeAtivos() {
 
         // Penaliza se não tem manutenção recente
         if (ultimaManutencao) {
-          const diasSemManutencao = differenceInDays(new Date(), new Date(ultimaManutencao));
+          const dt = /^\d{4}-\d{2}-\d{2}$/.test(ultimaManutencao) ? new Date(ultimaManutencao + "T00:00:00") : new Date(ultimaManutencao);
+          const diasSemManutencao = differenceInDays(new Date(), dt);
           if (diasSemManutencao > 365) score -= 20;
           else if (diasSemManutencao > 180) score -= 10;
           else if (diasSemManutencao > 90) score -= 5;
@@ -380,12 +381,12 @@ export default function RelatorioSaudeAtivos() {
                       )}
                       {ativo.ultimaManutencao && (
                         <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                          <Clock className="h-3 w-3" /> Última manutenção: {format(new Date(ativo.ultimaManutencao), "dd/MM/yyyy")}
+                          <Clock className="h-3 w-3" /> Última manutenção: {format(/^\d{4}-\d{2}-\d{2}$/.test(ativo.ultimaManutencao) ? new Date(ativo.ultimaManutencao + "T00:00:00") : new Date(ativo.ultimaManutencao), "dd/MM/yyyy")}
                         </span>
                       )}
                       {ativo.proximaPreventiva && (
                         <span className="inline-flex items-center gap-1 text-xs text-primary">
-                          <TrendingUp className="h-3 w-3" /> Próxima preventiva: {format(new Date(ativo.proximaPreventiva), "dd/MM/yyyy")}
+                          <TrendingUp className="h-3 w-3" /> Próxima preventiva: {format(new Date(ativo.proximaPreventiva + "T00:00:00"), "dd/MM/yyyy")}
                         </span>
                       )}
                     </div>

@@ -525,7 +525,7 @@ useEffect(() => {
       if (!o.prazo) return false;
 
       return (
-        new Date(o.prazo) < new Date() &&
+        new Date(o.prazo + "T00:00:00") < new Date() &&
         o.status !== "Concluída"
       );
 

@@ -215,7 +215,7 @@ const fetchData = useCallback(async () => {
   const fmtBRL = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const fmtDateShort = (d: string | null) => {
     if (!d) return "—";
-    try { return format(new Date(d), "dd/MM/yyyy"); } catch { return "—"; }
+    try { return format(/^\d{4}-\d{2}-\d{2}$/.test(d) ? new Date(d + "T00:00:00") : new Date(d), "dd/MM/yyyy"); } catch { return "—"; }
   };
 
   const hasFilters = filterBloco !== "all" || filterStatus !== "all" || useCustomPeriod;

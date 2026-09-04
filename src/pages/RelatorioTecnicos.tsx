@@ -85,7 +85,7 @@ export default function RelatorioTecnicos() {
 
         const temposMedios = concluidas
           .filter(os => os.data_inicio && os.finalizado_em)
-          .map(os => differenceInDays(new Date(os.finalizado_em), new Date(os.data_inicio)));
+          .map(os => differenceInDays(new Date(os.finalizado_em), new Date(os.data_inicio + "T00:00:00")));
         const tempoMedio = temposMedios.length > 0
           ? Math.round(temposMedios.reduce((a, b) => a + b, 0) / temposMedios.length)
           : null;
