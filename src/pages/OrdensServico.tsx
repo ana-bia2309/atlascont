@@ -941,9 +941,10 @@ export default function OrdensServico() {
       materiaisRef.current?.clearLocal();
 
       // Flush local anexos, fotos and atividades collected before the OS existed
-      try { await anexosRef.current?.flushTo(inserted.id); } catch (e) { console.error("flush anexos", e); }
-      try { await fotosRef.current?.flushTo(inserted.id); } catch (e) { console.error("flush fotos", e); }
-      try { await atividadesNovaRef.current?.flushTo(inserted.id); } catch (e) { console.error("flush atividades", e); }
+      const flushFailures: string[] = [];
+      try { await anexosRef.current?.flushTo(inserted.id); } catch (e) { console.error("flush anexos", e); flushFailures.push("anexos"); }
+      try { await fotosRef.current?.flushTo(inserted.id); } catch (e) { console.error("flush fotos", e); flushFailures.push("fotos"); }
+      try { await atividadesNovaRef.current?.flushTo(inserted.id); } catch (e) { console.error("flush atividades", e); flushFailures.push("atividades"); }
 
       logActivity({ actionType: "criacao", module: "Ordens de Serviço", description: `Criou O.S. ${codigoOs.trim()}`, newValue: payload });
       logHistoricoOS(inserted.id, "Criação", `Criou O.S. ${codigoOs.trim()}`, null, payload);
@@ -951,7 +952,15 @@ export default function OrdensServico() {
       for (const rid of formResponsaveis) {
         await supabase.from("os_notifications").insert({ os_id: inserted.id, user_id: rid } as any);
       }
-      toast({ title: "O.S. criada" });
+      if (flushFailures.length > 0) {
+        toast({
+          title: "O.S. criada, mas houve um problema",
+          description: `A O.S. foi salva, porém ${flushFailures.join(", ")} não foram salvos. Abra a O.S. e tente anexar novamente.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "O.S. criada" });
+      }
 
       // Link back to the originating chamado if applicable
       if (chamadoOrigemId) {

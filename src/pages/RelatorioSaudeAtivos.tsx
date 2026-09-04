@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/use-company";
 import { useNavigate } from "react-router-dom";
+import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -193,6 +194,7 @@ export default function RelatorioSaudeAtivos() {
       setAtivos(result);
     } catch (err: any) {
       console.error(err);
+      toast({ title: "Erro ao carregar o relatório", description: err?.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }

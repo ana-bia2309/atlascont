@@ -128,6 +128,7 @@ export default function Canvas() {
       setLastSaved(new Date());
     } catch (e) {
       console.error("Erro ao salvar canvas:", e);
+      toast({ title: "Erro ao salvar o quadro", description: "Suas últimas alterações podem não ter sido salvas. Tente novamente.", variant: "destructive" });
     } finally {
       setSaving(false);
     }
