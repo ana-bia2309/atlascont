@@ -393,7 +393,7 @@ export default function RelatorioGeralOS() {
                       <span>📅 {fmtDate(os.created_at)}</span>
                       {(os.finalizado_em || os.data_termino) && <span>✅ {fmtDate(os.finalizado_em || os.data_termino)}</span>}
                       {mats.length > 0 && <span>📦 {mats.length} material(is)</span>}
-                      {os.custo_total && os.custo_total > 0 && (
+                      {os.custo_total > 0 && (
                         <span className="text-primary font-medium">R$ {Number(os.custo_total).toFixed(2)}</span>
                       )}
                     </div>
