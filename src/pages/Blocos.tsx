@@ -16,7 +16,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Building2 } from "@/lib/icons";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Select,
   SelectContent,
@@ -570,8 +572,8 @@ export default function Blocos() {
               ))
             ) : blocosOrdenados.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center">
-                  Nenhuma unidade cadastrada.
+                <TableCell colSpan={7}>
+                  <EmptyState icon={Building2} title="Nenhuma unidade cadastrada" className="py-6" />
                 </TableCell>
               </TableRow>
             ) : (

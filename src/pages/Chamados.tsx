@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -490,7 +491,7 @@ export default function Chamados() {
                 </TableRow>
               ))
             ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={can("painel_os.excluir") ? 8 : 7} className="text-center text-sm text-muted-foreground py-8">Nenhum chamado encontrado.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={can("painel_os.excluir") ? 8 : 7}><EmptyState icon={MessagesSquare} title="Nenhum chamado encontrado" className="py-6" /></TableCell></TableRow>
             ) : filtered.map(c => (
               <TableRow key={c.id} className={cn("hover:bg-muted/40", selectedIds.has(c.id) && "bg-primary/5")}>
                 {can("painel_os.excluir") && (

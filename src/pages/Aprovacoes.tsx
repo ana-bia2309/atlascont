@@ -21,6 +21,7 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { getOrcamentoStatusLabel, getOrcamentoStatusVariant } from "@/lib/orcamento-status";
 
 type Aprovacao = {
@@ -409,10 +410,12 @@ export default function Aprovacoes() {
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="bg-white p-12 text-center rounded-2xl border border-slate-100 shadow-sm">
-          <FolderSearch className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-          <p className="text-slate-500 font-medium">Nenhum orçamento encontrado com os filtros aplicados.</p>
-        </div>
+        <EmptyState
+          icon={FolderSearch}
+          title="Nenhum orçamento encontrado"
+          description="Ajuste os filtros aplicados para ver outros resultados."
+          className="bg-white rounded-2xl border border-slate-100 shadow-sm"
+        />
       ) : (
         <main className="space-y-6">
           {filtered.map((a) => {

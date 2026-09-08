@@ -12,6 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from "@/components/ui/table";
@@ -354,9 +356,11 @@ const fetchData = useCallback(async () => {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={8} className="text-center py-6 text-muted-foreground">Carregando…</TableCell></TableRow>
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}><TableCell colSpan={8} className="py-3"><Skeleton className="h-6 w-full" /></TableCell></TableRow>
+              ))
             ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={8} className="text-center py-6 text-muted-foreground">Nenhum chamado encontrado.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8}><EmptyState icon={MessagesSquare} title="Nenhum chamado encontrado" className="py-6" /></TableCell></TableRow>
             ) : filtered.map((c) => {
               const resultado = getResultado(c);
               const osCode = c.os_id ? osCodes[c.os_id] : null;

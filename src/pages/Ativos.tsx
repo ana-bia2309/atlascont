@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogT
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Pencil, Trash2, RefreshCw, Eye, Search, X, Box, CheckCircle2, AlertTriangle, Wrench, Tags, Upload } from "@/lib/icons";
 import * as XLSX from "xlsx";
@@ -752,7 +753,7 @@ export default function Ativos() {
                 <TableRow key={i}><TableCell colSpan={6} className="py-3"><Skeleton className="h-6 w-full" /></TableCell></TableRow>
               ))
             ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum ativo encontrado</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6}><EmptyState icon={Box} title="Nenhum ativo encontrado" className="py-6" /></TableCell></TableRow>
             ) : filtered.map(a => (
               <TableRow key={a.id}>
                 <TableCell className="font-mono text-sm font-semibold">{a.codigo_identificacao || "—"}</TableCell>

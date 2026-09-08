@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -355,9 +356,12 @@ export default function AtivoEtiquetas() {
               {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-8 w-full rounded-md" />)}
             </div>
           ) : filteredAtivos.length === 0 ? (
-            <p className="text-muted-foreground text-sm py-4">
-              {hasFilters ? "Nenhum ativo encontrado com os filtros selecionados." : "Nenhum ativo cadastrado."}
-            </p>
+            <EmptyState
+              icon={Tags}
+              title={hasFilters ? "Nenhum ativo encontrado" : "Nenhum ativo cadastrado"}
+              description={hasFilters ? "Ajuste os filtros selecionados para ver outros resultados." : undefined}
+              className="py-6"
+            />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[300px] overflow-y-auto pr-1">
               {filteredAtivos.map(a => (

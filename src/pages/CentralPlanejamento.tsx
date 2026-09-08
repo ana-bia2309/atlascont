@@ -4,6 +4,7 @@ import { useCompany } from "@/hooks/use-company";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -306,13 +307,11 @@ export default function CentralPlanejamento() {
               {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-lg" />)}
             </div>
           ) : notasFiltradas.length === 0 ? (
-            <div className="flex flex-col items-center py-16 text-muted-foreground">
-              <BookOpen className="h-12 w-12 mb-3 opacity-20" />
-              <p>Nenhuma nota encontrada.</p>
-              <Button variant="outline" className="mt-4" onClick={() => openNota()}>
-                <Plus className="h-4 w-4 mr-2" /> Criar primeira nota
-              </Button>
-            </div>
+            <EmptyState
+              icon={BookOpen}
+              title="Nenhuma nota encontrada"
+              action={{ label: "Criar primeira nota", onClick: () => openNota() }}
+            />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {notasFiltradas.map(nota => (
@@ -404,13 +403,11 @@ export default function CentralPlanejamento() {
               {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-lg" />)}
             </div>
           ) : ideiasFiltradas.length === 0 ? (
-            <div className="flex flex-col items-center py-16 text-muted-foreground">
-              <Lightbulb className="h-12 w-12 mb-3 opacity-20" />
-              <p>Nenhuma ideia encontrada.</p>
-              <Button variant="outline" className="mt-4" onClick={() => openIdeia()}>
-                <Plus className="h-4 w-4 mr-2" /> Registrar primeira ideia
-              </Button>
-            </div>
+            <EmptyState
+              icon={Lightbulb}
+              title="Nenhuma ideia encontrada"
+              action={{ label: "Registrar primeira ideia", onClick: () => openIdeia() }}
+            />
           ) : (
             <div className="space-y-3">
               {ideiasFiltradas.map(ideia => (

@@ -6,6 +6,7 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { toast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Star, RefreshCw, Search, Clock, CheckCircle2, XCircle,
@@ -318,7 +319,7 @@ export default function Avaliacoes() {
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-16 text-slate-400">Nenhuma OS encontrada para os filtros selecionados.</div>
+        <EmptyState icon={ClipboardCheck} title="Nenhuma O.S. encontrada" description="Ajuste os filtros selecionados para ver outros resultados." />
       ) : (
         <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
           <div className="overflow-x-auto">

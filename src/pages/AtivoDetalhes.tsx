@@ -4,11 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Pencil, MapPin, Cpu, Info, ClipboardList, FileText, History, QrCode, Download, Zap, Users, Thermometer, MessagesSquare, DollarSign, Package, Shield } from "@/lib/icons";
+import { ArrowLeft, Pencil, MapPin, Cpu, Info, ClipboardList, FileText, History, QrCode, Download, Zap, Users, Thermometer, MessagesSquare, DollarSign, Package, Shield, Wrench } from "@/lib/icons";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { QRCodeSVG } from "qrcode.react";
@@ -292,7 +293,7 @@ export default function AtivoDetalhes() {
               <div className="space-y-2 py-1">
                 {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-8 w-full rounded-md" />)}
               </div>
-            )  : osVinculadas.length === 0 ? <p className="text-muted-foreground text-sm py-4 text-center">Nenhuma O.S. encontrada.</p>
+            )  : osVinculadas.length === 0 ? <EmptyState icon={ClipboardList} title="Nenhuma O.S. encontrada" className="py-6" />
               : <div className="rounded-md border overflow-auto">
                 <Table>
                   <TableHeader><TableRow>
@@ -323,7 +324,7 @@ export default function AtivoDetalhes() {
         <TabsContent value="preventivas" className="mt-4">
           <Card><CardContent className="pt-5">
             <h3 className="text-sm font-semibold mb-3">Ordens Preventivas ({preventivas.length})</h3>
-            {preventivas.length === 0 ? <p className="text-muted-foreground text-sm py-4 text-center">Nenhuma preventiva encontrada.</p>
+            {preventivas.length === 0 ? <EmptyState icon={Wrench} title="Nenhuma preventiva encontrada" className="py-6" />
               : <div className="rounded-md border overflow-auto">
                 <Table>
                   <TableHeader><TableRow>

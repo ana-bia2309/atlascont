@@ -7,11 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { Plus, Trash2, RefreshCw, Search, DollarSign, CheckCircle2, X, Pencil, Download, Copy, Image, Bell, Settings2 } from "@/lib/icons";
+import { Plus, Trash2, RefreshCw, Search, DollarSign, CheckCircle2, X, Pencil, Download, Copy, Image, Bell, Settings2, Receipt } from "@/lib/icons";
 import { format, differenceInDays, parseISO, addMonths } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -534,7 +535,7 @@ export default function Boletos() {
                 <TableRow key={i}><TableCell colSpan={9} className="py-3"><Skeleton className="h-6 w-full" /></TableCell></TableRow>
               ))
             ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhum boleto encontrado</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9}><EmptyState icon={Receipt} title="Nenhum boleto encontrado" className="py-6" /></TableCell></TableRow>
             ) : filtered.map(b => (
               <TableRow key={b.id} className={cn(
                 b.status === "vencido" && "bg-red-50/30",
