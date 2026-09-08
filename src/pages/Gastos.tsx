@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
@@ -507,10 +508,7 @@ if (editing) {
           </Button>
         </div>
       ) : filtered.length === 0 && hasActiveFilter ? (
-        <div className="rounded-lg border border-dashed bg-card p-12 text-center">
-          <Filter className="mx-auto h-10 w-10 text-muted-foreground/50 mb-3" />
-          <p className="text-muted-foreground">Nenhum gasto encontrado com os filtros selecionados.</p>
-        </div>
+        <EmptyState icon={Filter} title="Nenhum gasto encontrado" description="Ajuste os filtros selecionados para ver outros resultados." />
       ) : (
         <>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">

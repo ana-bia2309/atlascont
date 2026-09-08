@@ -3,12 +3,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/use-company";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Plus, ChevronRight, CheckCircle2, AlertTriangle, Wrench, Trash2, Pencil, RefreshCw } from "@/lib/icons";
+import { Search, Plus, ChevronRight, CheckCircle2, AlertTriangle, Wrench, Trash2, Pencil, RefreshCw, SearchX } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -163,7 +164,7 @@ export default function DiagnosticoFalhas() {
             </div>
           )
             : filtered.length === 0 ? (
-              <Card><CardContent className="py-8 text-center text-muted-foreground text-sm">Nenhum diagnóstico encontrado.</CardContent></Card>
+              <EmptyState icon={SearchX} title="Nenhum diagnóstico encontrado" className="py-6" />
             ) : (
               <div className="space-y-2">
                 {/* Agrupa por sistema */}

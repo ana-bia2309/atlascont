@@ -19,6 +19,7 @@ import { isFinishedStatus } from "@/lib/os-status";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import DashboardHealthScore from "@/components/dashboard/DashboardHealthScore";
 import DashboardSatisfactionScore from "@/components/dashboard/DashboardSatisfactionScore";
 import DashboardRiskHeatmap from "@/components/dashboard/DashboardRiskHeatmap";
@@ -805,7 +806,7 @@ useRealtime(
                 { name: "Canceladas", value: stats.canceladas, fill: "hsl(0, 70%, 55%)" },
               ];
               return barData.every((d) => d.value === 0) ? (
-                <p className="text-muted-foreground text-sm">Nenhuma O.S. cadastrada.</p>
+                <EmptyState icon={BarChart3} title="Nenhuma O.S. cadastrada" className="py-8" />
               ) : (
                 <ResponsiveContainer width="100%" height={280}>
                   <BarChart data={barData}>

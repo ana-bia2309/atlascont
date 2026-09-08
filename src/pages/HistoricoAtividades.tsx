@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
@@ -14,7 +15,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, Search, X, Activity, ChevronLeft, ChevronRight } from "@/lib/icons";
+import { RefreshCw, Search, X, Activity, ChevronLeft, ChevronRight, History } from "@/lib/icons";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -189,9 +190,11 @@ export default function HistoricoAtividades() {
           {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-10 w-full rounded-md" />)}
         </div>
       ) : entries.length === 0 ? (
-        <p className="text-muted-foreground">
-          {hasActiveFilters ? "Nenhum registro encontrado com os filtros aplicados." : "Nenhum registro de atividade."}
-        </p>
+        <EmptyState
+          icon={History}
+          title={hasActiveFilters ? "Nenhum registro encontrado" : "Nenhum registro de atividade"}
+          description={hasActiveFilters ? "Ajuste os filtros aplicados para ver outros resultados." : undefined}
+        />
       ) : (
         <>
           <div className="rounded-lg border bg-card overflow-auto">

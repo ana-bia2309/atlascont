@@ -6,6 +6,7 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { useCompany } from "@/hooks/use-company";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
@@ -908,9 +909,11 @@ const companyId = profile.company_id;
           {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-md" />)}
         </div>
       ) : filteredUsers.length === 0 ? (
-        <p className="text-muted-foreground">
-          {hasActiveFilters ? "Nenhum usuário encontrado com os filtros aplicados." : "Nenhum usuário cadastrado."}
-        </p>
+        <EmptyState
+          icon={UserX}
+          title={hasActiveFilters ? "Nenhum usuário encontrado" : "Nenhum usuário cadastrado"}
+          description={hasActiveFilters ? "Ajuste os filtros aplicados para ver outros resultados." : undefined}
+        />
       ) : (
         <div className="rounded-lg border bg-card overflow-auto">
           <Table>

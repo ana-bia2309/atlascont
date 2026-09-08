@@ -16,7 +16,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  RefreshCw, Search, X, Clock, ChevronLeft, ChevronRight, FileText, TrendingUp, TrendingDown, SearchX,
+  RefreshCw, Search, X, Clock, ChevronLeft, ChevronRight, FileText, TrendingUp, TrendingDown, SearchX, Package,
 } from "@/lib/icons";
 import { EmptyState } from "@/components/ui/empty-state";
 import * as XLSX from "xlsx";
@@ -479,7 +479,7 @@ export default function HistoricoReajustes() {
                         <TableRow key={i}><TableCell colSpan={5} className="py-3"><Skeleton className="h-5 w-full" /></TableCell></TableRow>
                       ))
                     ) : detailItens.length === 0 ? (
-                      <TableRow><TableCell colSpan={5} className="text-center py-6 text-muted-foreground">Nenhum item encontrado</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={5}><EmptyState icon={Package} title="Nenhum item encontrado" className="py-4" /></TableCell></TableRow>
                     ) : detailItens.map((it) => (
                       <TableRow key={it.id}>
                         <TableCell className="font-mono text-sm">{it.codigo}</TableCell>

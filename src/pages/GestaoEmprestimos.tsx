@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -112,7 +113,7 @@ export default function GestaoEmprestimos() {
             </div>
 
             {lista.length === 0 ? (
-                <div className="text-center py-16 text-muted-foreground"><Package className="h-10 w-10 mx-auto mb-3 opacity-30" /><p>Nenhum empréstimo encontrado.</p></div>
+                <EmptyState icon={Package} title="Nenhum empréstimo encontrado" />
             ) : (
                 <div className="space-y-3">
                     {lista.map(emp => (

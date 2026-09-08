@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -349,7 +350,7 @@ export default function GerenciarEmpresas() {
           {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-28 w-full rounded-lg" />)}
         </div>
       ) : companies.length === 0 ? (
-        <p className="text-muted-foreground">Nenhuma empresa cadastrada.</p>
+        <EmptyState icon={Building2} title="Nenhuma empresa cadastrada" />
       ) : (
         <div className="rounded-lg border bg-card overflow-auto">
           <Table>
