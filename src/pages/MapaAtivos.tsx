@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { Building2, Wrench, CheckCircle2, AlertTriangle, X, Eye, RefreshCw, TrendingUp } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 type BlocoInfo = {
@@ -141,7 +142,17 @@ export default function MapaAtivos() {
         ))}
       </div>
 
-      {loading ? <p className="text-muted-foreground">Carregando...</p> : activeTab === "mapa" ? (
+      {loading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="rounded-xl border p-4 space-y-3">
+              <Skeleton className="h-5 w-32" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-2/3" />
+            </div>
+          ))}
+        </div>
+      ) : activeTab === "mapa" ? (
         <>
           <div className="flex flex-wrap gap-3 text-xs">
             {[

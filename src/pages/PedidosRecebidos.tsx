@@ -5,6 +5,7 @@ import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -308,7 +309,14 @@ ${p.observacoes ? `<div class="section"><div class="section-title">Observações
         <span className="ml-auto text-xs text-muted-foreground self-center">{filtered.length} resultado(s)</span>
       </div>
 
-      {loading ? <p className="text-muted-foreground text-sm">Carregando...</p> :
+      {loading ? (
+        <div className="space-y-2">
+          <Skeleton className="h-10 w-full rounded-md" />
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full rounded-md" />
+          ))}
+        </div>
+      ) :
         filtered.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center text-muted-foreground">

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -434,7 +435,14 @@ const gerarExcel = (pedidosList: Pedido[]) => {
         </div>
       </div>
 
-      {loading ? <p className="text-muted-foreground">Carregando...</p> :
+      {loading ? (
+        <div className="space-y-2">
+          <Skeleton className="h-10 w-full rounded-md" />
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full rounded-md" />
+          ))}
+        </div>
+      ) :
         filtered.length === 0 ? (
           <div className="flex flex-col items-center py-16 text-muted-foreground border rounded-lg">
             <ShoppingCart className="h-12 w-12 mb-3 opacity-20" /><p>Nenhum pedido encontrado.</p>
