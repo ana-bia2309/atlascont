@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Plus, ChevronLeft, ChevronRight, RefreshCw, Calendar, CheckCircle2, Clock, Trash2, Pencil, Wrench, ClipboardList } from "@/lib/icons";
@@ -496,7 +497,13 @@ export default function Agenda() {
         </div>
       </div>
 
-      {loading ? <p className="text-muted-foreground">Carregando...</p>
+      {loading ? (
+        <div className="grid grid-cols-7 gap-2">
+          {Array.from({ length: 35 }).map((_, i) => (
+            <Skeleton key={i} className="h-20 w-full rounded-md" />
+          ))}
+        </div>
+      )
         : view === "mes" ? renderMes()
         : view === "semana" ? renderSemana()
         : renderDia()}

@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/use-company";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -301,7 +302,9 @@ export default function CentralPlanejamento() {
 
           {/* Grid de notas */}
           {notasLoading ? (
-            <p className="text-muted-foreground text-sm">Carregando...</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-lg" />)}
+            </div>
           ) : notasFiltradas.length === 0 ? (
             <div className="flex flex-col items-center py-16 text-muted-foreground">
               <BookOpen className="h-12 w-12 mb-3 opacity-20" />
@@ -397,7 +400,9 @@ export default function CentralPlanejamento() {
 
           {/* Lista de ideias */}
           {ideiasLoading ? (
-            <p className="text-muted-foreground text-sm">Carregando...</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-lg" />)}
+            </div>
           ) : ideiasFiltradas.length === 0 ? (
             <div className="flex flex-col items-center py-16 text-muted-foreground">
               <Lightbulb className="h-12 w-12 mb-3 opacity-20" />

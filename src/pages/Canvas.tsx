@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/use-company";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Plus, Trash2, RefreshCw, ChevronLeft, PenLine } from "@/lib/icons";
@@ -170,7 +171,11 @@ export default function Canvas() {
       </div>
 
       {loading ? (
-        <p className="text-muted-foreground">Carregando...</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-32 w-full rounded-lg" />
+          ))}
+        </div>
       ) : boards.length === 0 ? (
         <div className="flex flex-col items-center py-16 text-muted-foreground border rounded-lg">
           <PenLine className="h-12 w-12 mb-3 opacity-20" />

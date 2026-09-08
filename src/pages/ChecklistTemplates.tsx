@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -278,7 +279,9 @@ const { data } = await (supabase as any)
       </div>
 
       {loading ? (
-        <p className="text-muted-foreground">Carregando...</p>
+        <div className="grid gap-4 md:grid-cols-2">
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-40 w-full rounded-lg" />)}
+        </div>
       ) : templates.length === 0 ? (
         <Card><CardContent className="py-8 text-center text-muted-foreground">Nenhum template criado.</CardContent></Card>
       ) : (

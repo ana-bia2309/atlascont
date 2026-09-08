@@ -5,6 +5,7 @@ import { useUserRole } from "@/hooks/use-user-role";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useCompany } from "@/hooks/use-company";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
@@ -903,7 +904,9 @@ const companyId = profile.company_id;
 
       {/* Table */}
       {loading ? (
-        <p className="text-muted-foreground">Carregando...</p>
+        <div className="space-y-2">
+          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-md" />)}
+        </div>
       ) : filteredUsers.length === 0 ? (
         <p className="text-muted-foreground">
           {hasActiveFilters ? "Nenhum usuário encontrado com os filtros aplicados." : "Nenhum usuário cadastrado."}

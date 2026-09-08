@@ -5,6 +5,7 @@ import { useUserRole } from "@/hooks/use-user-role";
 import { usePermissions } from "@/hooks/use-permissions";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -241,7 +242,13 @@ export default function AvaliacaoDetalhe() {
     }
   };
 
-  if (loading) return <div className="p-6 text-center text-slate-400">Carregando...</div>;
+  if (loading) return (
+    <div className="p-6 max-w-4xl mx-auto space-y-4">
+      <Skeleton className="h-8 w-72" />
+      <Skeleton className="h-32 w-full rounded-lg" />
+      <Skeleton className="h-48 w-full rounded-lg" />
+    </div>
+  );
   if (!os) return <div className="p-6 text-center text-slate-400">Ordem de Serviço não encontrada.</div>;
 
   return (

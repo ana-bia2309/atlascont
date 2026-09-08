@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/use-permissions";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -566,8 +567,8 @@ export default function ChamadosOS() {
         </CardHeader>
         <CardContent>
           {loadingLista ? (
-            <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Carregando...
+            <div className="space-y-2 py-2">
+              {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-10 w-full rounded-md" />)}
             </div>
           ) : chamadosFiltrados.length === 0 ? (
             <div className="text-center py-8 text-sm text-muted-foreground">

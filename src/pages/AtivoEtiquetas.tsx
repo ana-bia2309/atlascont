@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -350,7 +351,9 @@ export default function AtivoEtiquetas() {
           </div>
 
           {loading ? (
-            <p className="text-muted-foreground text-sm py-4">Carregando...</p>
+            <div className="space-y-2 py-2">
+              {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-8 w-full rounded-md" />)}
+            </div>
           ) : filteredAtivos.length === 0 ? (
             <p className="text-muted-foreground text-sm py-4">
               {hasFilters ? "Nenhum ativo encontrado com os filtros selecionados." : "Nenhum ativo cadastrado."}

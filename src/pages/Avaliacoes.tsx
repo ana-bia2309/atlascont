@@ -5,6 +5,7 @@ import { useCompany } from "@/hooks/use-company";
 import { usePermissions } from "@/hooks/use-permissions";
 import { toast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Star, RefreshCw, Search, Clock, CheckCircle2, XCircle,
@@ -311,7 +312,11 @@ export default function Avaliacoes() {
 
       {/* Lista */}
       {loading ? (
-        <div className="text-center py-16 text-slate-400">Carregando...</div>
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-14 w-full rounded-xl" />
+          ))}
+        </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-slate-400">Nenhuma OS encontrada para os filtros selecionados.</div>
       ) : (

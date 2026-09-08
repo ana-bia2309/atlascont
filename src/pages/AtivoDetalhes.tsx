@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
@@ -136,7 +137,14 @@ export default function AtivoDetalhes() {
   useEffect(() => { fetchAtivo(); }, [fetchAtivo]);
   useEffect(() => { fetchOS(); fetchChamados(); fetchHistorico(); fetchPecas(); fetchPreventivas(); }, [fetchOS, fetchChamados, fetchHistorico, fetchPecas, fetchPreventivas]);
 
-  if (loading) return <p className="text-muted-foreground p-6">Carregando...</p>;
+  if (loading) return (
+    <div className="p-6 space-y-4">
+      <Skeleton className="h-8 w-64" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
+      </div>
+    </div>
+  );
   if (!ativo) return null;
 
   const Detail = ({ label, value }: { label: string; value: string }) => (
@@ -280,8 +288,11 @@ export default function AtivoDetalhes() {
         <TabsContent value="os" className="mt-4">
           <Card><CardContent className="pt-5">
             <h3 className="text-sm font-semibold mb-3">Ordens de Serviço ({osVinculadas.length})</h3>
-            {loadingOs ? <p className="text-muted-foreground text-sm">Carregando...</p>
-              : osVinculadas.length === 0 ? <p className="text-muted-foreground text-sm py-4 text-center">Nenhuma O.S. encontrada.</p>
+            {loadingOs ? (
+              <div className="space-y-2 py-1">
+                {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-8 w-full rounded-md" />)}
+              </div>
+            )  : osVinculadas.length === 0 ? <p className="text-muted-foreground text-sm py-4 text-center">Nenhuma O.S. encontrada.</p>
               : <div className="rounded-md border overflow-auto">
                 <Table>
                   <TableHeader><TableRow>
@@ -407,7 +418,11 @@ export default function AtivoDetalhes() {
         <TabsContent value="chamados" className="mt-4">
           <Card><CardContent className="pt-5">
             <h3 className="text-sm font-semibold mb-3">Histórico de Chamados ({chamados.length})</h3>
-            {loadingChamados ? <p className="text-muted-foreground text-sm">Carregando...</p>
+            {loadingChamados ? (
+              <div className="space-y-2 py-1">
+                {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-8 w-full rounded-md" />)}
+              </div>
+            )
               : chamados.length === 0 ? <p className="text-muted-foreground text-sm py-4 text-center">Nenhum chamado vinculado.</p>
               : <div className="rounded-md border overflow-auto">
                 <Table>
@@ -439,7 +454,11 @@ export default function AtivoDetalhes() {
         <TabsContent value="history" className="mt-4">
           <Card><CardContent className="pt-5">
             <h3 className="text-sm font-semibold mb-3">Histórico do ativo ({historico.length})</h3>
-            {loadingHist ? <p className="text-muted-foreground text-sm">Carregando...</p>
+            {loadingHist ? (
+              <div className="space-y-2 py-1">
+                {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-8 w-full rounded-md" />)}
+              </div>
+            )
               : historico.length === 0 ? <p className="text-muted-foreground text-sm py-4 text-center">Nenhum registro de histórico.</p>
               : <div className="space-y-3">
                 {historico.map(h => (
