@@ -378,9 +378,9 @@ export default function Ativos() {
     if (!file) return;
     setImportFile(file);
     const reader = new FileReader();
-    reader.onload = (ev) => {
+       reader.onload = (ev) => {
       const data = new Uint8Array(ev.target?.result as ArrayBuffer);
-      const workbook = XLSX.read(data, { type: "array" });
+      const workbook = XLSX.read(data, { type: "array", cellDates: true });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
       setImportPreview(rows.slice(0, 5) as any[]);
@@ -437,13 +437,13 @@ export default function Ativos() {
 
       const reader = new FileReader();
       reader.onload = async (ev) => {
-        const data = new Uint8Array(ev.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: "array" });
+               const data = new Uint8Array(ev.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: "array", cellDates: true });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" }) as any[];
         let success = 0, errors = 0;         const errorDetails: string[] = [];
 
-        for (const row of rows) {
+               for (const row of rows) {
           const payload: any = { company_id: companyId, status: "ativo" };
           for (const [col, val] of Object.entries(row)) {
             const normalizedCol = col.toLowerCase().trim().replace(/\s+/g, "_");
@@ -454,8 +454,18 @@ export default function Ativos() {
               if (found) payload["bloco_id"] = found.id;
             }
           }
+          if (payload.data_instalacao) {
+            const raw = payload.data_instalacao;
+            let d: Date | null = null;
+            if (raw instanceof Date) d = raw;
+            else if (typeof raw === "number") d = new Date(Math.round((raw - 25569) * 86400 * 1000));
+            if (d && !isNaN(d.getTime())) {
+              payload.data_instalacao = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+            } else if (typeof raw !== "string") {
+              delete payload.data_instalacao;
+            }
+          }
           if (!payload.nome) { errors++; continue; }
-
           // Cria o pavimento automaticamente se ainda não existir
           if (payload.area_pavimento) {
             const nomePavimento = await getOrCreatePavimento(String(payload.area_pavimento), payload.bloco_id || null);
