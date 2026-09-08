@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/use-company";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { RefreshCw, Settings2, ChevronLeft } from "@/lib/icons";
@@ -98,7 +99,9 @@ export default function OsCamposConfig() {
         </CardHeader>
         <CardContent className="space-y-1">
           {loading ? (
-            <p className="text-sm text-muted-foreground py-4">Carregando...</p>
+            <div className="space-y-2 py-1">
+              {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full rounded-md" />)}
+            </div>
           ) : (
             CAMPOS.map(c => (
               <div key={c.key} className="flex items-center justify-between py-2.5 border-b last:border-0">

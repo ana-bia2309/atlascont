@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/use-company";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
@@ -156,7 +157,11 @@ export default function DiagnosticoFalhas() {
         {/* Lista de problemas */}
         <div className="space-y-2">
           <p className="text-sm font-medium text-muted-foreground">{filtered.length} problema(s) cadastrado(s)</p>
-          {loading ? <p className="text-muted-foreground text-sm">Carregando...</p>
+          {loading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
+            </div>
+          )
             : filtered.length === 0 ? (
               <Card><CardContent className="py-8 text-center text-muted-foreground text-sm">Nenhum diagnóstico encontrado.</CardContent></Card>
             ) : (

@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/use-company";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -231,7 +232,11 @@ export default function Kanban() {
     if (projetoAtivo) fetchBoard(projetoAtivo.id);
   };
 
-  if (loading) return <p className="text-muted-foreground">Carregando...</p>;
+  if (loading) return (
+    <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-lg" />)}
+    </div>
+  );
 
   // ── Lista de Projetos ──
   if (!projetoAtivo) return (

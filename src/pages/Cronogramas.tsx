@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { RefreshCw, Search, CalendarClock, X, Pencil, Paperclip, FileText, FileSpreadsheet, BarChart3, TableIcon, Calendar as CalendarIcon } from "@/lib/icons";
@@ -498,7 +499,11 @@ export default function Cronogramas() {
   );
 
   const renderTableView = (items: AtividadeGlobal[], showTimer = true) => {
-    if (loading) return <p className="text-muted-foreground">Carregando...</p>;
+    if (loading) return (
+      <div className="space-y-2">
+        {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full rounded-md" />)}
+      </div>
+    );
     if (items.length === 0) return <p className="text-muted-foreground">Nenhuma atividade encontrada.</p>;
 
     return (

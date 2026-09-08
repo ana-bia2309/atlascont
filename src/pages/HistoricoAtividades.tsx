@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
@@ -184,7 +185,9 @@ export default function HistoricoAtividades() {
 
       {/* Table */}
       {loading ? (
-        <p className="text-muted-foreground">Carregando...</p>
+        <div className="space-y-2">
+          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-10 w-full rounded-md" />)}
+        </div>
       ) : entries.length === 0 ? (
         <p className="text-muted-foreground">
           {hasActiveFilters ? "Nenhum registro encontrado com os filtros aplicados." : "Nenhum registro de atividade."}

@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/use-permissions";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -311,7 +312,9 @@ export default function PerfisAcesso() {
 
       {/* Profile List */}
       {loading ? (
-        <p className="text-muted-foreground">Carregando...</p>
+        <div className="space-y-2">
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
+        </div>
       ) : perfis.length === 0 ? (
         <div className="rounded-lg border border-dashed bg-card p-12 text-center">
           <ShieldCheck className="mx-auto h-10 w-10 text-muted-foreground/50 mb-3" />

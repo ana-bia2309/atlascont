@@ -6,6 +6,7 @@ import React, { useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { RefreshCw, Wrench } from "lucide-react";
 import {
   useMeuContexto, useEmprestimos, registrarHistorico, computeStatus,
@@ -55,7 +56,11 @@ export default function MeusEmprestimos() {
     fetchEmprestimos();
   }
 
-  if (loading) return <div className="flex items-center justify-center h-64 text-muted-foreground"><RefreshCw className="animate-spin h-5 w-5 mr-2" /> Carregando...</div>;
+  if (loading) return (
+    <div className="p-6 space-y-2">
+      {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-md" />)}
+    </div>
+  );
 
   return (
     <div className="p-6 space-y-6 max-w-3xl mx-auto">

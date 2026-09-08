@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -344,7 +345,9 @@ export default function GerenciarEmpresas() {
       </div>
 
       {loading ? (
-        <p className="text-muted-foreground">Carregando...</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-28 w-full rounded-lg" />)}
+        </div>
       ) : companies.length === 0 ? (
         <p className="text-muted-foreground">Nenhuma empresa cadastrada.</p>
       ) : (

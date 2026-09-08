@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -56,7 +57,11 @@ export default function GestaoEmprestimos() {
         };
     }, [emprestimos]);
 
-    if (loading) return <div className="flex items-center justify-center h-64 text-muted-foreground"><RefreshCw className="animate-spin h-5 w-5 mr-2" /> Carregando...</div>;
+    if (loading) return (
+      <div className="p-6 space-y-2">
+        {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-md" />)}
+      </div>
+    );
 
     if (!isGestor) return (
         <div className="p-10 text-center text-muted-foreground">

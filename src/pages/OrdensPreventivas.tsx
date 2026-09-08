@@ -16,6 +16,7 @@ import QrCodeScanner from "@/components/op/QrCodeScanner";
 import AbrirChamadoDialog from "@/components/op/AbrirChamadoDialog";
 
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -634,7 +635,9 @@ const ComentariosOP = ({ opId }: { opId: string }) => {
        {/* CARDS DE PLANOS — tela inicial */}
       {!planoSelecionado && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {loading ? <p className="text-muted-foreground col-span-3">Carregando...</p>
+          {loading ? (
+            Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-32 w-full rounded-lg" />)
+          )
             : planos.length === 0 ? (
               <div className="col-span-3 text-center py-12 text-muted-foreground border rounded-lg">
                 <ShieldCheck className="h-10 w-10 mx-auto mb-3 opacity-30" />
@@ -978,7 +981,9 @@ const ComentariosOP = ({ opId }: { opId: string }) => {
     Atividades ({atividades.length})
   </p>
   {loadingAtv ? (
-    <p className="text-xs text-muted-foreground">Carregando...</p>
+    <div className="space-y-1.5">
+      {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-6 w-full rounded-md" />)}
+    </div>
   ) : atividades.length === 0 ? (
     <p className="text-xs text-muted-foreground">Nenhuma atividade.</p>
   ) : (
