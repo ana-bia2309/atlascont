@@ -441,7 +441,7 @@ export default function Ativos() {
         const workbook = XLSX.read(data, { type: "array" });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" }) as any[];
-        let success = 0, errors = 0;
+        let success = 0, errors = 0;         const errorDetails: string[] = [];
 
         for (const row of rows) {
           const payload: any = { company_id: companyId, status: "ativo" };
@@ -464,12 +464,12 @@ export default function Ativos() {
 
           const { data: existing } = await (supabase as any).from("ativos").select("id")
             .eq("codigo_identificacao", payload.codigo_identificacao).eq("company_id", companyId).maybeSingle();
-          if (existing?.id) {
+                  if (existing?.id) {
             const { error } = await (supabase as any).from("ativos").update(payload).eq("id", existing.id);
-            if (error) errors++; else success++;
+            if (error) { errors++; if (errorDetails.length < 3) errorDetails.push(`${payload.codigo_identificacao || payload.nome}: ${error.message}`); console.error("Erro ao atualizar ativo:", payload, error); } else success++;
           } else {
             const { error } = await (supabase as any).from("ativos").insert(payload);
-            if (error) errors++; else success++;
+            if (error) { errors++; if (errorDetails.length < 3) errorDetails.push(`${payload.codigo_identificacao || payload.nome}: ${error.message}`); console.error("Erro ao inserir ativo:", payload, error); } else success++;
           }
         }
 
@@ -480,7 +480,7 @@ export default function Ativos() {
         const pavimentosMsg = novosPavimentosCriados.length > 0
           ? ` ${novosPavimentosCriados.length} novo(s) pavimento(s) cadastrado(s).`
           : "";
-        toast({ title: "Importação concluída", description: `${success} importado(s), ${errors} erro(s).${pavimentosMsg}` });
+        toast({           title: "Importação concluída",           description: `${success} importado(s), ${errors} erro(s).${pavimentosMsg}${errorDetails.length ? " Detalhe: " + errorDetails.join(" | ") : ""}`,           variant: errors > 0 ? "destructive" : "default",         });
         setImportOpen(false); setImportFile(null); setImportPreview([]);
         fetchData();
       };
