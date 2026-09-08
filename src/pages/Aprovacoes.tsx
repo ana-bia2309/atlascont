@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/use-company";
 import { toast } from "@/hooks/use-toast";
@@ -13,7 +14,7 @@ import {
   FileCheck2, RefreshCw, Search, Clock, CheckCircle2, XCircle,
   Layers, ExternalLink, Building2, MapPin, ShieldCheck,
   CalendarIcon, Info, FolderSearch, Filter, X, FileText,
-  Download, ClipboardList, ArrowRight,
+  Download, ClipboardList, ArrowRight, Eye, Pencil,
 } from "@/lib/icons";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -68,6 +69,7 @@ const STATUS_FILTER_OPTIONS = [
 
 export default function Aprovacoes() {
   const { companyId } = useCompany();
+  const navigate = useNavigate();
   const [aprovacoes, setAprovacoes] = useState<Aprovacao[]>([]);
   const [loading, setLoading] = useState(true);
   const [profileId, setProfileId] = useState<string | null>(null);
@@ -466,6 +468,24 @@ export default function Aprovacoes() {
                         <Button
                           variant="outline"
                           size="sm"
+                          onClick={() => navigate(`/ordens-servico?os=${a.os_id}`)}
+                          className="h-7 gap-1.5 text-xs rounded-lg border-slate-200 text-slate-600 hover:bg-slate-50"
+                        >
+                          <Eye className="h-3.5 w-3.5" /> Ver O.S. Completa
+                        </Button>
+                        {statusKey === "pendente" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => navigate(`/ordens-servico?os=${a.os_id}&edit=true`)}
+                            className="h-7 gap-1.5 text-xs rounded-lg border-slate-200 text-slate-600 hover:bg-slate-50"
+                          >
+                            <Pencil className="h-3.5 w-3.5" /> Editar
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => setMemorialAprovacao(a)}
                           className="h-7 gap-1.5 text-xs rounded-lg border-slate-200 text-slate-600 hover:bg-slate-50"
                         >
@@ -623,6 +643,14 @@ export default function Aprovacoes() {
                         <span className="flex items-center gap-1.5">
                           <CheckCircle2 className="h-4 w-4 text-emerald-500" /> O.S. processada pelo sistema.
                         </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate(`/ordens-servico?os=${a.os_id}`)}
+                          className="h-7 gap-1.5 text-xs rounded-lg border-slate-200 text-slate-600 hover:bg-slate-50"
+                        >
+                          <Eye className="h-3.5 w-3.5" /> Ver O.S. Completa
+                        </Button>
                       </div>
                     )}
                   </div>

@@ -519,16 +519,21 @@ export default function OrdensServico() {
     companyId
   );
 
-  // Auto-open OS detail when ?os=<id> is present
+  // Auto-open OS detail when ?os=<id> is present (&edit=true abre já em modo de edição)
   useEffect(() => {
     const osId = searchParams.get("os");
     if (!osId || loading || ordens.length === 0) return;
     const found = ordens.find((o) => o.id === osId);
     if (found) {
-      setViewing(found);
-      // Clear the param so it doesn't re-trigger
+      if (searchParams.get("edit") === "true") {
+        openEdit(found);
+      } else {
+        setViewing(found);
+      }
+      // Clear os params so it doesn't re-trigger
       const next = new URLSearchParams(searchParams);
       next.delete("os");
+      next.delete("edit");
       setSearchParams(next, { replace: true });
     }
   }, [searchParams, ordens, loading]);
