@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/use-company";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
@@ -167,7 +168,11 @@ export default function RelatorioTecnicos() {
         </div>
       </div>
 
-      {loading ? <p className="text-muted-foreground">Carregando...</p> : tecnicos.length === 0 ? (
+      {loading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
+        </div>
+      ) : tecnicos.length === 0 ? (
         <Card><CardContent className="py-12 text-center text-muted-foreground">
           <Users className="h-10 w-10 mx-auto mb-3 opacity-30" />
           <p>Nenhum dado encontrado para o período selecionado.</p>

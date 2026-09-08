@@ -5,6 +5,7 @@ import { useCompany } from "@/hooks/use-company";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -1055,7 +1056,9 @@ for (const mestre of existentesArr) {
       </div>
 
       {loading ? (
-        <p className="text-muted-foreground">Carregando...</p>
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
+        </div>
       ) : filteredPlanos.length === 0 ? (
         <div className="rounded-xl border bg-card p-8 text-center">
           <ClipboardList className="h-12 w-12 mx-auto text-muted-foreground mb-3" />

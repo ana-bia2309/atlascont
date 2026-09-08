@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -366,7 +367,9 @@ const fetchData = useCallback(async () => {
 
         <TabsContent value={tab} className="mt-4">
           {loading ? (
-            <p className="text-muted-foreground">Carregando...</p>
+            <div className="space-y-2">
+              {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full rounded-md" />)}
+            </div>
           ) : rows.length === 0 ? (
             <p className="text-muted-foreground">Nenhum registro encontrado para o período selecionado.</p>
           ) : (

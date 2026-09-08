@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/use-company";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Timer, Save, RefreshCw, ChevronLeft } from "@/lib/icons";
@@ -106,7 +107,9 @@ export default function RegrasPrioridade() {
 
       {/* Regras */}
       {loading ? (
-        <p className="text-muted-foreground">Carregando...</p>
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}
+        </div>
       ) : (
         <div className="space-y-4">
           {PRIORIDADES.map(({ key, color, icon }) => (

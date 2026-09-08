@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/use-company";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BarChart3, Download, FileText, RefreshCw, Star, TrendingDown, TrendingUp } from "@/lib/icons";
 import { format } from "date-fns";
@@ -309,7 +310,9 @@ export default function RelatoriosAvaliacoes() {
       </div>
 
       {loading ? (
-        <div className="text-center py-16 text-slate-400">Carregando...</div>
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}
+        </div>
       ) : !rows.length ? (
         <div className="text-center py-16 text-slate-400">Nenhuma avaliação finalizada para os filtros selecionados.</div>
       ) : (

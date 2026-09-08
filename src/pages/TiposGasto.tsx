@@ -4,6 +4,7 @@ import { toast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useRealtime } from "@/hooks/use-realtime";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -129,7 +130,9 @@ export default function TiposGasto() {
       </div>
 
       {loading ? (
-        <p className="text-muted-foreground">Carregando...</p>
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-md" />)}
+        </div>
       ) : tipos.length === 0 ? (
         <div className="rounded-lg border border-dashed bg-card p-12 text-center">
           <Tags className="mx-auto h-10 w-10 text-muted-foreground/50 mb-3" />

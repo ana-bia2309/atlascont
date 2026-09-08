@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/use-company";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { RefreshCw, Search, X, FileText, Download, Package, ChevronDown, ChevronRight, TrendingUp } from "@/lib/icons";
 import { STATUS_OPTIONS } from "@/lib/os-status";
@@ -370,7 +371,9 @@ export default function RelatorioConsolidadoMateriais() {
 
       {/* Lista consolidada */}
       {loading ? (
-        <p className="text-muted-foreground text-center py-12">Carregando...</p>
+        <div className="space-y-2">
+          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-10 w-full rounded-md" />)}
+        </div>
       ) : filtered.length === 0 ? (
         <p className="text-muted-foreground text-center py-12">Nenhum material encontrado.</p>
       ) : (

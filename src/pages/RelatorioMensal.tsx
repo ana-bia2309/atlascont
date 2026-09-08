@@ -3,6 +3,7 @@ import { useRealtime } from "@/hooks/use-realtime";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -287,7 +288,15 @@ const fetchData = useCallback(async () => {
     toast({ title: "Excel exportado com sucesso!" });
   };
 
-  if (loading) return <p className="text-muted-foreground p-6">Carregando...</p>;
+  if (loading) return (
+    <div className="p-6 space-y-4">
+      <Skeleton className="h-8 w-64" />
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-lg" />)}
+      </div>
+      <Skeleton className="h-64 w-full rounded-lg" />
+    </div>
+  );
 
   return (
     <div>

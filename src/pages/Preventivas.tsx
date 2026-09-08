@@ -6,6 +6,7 @@ import { useRealtime } from "@/hooks/use-realtime";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -731,7 +732,9 @@ export default function Preventivas() {
 
         <TabsContent value="ativas">
           {loading ? (
-            <p className="text-muted-foreground">Carregando...</p>
+            <div className="space-y-2">
+              {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
+            </div>
           ) : filteredPreventivas.length === 0 ? (
             <div className="rounded-xl border bg-card p-8 text-center">
               <Wrench className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
@@ -877,7 +880,9 @@ export default function Preventivas() {
 
         <TabsContent value="concluidas">
           {loadingConcluidas ? (
-            <p className="text-muted-foreground">Carregando...</p>
+            <div className="space-y-2">
+              {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
+            </div>
           ) : osConcluidas.length === 0 ? (
             <div className="rounded-xl border bg-card p-8 text-center">
               <CheckCircle2 className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
@@ -1272,7 +1277,9 @@ export default function Preventivas() {
                   )}
 
                   {loadingAtividades ? (
-                    <p className="text-xs text-muted-foreground">Carregando...</p>
+                    <div className="space-y-1.5">
+                      {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-6 w-full rounded-md" />)}
+                    </div>
                   ) : prevAtividades.length === 0 ? (
                     <p className="text-xs text-muted-foreground text-center py-6">Nenhuma atividade cadastrada nesta preventiva.</p>
                   ) : (

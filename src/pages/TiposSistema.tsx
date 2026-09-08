@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, Pencil, Trash2, RefreshCw, Settings2, ChevronLeft } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
@@ -131,7 +132,9 @@ export default function TiposSistema() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}><TableCell colSpan={4} className="py-3"><Skeleton className="h-6 w-full" /></TableCell></TableRow>
+              ))
             ) : list.length === 0 ? (
               <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Nenhum tipo cadastrado</TableCell></TableRow>
             ) : list.map(t => (

@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCompany } from "@/hooks/use-company";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -512,7 +513,9 @@ export default function PortalCliente() {
 
           {/* Grid */}
           {loading ? (
-            <p className="text-center text-sm text-muted-foreground py-12">Carregando...</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-lg" />)}
+            </div>
           ) : displayedChamados.length === 0 ? (
             <div className="py-24 text-center">
               <div className="text-5xl mb-4">📂</div>
