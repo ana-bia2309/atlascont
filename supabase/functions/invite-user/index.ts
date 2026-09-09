@@ -134,51 +134,72 @@ Deno.serve(async (req) => {
 
     const authUserId = authData.user.id;
 
-    // Wait for trigger to create profile
-    await new Promise((r) => setTimeout(r, 500));
+    // Espera o gatilho criar o perfil -- antes era uma unica espera fixa de
+    // 500ms, que podia nao ser suficiente se o banco estivesse mais lento
+    // naquele momento. Agora tenta varias vezes antes de desistir.
+    let profile: { id: string } | null = null;
+    let profileError: any = null;
+    for (let tentativa = 0; tentativa < 8; tentativa++) {
+      await new Promise((r) => setTimeout(r, 400));
+      const { data, error } = await adminClient
+        .from("profiles")
+        .select("id")
+        .eq("user_id", authUserId)
+        .maybeSingle();
+      if (data) { profile = data; break; }
+      profileError = error;
+    }
 
-    // Find and update profile with company_id from caller
-    const { data: profile, error: profileError } = await adminClient
-      .from("profiles")
-      .select("id")
-      .eq("user_id", authUserId)
-      .single();
-
-    if (profileError) {
-      console.error("Profile lookup error:", profileError.message);
+    if (!profile) {
+      console.error("Profile lookup error (esgotou tentativas):", profileError?.message);
+      // Nao finge sucesso: o usuario foi criado no login, mas sem empresa/
+      // papel/perfil configurados. Avisa quem convidou pra nao ficar achando
+      // que deu tudo certo quando na verdade precisa conferir manualmente.
+      return new Response(JSON.stringify({
+        success: false,
+        userId: authUserId,
+        error: "O convite foi enviado, mas não foi possível confirmar a configuração de empresa/perfil do usuário a tempo. Verifique o cadastro dele em Controle de Acesso antes de considerar concluído.",
+      }), {
+        status: 202,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const finalCompanyId = (isSuperAdmin && targetCompanyId) ? targetCompanyId : callerProfile.company_id;
 
-    if (profile) {
-      const { error: updateError } = await adminClient.from("profiles").update({
-        ...(cpf ? { cpf } : {}),
-        nome,
-        company_id: finalCompanyId,
-        perfil_acesso_id: perfil_acesso_id || null,
-      }).eq("id", profile.id);
+    const { error: updateError } = await adminClient.from("profiles").update({
+      ...(cpf ? { cpf } : {}),
+      nome,
+      company_id: finalCompanyId,
+      perfil_acesso_id: perfil_acesso_id || null,
+    }).eq("id", profile.id);
 
-      if (updateError) {
-        console.error("Profile update error:", updateError.message);
-      }
+    // Remove any orphan 'visualizacao' role created by trigger (no company_id)
+    const { error: cleanupError } = await adminClient
+      .from("user_roles")
+      .delete()
+      .eq("user_id", profile.id)
+      .is("company_id", null);
 
-      // Remove any orphan 'visualizacao' role created by trigger (no company_id)
-      await adminClient
-        .from("user_roles")
-        .delete()
-        .eq("user_id", profile.id)
-        .is("company_id", null);
+    // Insert the correct role with company_id
+    const { error: roleError } = await adminClient
+      .from("user_roles")
+      .insert({ user_id: profile.id, role, company_id: finalCompanyId });
 
-      // Insert the correct role with company_id
-      const { error: roleError } = await adminClient
-        .from("user_roles")
-        .insert({ user_id: profile.id, role, company_id: finalCompanyId });
-      if (roleError) {
-        console.error("Role insert error:", roleError.message);
-      }
+    if (updateError || roleError) {
+      console.error("Profile/role update error:", updateError?.message, roleError?.message);
+      return new Response(JSON.stringify({
+        success: false,
+        userId: authUserId,
+        profile_id: profile.id,
+        error: `O usuário foi criado, mas houve um erro ao configurar empresa/perfil: ${updateError?.message || roleError?.message}. Verifique o cadastro dele em Controle de Acesso.`,
+      }), {
+        status: 207,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    return new Response(JSON.stringify({ success: true, userId: authUserId, profile_id: profile?.id }), {
+    return new Response(JSON.stringify({ success: true, userId: authUserId, profile_id: profile.id }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
