@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -1281,7 +1282,7 @@ export default function Preventivas() {
                       {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-6 w-full rounded-md" />)}
                     </div>
                   ) : prevAtividades.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-6">Nenhuma atividade cadastrada nesta preventiva.</p>
+                    <EmptyState icon={ClipboardList} title="Nenhuma atividade cadastrada nesta preventiva" className="py-4" />
                   ) : (
                     <div className="space-y-2">
                       {prevAtividades.map(a => (

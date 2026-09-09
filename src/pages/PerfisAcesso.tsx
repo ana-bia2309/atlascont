@@ -5,6 +5,7 @@ import { toast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/use-permissions";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -316,13 +317,11 @@ export default function PerfisAcesso() {
           {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
         </div>
       ) : perfis.length === 0 ? (
-        <div className="rounded-lg border border-dashed bg-card p-12 text-center">
-          <ShieldCheck className="mx-auto h-10 w-10 text-muted-foreground/50 mb-3" />
-          <p className="text-muted-foreground">Nenhum perfil cadastrado.</p>
-          <Button variant="outline" className="mt-4" onClick={openCreate}>
-            <Plus className="mr-2 h-4 w-4" /> Criar primeiro perfil
-          </Button>
-        </div>
+        <EmptyState
+          icon={ShieldCheck}
+          title="Nenhum perfil cadastrado"
+          action={{ label: "Criar primeiro perfil", onClick: openCreate }}
+        />
       ) : (
         <div className="space-y-3">
           {perfis.map((p) => {

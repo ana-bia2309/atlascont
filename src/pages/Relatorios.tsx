@@ -6,6 +6,7 @@ import { toast } from "@/hooks/use-toast";
 import { BarChart3, ClipboardList, DollarSign, TrendingUp, RefreshCw, FileDown, FileSpreadsheet, Filter, X, CalendarIcon, Users } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -593,7 +594,7 @@ const fetchData = useCallback(async () => {
             <div className="rounded-xl border bg-card p-5">
               <h2 className="text-lg font-semibold mb-4">Distribuição por Status</h2>
               {pieData.length === 0 ? (
-                <p className="text-muted-foreground text-sm">Nenhuma O.S. cadastrada.</p>
+                <EmptyState icon={BarChart3} title="Nenhuma O.S. cadastrada" className="py-8" />
               ) : (
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>

@@ -6,6 +6,7 @@ import { Building2, Wrench, CheckCircle2, AlertTriangle, X, Eye, RefreshCw, Tren
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 
 type BlocoInfo = {
@@ -276,11 +277,11 @@ export default function MapaAtivos() {
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
               {loadingAtivos ? <p className="text-muted-foreground text-sm">Carregando ativos...</p>
                 : ativosBloco.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Building2 className="h-8 w-8 mx-auto mb-2 text-muted-foreground opacity-30" />
-                    <p className="text-sm text-muted-foreground">Nenhum ativo cadastrado neste bloco.</p>
-                    <Button size="sm" variant="outline" className="mt-3" onClick={() => navigate("/ativos")}>Cadastrar Ativo</Button>
-                  </div>
+                  <EmptyState
+                    icon={Building2}
+                    title="Nenhum ativo cadastrado neste bloco"
+                    action={{ label: "Cadastrar Ativo", onClick: () => navigate("/ativos") }}
+                  />
                 ) : ativosBloco.map(a => (
                   <div key={a.id} className={cn(
                     "rounded-lg border p-3 flex items-center justify-between gap-2",

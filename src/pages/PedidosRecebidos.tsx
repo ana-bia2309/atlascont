@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -318,12 +319,7 @@ ${p.observacoes ? `<div class="section"><div class="section-title">Observações
         </div>
       ) :
         filtered.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center text-muted-foreground">
-              <ShoppingCart className="h-10 w-10 mx-auto mb-3 opacity-30" />
-              <p>Nenhum pedido encontrado.</p>
-            </CardContent>
-          </Card>
+          <EmptyState icon={ShoppingCart} title="Nenhum pedido encontrado" />
         ) : (
           <div className="rounded-md border overflow-auto">
             <Table>

@@ -4,6 +4,7 @@ import { useCompany } from "@/hooks/use-company";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { RefreshCw, Search, X, Activity, Wrench, AlertTriangle, CheckCircle2, Clock, TrendingUp, TrendingDown } from "@/lib/icons";
@@ -323,7 +324,7 @@ export default function RelatorioSaudeAtivos() {
       {loading ? (
         <p className="text-muted-foreground text-center py-12">Calculando scores...</p>
       ) : filtered.length === 0 ? (
-        <p className="text-muted-foreground text-center py-12">Nenhum ativo encontrado.</p>
+        <EmptyState icon={Activity} title="Nenhum ativo encontrado" />
       ) : (
         <div className="space-y-3">
           {filtered.map(ativo => {

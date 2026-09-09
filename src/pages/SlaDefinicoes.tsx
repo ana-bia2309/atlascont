@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -147,7 +148,7 @@ export default function SlaDefinicoes() {
           {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-10 w-full rounded-md" />)}
         </div>
       ) : items.length === 0 ? (
-        <p className="text-muted-foreground">Nenhuma definição de SLA cadastrada.</p>
+        <EmptyState icon={Clock} title="Nenhuma definição de SLA cadastrada" />
       ) : (
         <div className="rounded-lg border bg-card overflow-auto">
           <Table>

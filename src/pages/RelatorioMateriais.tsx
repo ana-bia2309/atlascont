@@ -4,6 +4,7 @@ import { useCompany } from "@/hooks/use-company";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -398,7 +399,7 @@ export default function RelatorioMateriais() {
           {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-10 w-full rounded-md" />)}
         </div>
       ) : osComMateriais.length === 0 ? (
-        <p className="text-muted-foreground text-center py-12">Nenhuma O.S. com materiais encontrada.</p>
+        <EmptyState icon={Package} title="Nenhuma O.S. com materiais encontrada" />
       ) : (
         <div className="space-y-3">
           {osComMateriais.map(os => {

@@ -2604,7 +2604,7 @@ export default function OrdensServico() {
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground py-2">Nenhum anexo encontrado.</p>
+            <EmptyState icon={Paperclip} title="Nenhum anexo encontrado" className="py-4" />
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setAnexosModalOsId(null)}>Fechar</Button>

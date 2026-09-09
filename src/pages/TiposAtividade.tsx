@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -191,10 +192,7 @@ const { error } = await (supabase as any)
           {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-md" />)}
         </div>
       ) : tipos.length === 0 ? (
-        <div className="rounded-xl border bg-card p-8 text-center">
-          <ClipboardList className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-          <p className="text-muted-foreground">Nenhum tipo de atividade cadastrado.</p>
-        </div>
+        <EmptyState icon={ClipboardList} title="Nenhum tipo de atividade cadastrado" />
       ) : (
         <div className="rounded-lg border bg-card overflow-auto">
           <Table>

@@ -17,6 +17,7 @@ import AbrirChamadoDialog from "@/components/op/AbrirChamadoDialog";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -639,10 +640,7 @@ const ComentariosOP = ({ opId }: { opId: string }) => {
             Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-32 w-full rounded-lg" />)
           )
             : planos.length === 0 ? (
-              <div className="col-span-3 text-center py-12 text-muted-foreground border rounded-lg">
-                <ShieldCheck className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                <p>Nenhum plano de manutenção encontrado.</p>
-              </div>
+              <EmptyState icon={ShieldCheck} title="Nenhum plano de manutenção encontrado" className="col-span-3" />
             ) : planos.map(plano => (
               <div key={plano.id}
                 onClick={() => setPlanoSelecionado(plano)}

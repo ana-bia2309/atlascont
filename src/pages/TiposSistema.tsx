@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Plus, Pencil, Trash2, RefreshCw, Settings2, ChevronLeft } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
@@ -136,7 +137,7 @@ export default function TiposSistema() {
                 <TableRow key={i}><TableCell colSpan={4} className="py-3"><Skeleton className="h-6 w-full" /></TableCell></TableRow>
               ))
             ) : list.length === 0 ? (
-              <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Nenhum tipo cadastrado</TableCell></TableRow>
+              <TableRow><TableCell colSpan={4}><EmptyState icon={Settings2} title="Nenhum tipo cadastrado" className="py-6" /></TableCell></TableRow>
             ) : list.map(t => (
               <TableRow key={t.id}>
                 <TableCell className="font-medium">{t.nome}</TableCell>

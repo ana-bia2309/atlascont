@@ -5,6 +5,7 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { useRealtime } from "@/hooks/use-realtime";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -134,13 +135,11 @@ export default function TiposGasto() {
           {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-md" />)}
         </div>
       ) : tipos.length === 0 ? (
-        <div className="rounded-lg border border-dashed bg-card p-12 text-center">
-          <Tags className="mx-auto h-10 w-10 text-muted-foreground/50 mb-3" />
-          <p className="text-muted-foreground">Nenhum tipo de gasto cadastrado.</p>
-          <Button variant="outline" className="mt-4" onClick={openCreate}>
-            <Plus className="mr-2 h-4 w-4" /> Cadastrar primeiro tipo
-          </Button>
-        </div>
+        <EmptyState
+          icon={Tags}
+          title="Nenhum tipo de gasto cadastrado"
+          action={{ label: "Cadastrar primeiro tipo", onClick: openCreate }}
+        />
       ) : (
         <div className="rounded-lg border bg-card">
           <Table>

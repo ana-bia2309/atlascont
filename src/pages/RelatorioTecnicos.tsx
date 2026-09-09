@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/use-company";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
@@ -173,10 +174,7 @@ export default function RelatorioTecnicos() {
           {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
         </div>
       ) : tecnicos.length === 0 ? (
-        <Card><CardContent className="py-12 text-center text-muted-foreground">
-          <Users className="h-10 w-10 mx-auto mb-3 opacity-30" />
-          <p>Nenhum dado encontrado para o período selecionado.</p>
-        </CardContent></Card>
+        <EmptyState icon={Users} title="Nenhum dado encontrado" description="Ajuste o período selecionado para ver outros resultados." />
       ) : (
         <>
           {/* Cards de destaque */}

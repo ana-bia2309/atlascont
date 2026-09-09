@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -371,7 +372,7 @@ const fetchData = useCallback(async () => {
               {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full rounded-md" />)}
             </div>
           ) : rows.length === 0 ? (
-            <p className="text-muted-foreground">Nenhum registro encontrado para o período selecionado.</p>
+            <EmptyState icon={Clock} title="Nenhum registro encontrado" description="Ajuste o período selecionado para ver outros resultados." />
           ) : (
             <div className="rounded-lg border bg-card overflow-auto">
               <Table>

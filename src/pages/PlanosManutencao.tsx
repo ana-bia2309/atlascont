@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -1060,12 +1061,10 @@ for (const mestre of existentesArr) {
           {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
         </div>
       ) : filteredPlanos.length === 0 ? (
-        <div className="rounded-xl border bg-card p-8 text-center">
-          <ClipboardList className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-          <p className="text-muted-foreground">
-            {planos.length === 0 ? "Nenhum plano de manutenção cadastrado." : "Nenhum plano corresponde aos filtros."}
-          </p>
-        </div>
+        <EmptyState
+          icon={ClipboardList}
+          title={planos.length === 0 ? "Nenhum plano de manutenção cadastrado" : "Nenhum plano corresponde aos filtros"}
+        />
       ) : (
         <div className="space-y-6">
           {filteredPlanos.map(p => {

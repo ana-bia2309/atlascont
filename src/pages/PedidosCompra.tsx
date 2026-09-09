@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -444,9 +445,7 @@ const gerarExcel = (pedidosList: Pedido[]) => {
         </div>
       ) :
         filtered.length === 0 ? (
-          <div className="flex flex-col items-center py-16 text-muted-foreground border rounded-lg">
-            <ShoppingCart className="h-12 w-12 mb-3 opacity-20" /><p>Nenhum pedido encontrado.</p>
-          </div>
+          <EmptyState icon={ShoppingCart} title="Nenhum pedido encontrado" />
         ) : (
           <div className="rounded-md border overflow-auto">
             <Table>
