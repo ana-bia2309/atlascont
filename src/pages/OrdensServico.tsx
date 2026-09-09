@@ -19,6 +19,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -28,7 +29,7 @@ import {
 } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Pencil, Trash2, CalendarIcon, RefreshCw, Search, X, Eye, CheckCircle2, Paperclip, Download as DownloadIcon, SlidersHorizontal, Star, StarOff, Wrench, Package, FileText, MoreVertical, ClipboardList, SearchX } from "@/lib/icons";
+import { Plus, Pencil, Trash2, CalendarIcon, RefreshCw, Search, X, Eye, CheckCircle2, Paperclip, Download as DownloadIcon, SlidersHorizontal, Star, StarOff, Wrench, Package, FileText, MoreVertical, ClipboardList, SearchX, Archive, ArchiveRestore } from "@/lib/icons";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -73,6 +74,8 @@ type OrdemServico = {
   prioridade: string | null;
   bloco_id: string | null;
   andar: string | null;
+  arquivada?: boolean;
+  arquivada_em?: string | null;
   sala: string | null;
   prazo: string | null;
   data_inicio: string | null;
@@ -202,6 +205,9 @@ export default function OrdensServico() {
   const [statusChangeOS, setStatusChangeOS] = useState<OrdemServico | null>(null);
   const [novoStatusSelecionado, setNovoStatusSelecionado] = useState<string>("");
   const [alterandoStatus, setAlterandoStatus] = useState(false);
+  const [viewMode, setViewMode] = useState<"ativas" | "arquivadas" | "todas">("ativas");
+  const [arquivarConfirmOS, setArquivarConfirmOS] = useState<OrdemServico | null>(null);
+  const [desarquivarConfirmOS, setDesarquivarConfirmOS] = useState<OrdemServico | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
@@ -550,6 +556,8 @@ export default function OrdensServico() {
     const todayStr = new Date().toISOString().slice(0, 10);
     return ordens.filter((os) => {
       const finished = isFinishedStatus(os.status);
+      if (viewMode === "ativas" && os.arquivada) return false;
+      if (viewMode === "arquivadas" && !os.arquivada) return false;
       if (filterBlocoId !== "__all__" && os.bloco_id !== filterBlocoId) return false;
       if (filterStatus === "__todas__") {
         // Show everything
@@ -582,7 +590,7 @@ export default function OrdensServico() {
       }
       return true;
     });
-  }, [ordens, filterBlocoId, filterStatus, filterPrioridade, filterAtrasada, filterCodigo, filterAndar, filterSala, filterTipoServico, filterDateFrom, filterDateTo]);
+  }, [ordens, viewMode, filterBlocoId, filterStatus, filterPrioridade, filterAtrasada, filterCodigo, filterAndar, filterSala, filterTipoServico, filterDateFrom, filterDateTo]);
 
   const hasActiveFilters = filterBlocoId !== "__all__" || filterStatus !== "__all__" || filterPrioridade !== "__all__" || filterAtrasada || filterCodigo.trim() !== "" || filterAndar !== "__all__" || filterSala !== "__all__" || filterTipoServico !== "__all__" || !!filterDateFrom || !!filterDateTo;
 
@@ -827,6 +835,43 @@ export default function OrdensServico() {
     }
     setAlterandoStatus(false);
     setStatusChangeOS(null);
+  };
+
+  const confirmarArquivar = async () => {
+    if (!arquivarConfirmOS) return;
+    const profileId = await getCurrentProfileId();
+    const { error } = await (supabase as any)
+      .from("ordens_servico")
+      .update({ arquivada: true, arquivada_em: new Date().toISOString(), arquivada_por: profileId })
+      .eq("id", arquivarConfirmOS.id);
+
+    if (error) {
+      toast({ title: "Erro ao arquivar", description: error.message, variant: "destructive" });
+    } else {
+      await logHistoricoOS(arquivarConfirmOS.id, "Arquivamento", `OS arquivada`, { arquivada: false }, { arquivada: true });
+      toast({ title: "O.S. arquivada" });
+      setViewing(null);
+      fetchData();
+    }
+    setArquivarConfirmOS(null);
+  };
+
+  const confirmarDesarquivar = async () => {
+    if (!desarquivarConfirmOS) return;
+    const { error } = await (supabase as any)
+      .from("ordens_servico")
+      .update({ arquivada: false, arquivada_em: null, arquivada_por: null })
+      .eq("id", desarquivarConfirmOS.id);
+
+    if (error) {
+      toast({ title: "Erro ao desarquivar", description: error.message, variant: "destructive" });
+    } else {
+      await logHistoricoOS(desarquivarConfirmOS.id, "Desarquivamento", `OS desarquivada`, { arquivada: true }, { arquivada: false });
+      toast({ title: "O.S. desarquivada" });
+      setViewing(null);
+      fetchData();
+    }
+    setDesarquivarConfirmOS(null);
   };
 
   const handleSave = async () => {
@@ -1446,6 +1491,13 @@ export default function OrdensServico() {
         </div>
       </div>
 
+      <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as typeof viewMode)} className="mb-4">
+        <TabsList>
+          <TabsTrigger value="ativas">Ativas</TabsTrigger>
+          <TabsTrigger value="arquivadas" className="gap-1.5"><Archive className="h-3.5 w-3.5" /> Arquivadas</TabsTrigger>
+          <TabsTrigger value="todas">Todas</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {/* Filters */}
       <div className="mb-4 rounded-lg border bg-card p-4 space-y-3">
@@ -1714,6 +1766,11 @@ export default function OrdensServico() {
                     {/* Código + Tipo */}
                     <TableCell>
                       <span className="font-mono text-sm font-bold">{os.codigo_os ? os.codigo_os.replace("OS-0*", "OS-").replace(/^OS-0+/, "OS-") : "—"}</span>
+                      {os.arquivada && (
+                        <span className="ml-1.5 inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] text-muted-foreground align-middle">
+                          <Archive className="h-2.5 w-2.5" /> Arquivada
+                        </span>
+                      )}
                       {(os as any).tipo_servico && (
                         <p className="text-xs text-muted-foreground mt-0.5">{(os as any).tipo_servico}</p>
                       )}
@@ -1960,6 +2017,20 @@ export default function OrdensServico() {
                                 <DropdownMenuItem onClick={() => setDeleteId(os.id)} className="text-destructive focus:text-destructive">
                                   <Trash2 className="mr-2 h-4 w-4" /> Excluir
                                 </DropdownMenuItem>
+                              </>
+                            )}
+                            {(can("painel_os.editar") || isTecnicoAssigned(os)) && (
+                              <>
+                                <DropdownMenuSeparator />
+                                {os.arquivada ? (
+                                  <DropdownMenuItem onClick={() => setDesarquivarConfirmOS(os)}>
+                                    <ArchiveRestore className="mr-2 h-4 w-4" /> Desarquivar
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem onClick={() => setArquivarConfirmOS(os)}>
+                                    <Archive className="mr-2 h-4 w-4" /> Arquivar
+                                  </DropdownMenuItem>
+                                )}
                               </>
                             )}
                           </DropdownMenuContent>
@@ -2403,7 +2474,20 @@ export default function OrdensServico() {
       <Dialog open={!!viewing} onOpenChange={(open) => !open && setViewing(null)}>
         <DialogContent className="max-w-[95vw] lg:max-w-[900px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Detalhes da O.S. {viewing?.codigo_os ? `— ${viewing.codigo_os}` : ""}</DialogTitle>
+            <div className="flex items-center justify-between gap-3 pr-6">
+              <DialogTitle>Detalhes da O.S. {viewing?.codigo_os ? `— ${viewing.codigo_os}` : ""}</DialogTitle>
+              {viewing && (can("painel_os.editar") || isTecnicoAssigned(viewing)) && (
+                viewing.arquivada ? (
+                  <Button size="sm" variant="outline" className="gap-1.5 shrink-0" onClick={() => setDesarquivarConfirmOS(viewing)}>
+                    <ArchiveRestore className="h-3.5 w-3.5" /> Desarquivar OS
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="outline" className="gap-1.5 shrink-0" onClick={() => setArquivarConfirmOS(viewing)}>
+                    <Archive className="h-3.5 w-3.5" /> Arquivar OS
+                  </Button>
+                )
+              )}
+            </div>
           </DialogHeader>
           {viewing && (
             <div className="space-y-3 py-2 text-sm">
@@ -2602,6 +2686,36 @@ export default function OrdensServico() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!arquivarConfirmOS} onOpenChange={(open) => !open && setArquivarConfirmOS(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Arquivar Ordem de Serviço?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A OS continuará armazenada no sistema, mas deixará de aparecer na listagem principal. Você poderá acessá-la novamente na aba "Arquivadas".
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmarArquivar}>Arquivar OS</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!desarquivarConfirmOS} onOpenChange={(open) => !open && setDesarquivarConfirmOS(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desarquivar Ordem de Serviço?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A OS voltará a aparecer na listagem principal, com todos os dados intactos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmarDesarquivar}>Desarquivar OS</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
