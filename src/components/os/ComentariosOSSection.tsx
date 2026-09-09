@@ -57,6 +57,23 @@ export default function ComentariosOSSection({
     fetchComentarios();
   }, [fetchComentarios]);
 
+  const marcarComoLido = useCallback(async () => {
+    if (!osId || !companyId) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user?.id) return;
+    await supabase.from("comentarios_os_leituras" as any).upsert(
+      { os_id: osId, user_id: session.user.id, company_id: companyId, lida_em: new Date().toISOString() },
+      { onConflict: "os_id,user_id" }
+    );
+  }, [osId, companyId]);
+
+  // Marca como lida assim que a conversa é aberta -- alimenta o indicador
+  // de "mensagem nova" na listagem de OS
+  useEffect(() => {
+    marcarComoLido();
+  }, [marcarComoLido]);
+
+
   // Rola pro final quando a conversa carrega ou uma mensagem nova chega
   useEffect(() => {
     if (!loading) {
@@ -73,7 +90,7 @@ export default function ComentariosOSSection({
       .on(
         "postgres_changes" as any,
         { event: "*", schema: "public", table: "comentarios_os", filter: `os_id=eq.${osId}` },
-        () => fetchComentarios()
+        () => { fetchComentarios(); marcarComoLido(); }
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };

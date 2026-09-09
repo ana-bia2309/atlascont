@@ -189,6 +189,7 @@ export default function OrdensServico() {
   const isTecnicoAssigned = (os: OrdemServico | null) =>
     isTecnico && !!currentProfileId && (os?.responsible_user_ids?.includes(currentProfileId) || os?.responsible_user_id === currentProfileId);
   const [ordens, setOrdens] = useState<OrdemServico[]>([]);
+  const [osComMensagemNova, setOsComMensagemNova] = useState<Set<string>>(new Set());
   const [blocos, setBlocos] = useState<Bloco[]>([]);
   const [cronogramas, setCronogramas] = useState<CronogramaOption[]>([]);
   const [ativosOptions, setAtivosOptions] = useState<AtivoOption[]>([]);
@@ -211,6 +212,19 @@ export default function OrdensServico() {
   const [statusAoArquivar, setStatusAoArquivar] = useState<string>("Concluída");
   const [desarquivarConfirmOS, setDesarquivarConfirmOS] = useState<OrdemServico | null>(null);
   const [chatOS, setChatOS] = useState<OrdemServico | null>(null);
+
+  // Some o indicador de "nova mensagem" assim que o chat é aberto (feedback
+  // imediato; o ComentariosOSSection já grava a leitura de verdade no banco)
+  useEffect(() => {
+    if (chatOS) {
+      setOsComMensagemNova((prev) => {
+        if (!prev.has(chatOS.id)) return prev;
+        const next = new Set(prev);
+        next.delete(chatOS.id);
+        return next;
+      });
+    }
+  }, [chatOS]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
@@ -373,7 +387,7 @@ export default function OrdensServico() {
 
     setLoading(true);
 
-    const [ordensRes, blocosRes, matsRes, anexosRes, cronosRes, ativosRes, profilesRes, slaRes, tecnicosRes]: any =
+    const [ordensRes, blocosRes, matsRes, anexosRes, cronosRes, ativosRes, profilesRes, slaRes, tecnicosRes, comentariosRes, leiturasRes]: any =
       await Promise.all([
         (supabase as any)
           .from("ordens_servico")
@@ -422,6 +436,20 @@ export default function OrdensServico() {
           .from("profiles")
           .select("id, nome, job_title, status")
           .eq("company_id", companyId),
+
+        (supabase as any)
+          .from("comentarios_os")
+          .select("os_id, created_at")
+          .eq("company_id", companyId)
+          .is("deleted_at", null),
+
+        session?.user?.id
+          ? (supabase as any)
+              .from("comentarios_os_leituras")
+              .select("os_id, lida_em")
+              .eq("company_id", companyId)
+              .eq("user_id", session.user.id)
+          : Promise.resolve({ data: [] }),
       ]);
     if (ordensRes.error) {
       console.error("Erro ao carregar O.S.:", ordensRes.error);
@@ -429,6 +457,21 @@ export default function OrdensServico() {
     } else {
       setOrdens(ordensRes.data || []);
     }
+
+    // Calcula quais OS têm mensagem nova: última mensagem depois da última
+    // leitura registrada por esse usuário (ou nunca lida, se houver mensagem)
+    const leiturasMap: Record<string, string> = {};
+    ((leiturasRes?.data as any[]) || []).forEach((l) => { leiturasMap[l.os_id] = l.lida_em; });
+    const ultimaMsgMap: Record<string, string> = {};
+    ((comentariosRes?.data as any[]) || []).forEach((c) => {
+      if (!ultimaMsgMap[c.os_id] || c.created_at > ultimaMsgMap[c.os_id]) ultimaMsgMap[c.os_id] = c.created_at;
+    });
+    const novasMsgs = new Set<string>();
+    Object.entries(ultimaMsgMap).forEach(([osId, ultimaMsg]) => {
+      const lida = leiturasMap[osId];
+      if (!lida || ultimaMsg > lida) novasMsgs.add(osId);
+    });
+    setOsComMensagemNova(novasMsgs);
 
     if (blocosRes.error) {
       toast({ title: "Erro ao carregar blocos", description: blocosRes.error.message, variant: "destructive" });
@@ -1789,6 +1832,15 @@ export default function OrdensServico() {
                     {/* Código + Tipo */}
                     <TableCell>
                       <span className="font-mono text-sm font-bold">{os.codigo_os ? os.codigo_os.replace("OS-0*", "OS-").replace(/^OS-0+/, "OS-") : "—"}</span>
+                      {osComMensagemNova.has(os.id) && (
+                        <button
+                          onClick={() => setChatOS(os)}
+                          title="Tem mensagem nova"
+                          className="ml-1.5 inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-1.5 py-0.5 text-[10px] font-medium align-middle hover:bg-primary/20"
+                        >
+                          <MessageSquare className="h-2.5 w-2.5" /> Nova
+                        </button>
+                      )}
                       {os.arquivada && (
                         <span className="ml-1.5 inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] text-muted-foreground align-middle">
                           <Archive className="h-2.5 w-2.5" /> Arquivada
@@ -2023,6 +2075,9 @@ export default function OrdensServico() {
                             )}
                             <DropdownMenuItem onClick={() => setChatOS(os)}>
                               <MessageSquare className="mr-2 h-4 w-4" /> Conversas
+                              {osComMensagemNova.has(os.id) && (
+                                <span className="ml-auto h-2 w-2 rounded-full bg-primary" />
+                              )}
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => openMemorial(os)}>
                               <FileText className="mr-2 h-4 w-4" /> Memorial de Cálculo
