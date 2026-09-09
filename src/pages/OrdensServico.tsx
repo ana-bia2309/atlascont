@@ -20,6 +20,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -29,7 +30,7 @@ import {
 } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Pencil, Trash2, CalendarIcon, RefreshCw, Search, X, Eye, CheckCircle2, Paperclip, Download as DownloadIcon, SlidersHorizontal, Star, StarOff, Wrench, Package, FileText, MoreVertical, ClipboardList, SearchX, Archive, ArchiveRestore } from "@/lib/icons";
+import { Plus, Pencil, Trash2, CalendarIcon, RefreshCw, Search, X, Eye, CheckCircle2, Paperclip, Download as DownloadIcon, SlidersHorizontal, Star, StarOff, Wrench, Package, FileText, MoreVertical, ClipboardList, SearchX, Archive, ArchiveRestore, MessageSquare } from "@/lib/icons";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -208,6 +209,7 @@ export default function OrdensServico() {
   const [viewMode, setViewMode] = useState<"ativas" | "arquivadas" | "todas">("ativas");
   const [arquivarConfirmOS, setArquivarConfirmOS] = useState<OrdemServico | null>(null);
   const [desarquivarConfirmOS, setDesarquivarConfirmOS] = useState<OrdemServico | null>(null);
+  const [chatOS, setChatOS] = useState<OrdemServico | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
@@ -1998,6 +2000,9 @@ export default function OrdensServico() {
                                 <CheckCircle2 className="mr-2 h-4 w-4" /> Alterar Status
                               </DropdownMenuItem>
                             )}
+                            <DropdownMenuItem onClick={() => setChatOS(os)}>
+                              <MessageSquare className="mr-2 h-4 w-4" /> Conversas
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => openMemorial(os)}>
                               <FileText className="mr-2 h-4 w-4" /> Memorial de Cálculo
                             </DropdownMenuItem>
@@ -2653,6 +2658,23 @@ export default function OrdensServico() {
       </Dialog>
 
       {/* Delete Confirmation */}
+      {/* Chat rápido — sem precisar abrir a OS inteira */}
+      <Sheet open={!!chatOS} onOpenChange={(open) => !open && setChatOS(null)}>
+        <SheetContent className="w-full sm:max-w-[420px] flex flex-col">
+          <SheetHeader>
+            <SheetTitle>Conversas {chatOS?.codigo_os ? `— ${chatOS.codigo_os}` : ""}</SheetTitle>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto mt-4">
+            {chatOS && (
+              <ComentariosOSSection
+                osId={chatOS.id}
+                readOnly={!can("painel_os.editar") && !isTecnicoAssigned(chatOS)}
+              />
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
       {/* Alterar Status */}
       <Dialog open={!!statusChangeOS} onOpenChange={(open) => !open && setStatusChangeOS(null)}>
         <DialogContent className="sm:max-w-[420px]">
