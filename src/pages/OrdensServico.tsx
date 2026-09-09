@@ -199,6 +199,9 @@ export default function OrdensServico() {
   const [anexosModalOsId, setAnexosModalOsId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [statusChangeOS, setStatusChangeOS] = useState<OrdemServico | null>(null);
+  const [novoStatusSelecionado, setNovoStatusSelecionado] = useState<string>("");
+  const [alterandoStatus, setAlterandoStatus] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
@@ -790,6 +793,40 @@ export default function OrdensServico() {
     } catch {
       // Never block UI
     }
+  };
+
+  const abrirAlterarStatus = (os: OrdemServico) => {
+    setStatusChangeOS(os);
+    setNovoStatusSelecionado(os.status);
+  };
+
+  const confirmarAlterarStatus = async () => {
+    if (!statusChangeOS || !novoStatusSelecionado || novoStatusSelecionado === statusChangeOS.status) {
+      setStatusChangeOS(null);
+      return;
+    }
+    setAlterandoStatus(true);
+    const statusAnterior = statusChangeOS.status;
+    const { error } = await (supabase as any)
+      .from("ordens_servico")
+      .update({ status: novoStatusSelecionado })
+      .eq("id", statusChangeOS.id);
+
+    if (error) {
+      toast({ title: "Erro ao alterar status", description: error.message, variant: "destructive" });
+    } else {
+      await logHistoricoOS(
+        statusChangeOS.id,
+        "Alteração de Status",
+        `Status alterado de "${statusAnterior}" para "${novoStatusSelecionado}"`,
+        { status: statusAnterior },
+        { status: novoStatusSelecionado },
+      );
+      toast({ title: "Status atualizado" });
+      fetchData();
+    }
+    setAlterandoStatus(false);
+    setStatusChangeOS(null);
   };
 
   const handleSave = async () => {
@@ -1899,6 +1936,11 @@ export default function OrdensServico() {
                             <DropdownMenuItem onClick={() => setViewing(os)}>
                               <Eye className="mr-2 h-4 w-4" /> Ver detalhes
                             </DropdownMenuItem>
+                            {(can("painel_os.editar") || isTecnicoAssigned(os)) && (
+                              <DropdownMenuItem onClick={() => abrirAlterarStatus(os)}>
+                                <CheckCircle2 className="mr-2 h-4 w-4" /> Alterar Status
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem onClick={() => openMemorial(os)}>
                               <FileText className="mr-2 h-4 w-4" /> Memorial de Cálculo
                             </DropdownMenuItem>
@@ -2527,6 +2569,40 @@ export default function OrdensServico() {
       </Dialog>
 
       {/* Delete Confirmation */}
+      {/* Alterar Status */}
+      <Dialog open={!!statusChangeOS} onOpenChange={(open) => !open && setStatusChangeOS(null)}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Alterar Status</DialogTitle>
+          </DialogHeader>
+          {statusChangeOS && (
+            <div className="space-y-4 py-2">
+              <div className="text-sm text-muted-foreground">
+                OS <span className="font-medium text-foreground">{statusChangeOS.codigo_os}</span> — status atual:{" "}
+                <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium", getStatusColor(statusChangeOS.status))}>
+                  {statusChangeOS.status}
+                </span>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Novo status</label>
+                <Select value={novoStatusSelecionado} onValueChange={setNovoStatusSelecionado}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {STATUS_OPTIONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setStatusChangeOS(null)}>Cancelar</Button>
+            <Button onClick={confirmarAlterarStatus} disabled={alterandoStatus}>
+              {alterandoStatus ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
