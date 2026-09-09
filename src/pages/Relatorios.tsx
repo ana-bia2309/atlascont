@@ -135,6 +135,7 @@ const fetchData = useCallback(async () => {
         "id, codigo_os, bloco_id, andar, sala, equipamentos, status, prioridade, prazo, data_inicio, data_termino, observacoes, custo_total, created_at, criado_por, tipo_servico"
       )
       .eq("company_id", companyId)
+      .eq("arquivada", false)
       .neq("origem", "Preventiva"),
 
     (supabase as any)

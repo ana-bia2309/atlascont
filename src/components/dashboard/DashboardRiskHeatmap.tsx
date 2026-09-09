@@ -29,6 +29,7 @@ export default function DashboardRiskHeatmap() {
       const [blocosRes, osRes] = await Promise.all([
         (supabase as any).from("blocos").select("id, nome").eq("company_id", companyId),
         (supabase as any).from("ordens_servico").select("bloco_id, status").eq("company_id", companyId)
+          .eq("arquivada", false)
           .not("status", "in", "(Concluída,Cancelada,Encerrado)"),
       ]);
 

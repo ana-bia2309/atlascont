@@ -36,6 +36,7 @@ export default function InvestigadorAutomatico() {
         .from("ordens_servico")
         .select("id, ativo_id, tipo_servico, created_at, status, ativos(nome, codigo_identificacao, bloco_id), blocos(nome)")
         .eq("company_id", companyId)
+        .eq("arquivada", false)
         .not("ativo_id", "is", null)
         .gte("created_at", seissMesesAtras + "T00:00:00")
         .order("created_at", { ascending: false });

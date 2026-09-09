@@ -89,6 +89,7 @@ const companyId = profile.company_id;
   .from("ordens_servico")
           .select("id, codigo_os, titulo, status, prioridade, created_at, prazo, bloco_id")
           .eq("company_id", companyId)
+          .eq("arquivada", false)
           .not("origem", "in", "(Preventiva,Chamado)")
           .order("created_at", { ascending: false }),
         (supabase as any).from("blocos").select("id, nome"),
@@ -121,6 +122,7 @@ const companyId = profile.company_id;
   .from("ordens_servico")
   .select("id")
   .eq("company_id", companyId)
+  .eq("arquivada", false)
   .eq("responsible_user_id", profileId)
   .not("origem", "in", "(Preventiva,Chamado)"),
       // 4. Responsável em atividades do cronograma (name match)
@@ -171,6 +173,7 @@ const companyId = profile.company_id;
       )
       .in("id", allOsIds)
       .eq("company_id", companyId)
+      .eq("arquivada", false)
       .not(
         "origem",
         "in",

@@ -34,6 +34,7 @@ export default function DashboardFunilChamados() {
         .from("ordens_servico")
         .select("id, finalizado_em")
         .eq("company_id", companyId)
+        .eq("arquivada", false)
         .in("id", osIds);
 
       const osMap = new Map((osList || []).map((o: any) => [o.id, o.finalizado_em]));

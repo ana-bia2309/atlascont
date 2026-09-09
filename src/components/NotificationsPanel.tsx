@@ -134,7 +134,7 @@ export function NotificationsPanel() {
     const hoje = new Date().toISOString().slice(0, 10);
     const [osRes, orcRes, prevRes] = await Promise.all([
       (supabase as any).from("ordens_servico").select("id, codigo_os, prazo, status")
-        .eq("company_id", companyId).not("status", "in", "(Concluída,Cancelada,Encerrado)")
+        .eq("company_id", companyId).eq("arquivada", false).not("status", "in", "(Concluída,Cancelada,Encerrado)")
         .lt("prazo", hoje).not("prazo", "is", null).limit(10),
       (supabase as any).from("os_notifications").select("id, os_id, ordens_servico!inner(codigo_os, orcamento_status)")
         .eq("ordens_servico.company_id", companyId).limit(20),

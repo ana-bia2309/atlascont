@@ -90,6 +90,7 @@ const fetchData = useCallback(async () => {
       .from("ordens_servico")
       .select("id, codigo_os, bloco_id, status, custo_total, created_at")
       .eq("company_id", companyId)
+      .eq("arquivada", false)
       .neq("origem", "Preventiva"),
 
     (supabase as any)

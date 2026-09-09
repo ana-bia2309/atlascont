@@ -81,7 +81,8 @@ export default function RelatorioSaudeAtivos() {
         (supabase as any).from("blocos").select("id, nome").eq("company_id", companyId),
         (supabase as any).from("ordens_servico")
           .select("id, ativo_id, status, prazo, created_at, data_termino, finalizado_em")
-          .eq("company_id", companyId),
+          .eq("company_id", companyId)
+          .eq("arquivada", false),
         (supabase as any).from("ordens_preventivas")
           .select("id, ativo_id, status, data_inicio, data_fim")
           .eq("company_id", companyId),

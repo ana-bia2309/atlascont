@@ -96,6 +96,7 @@ export default function RelatorioGeralOS() {
         (supabase as any).from("ordens_servico")
           .select("id, codigo_os, titulo, descricao, status, prioridade, origem, created_at, data_inicio, data_termino, finalizado_em, observacoes, responsible_user_id, criado_por, bloco_id, ativo_id, custo_total, equipamentos, numero_os_externo, andar, sala, natureza_servico")
           .eq("company_id", companyId)
+          .eq("arquivada", false)
           .order("created_at", { ascending: false }),
         (supabase as any).from("materiais_os").select("id, os_id, nome_material, quantidade, unidade, custo_unitario, custo_total_item").eq("company_id", companyId),
         (supabase as any).from("profiles").select("id, nome").eq("company_id", companyId).order("nome"),

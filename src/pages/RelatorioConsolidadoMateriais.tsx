@@ -76,7 +76,8 @@ export default function RelatorioConsolidadoMateriais() {
       const [osRes, matRes, profRes] = await Promise.all([
         (supabase as any).from("ordens_servico")
           .select("id, codigo_os, status, created_at, responsible_user_id, titulo, equipamentos")
-          .eq("company_id", companyId),
+          .eq("company_id", companyId)
+          .eq("arquivada", false),
         (supabase as any).from("materiais_os")
           .select("id, os_id, nome_material, quantidade, unidade, custo_unitario, custo_total_item")
           .eq("company_id", companyId),

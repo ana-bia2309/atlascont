@@ -169,7 +169,8 @@ const [osRes, blocosRes, ativRes, gastosRes, profilesRes, opCountRes]: any =
   .select(
     "id, status, created_at, bloco_id, data_inicio, data_termino, prazo, prioridade, codigo_os, sla_prazo_limite, tipo_servico"
   )
-  .eq("company_id", companyId),
+  .eq("company_id", companyId)
+  .eq("arquivada", false),
 
     (supabase as any)
   .from("blocos")

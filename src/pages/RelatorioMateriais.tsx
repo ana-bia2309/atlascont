@@ -75,6 +75,7 @@ export default function RelatorioMateriais() {
         (supabase as any).from("ordens_servico")
           .select("id, codigo_os, status, origem, numero_os_externo, created_at, responsible_user_id, titulo, equipamentos, bloco_id, andar, sala")
           .eq("company_id", companyId)
+          .eq("arquivada", false)
           .order("created_at", { ascending: false }),
         (supabase as any).from("materiais_os")
           .select("id, os_id, nome_material, quantidade, unidade, custo_unitario, custo_total_item")
