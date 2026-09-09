@@ -208,6 +208,7 @@ export default function OrdensServico() {
   const [alterandoStatus, setAlterandoStatus] = useState(false);
   const [viewMode, setViewMode] = useState<"ativas" | "arquivadas" | "todas">("ativas");
   const [arquivarConfirmOS, setArquivarConfirmOS] = useState<OrdemServico | null>(null);
+  const [statusAoArquivar, setStatusAoArquivar] = useState<string>("Concluída");
   const [desarquivarConfirmOS, setDesarquivarConfirmOS] = useState<OrdemServico | null>(null);
   const [chatOS, setChatOS] = useState<OrdemServico | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -810,6 +811,11 @@ export default function OrdensServico() {
     setNovoStatusSelecionado(os.status);
   };
 
+  const abrirArquivar = (os: OrdemServico) => {
+    setArquivarConfirmOS(os);
+    setStatusAoArquivar(isFinishedStatus(os.status) ? (os.status || "Concluída") : "Concluída");
+  };
+
   const confirmarAlterarStatus = async () => {
     if (!statusChangeOS || !novoStatusSelecionado || novoStatusSelecionado === statusChangeOS.status) {
       setStatusChangeOS(null);
@@ -842,14 +848,29 @@ export default function OrdensServico() {
   const confirmarArquivar = async () => {
     if (!arquivarConfirmOS) return;
     const profileId = await getCurrentProfileId();
+    const statusAnterior = arquivarConfirmOS.status;
+    const statusMudou = statusAoArquivar && statusAoArquivar !== statusAnterior;
+
+    const payload: any = { arquivada: true, arquivada_em: new Date().toISOString(), arquivada_por: profileId };
+    if (statusMudou) payload.status = statusAoArquivar;
+
     const { error } = await (supabase as any)
       .from("ordens_servico")
-      .update({ arquivada: true, arquivada_em: new Date().toISOString(), arquivada_por: profileId })
+      .update(payload)
       .eq("id", arquivarConfirmOS.id);
 
     if (error) {
       toast({ title: "Erro ao arquivar", description: error.message, variant: "destructive" });
     } else {
+      if (statusMudou) {
+        await logHistoricoOS(
+          arquivarConfirmOS.id,
+          "Alteração de Status",
+          `Status alterado de "${statusAnterior}" para "${statusAoArquivar}" (ao arquivar)`,
+          { status: statusAnterior },
+          { status: statusAoArquivar },
+        );
+      }
       await logHistoricoOS(arquivarConfirmOS.id, "Arquivamento", `OS arquivada`, { arquivada: false }, { arquivada: true });
       toast({ title: "O.S. arquivada" });
       setViewing(null);
@@ -2032,7 +2053,7 @@ export default function OrdensServico() {
                                     <ArchiveRestore className="mr-2 h-4 w-4" /> Desarquivar
                                   </DropdownMenuItem>
                                 ) : (
-                                  <DropdownMenuItem onClick={() => setArquivarConfirmOS(os)}>
+                                  <DropdownMenuItem onClick={() => abrirArquivar(os)}>
                                     <Archive className="mr-2 h-4 w-4" /> Arquivar
                                   </DropdownMenuItem>
                                 )}
@@ -2487,7 +2508,7 @@ export default function OrdensServico() {
                     <ArchiveRestore className="h-3.5 w-3.5" /> Desarquivar OS
                   </Button>
                 ) : (
-                  <Button size="sm" variant="outline" className="gap-1.5 shrink-0" onClick={() => setArquivarConfirmOS(viewing)}>
+                  <Button size="sm" variant="outline" className="gap-1.5 shrink-0" onClick={() => abrirArquivar(viewing)}>
                     <Archive className="h-3.5 w-3.5" /> Arquivar OS
                   </Button>
                 )
@@ -2717,6 +2738,22 @@ export default function OrdensServico() {
               A OS continuará armazenada no sistema, mas deixará de aparecer na listagem principal. Você poderá acessá-la novamente na aba "Arquivadas".
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {arquivarConfirmOS && (
+            <div className="py-1">
+              <label className="text-sm font-medium">Status final da OS</label>
+              <Select value={statusAoArquivar} onValueChange={setStatusAoArquivar}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {STATUS_OPTIONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {statusAoArquivar !== arquivarConfirmOS.status && (
+                <p className="text-xs text-muted-foreground mt-1.5">
+                  O status será atualizado de "{arquivarConfirmOS.status}" para "{statusAoArquivar}" junto com o arquivamento.
+                </p>
+              )}
+            </div>
+          )}
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={confirmarArquivar}>Arquivar OS</AlertDialogAction>
