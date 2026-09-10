@@ -14,6 +14,10 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { addPdfHeader, getAtlasCompanyInfo } from "@/lib/pdfHeader";
 
+// Corrige imprecisao de ponto flutuante (ex: 468.40000000000003) limitando
+// a no maximo 2 casas decimais, sem deixar zero a mais em numero inteiro
+const fmtQtd = (n: number) => Number((n || 0).toFixed(2));
+
 type Material = { id: string; descricao: string; unidade: string | null; valor_unitario: number | null };
 type EstoqueRow = { material_id: string; quantidade_disponivel: number; quantidade_minima: number | null };
 type Movimentacao = { material_id: string; tipo: string; quantidade: number; data_movimentacao: string | null };
@@ -181,18 +185,18 @@ export default function RelatorioFluxoMateriais() {
         head: [["Material", "Estoque Atual", "Entrada", "Saída Manual", "Saída O.S.", "Saída Total", "Saldo Período", "Consumo Médio/Dia", "Cobertura", "Sugestão de Compra"]],
         body: filtered.map(l => [
           l.nome,
-          `${l.estoqueAtual} ${l.unidade}`,
-          `+${l.totalEntrada}`,
-          l.totalSaidaManual,
-          l.totalSaidaOS,
-          `-${l.totalSaida}`,
-          l.saldoPeriodo,
+          `${fmtQtd(l.estoqueAtual)} ${l.unidade}`,
+          `+${fmtQtd(l.totalEntrada)}`,
+          fmtQtd(l.totalSaidaManual),
+          fmtQtd(l.totalSaidaOS),
+          `-${fmtQtd(l.totalSaida)}`,
+          fmtQtd(l.saldoPeriodo),
           l.consumoMedioDia.toFixed(2),
           l.coberturaDias === null ? "sem consumo" : `${Math.floor(l.coberturaDias)}d`,
           l.sugestaoCompra > 0 ? `${l.sugestaoCompra} ${l.unidade}` : "—",
         ]),
         foot: [[
-          "TOTAL", "", `+${totais.entrada}`, "", "", `-${totais.saida}`, totais.entrada - totais.saida, "", "",
+          "TOTAL", "", `+${fmtQtd(totais.entrada)}`, "", "", `-${fmtQtd(totais.saida)}`, fmtQtd(totais.entrada - totais.saida), "", "",
           `${totais.materiaisComSugestao} material(is)`,
         ]],
         headStyles: { fillColor: [58, 53, 92], textColor: [255, 255, 255], fontSize: 7.5, fontStyle: "bold" },

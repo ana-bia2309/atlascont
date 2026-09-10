@@ -53,6 +53,10 @@ const fmtDate = (d: string | null) => {
   try { return format(/^\d{4}-\d{2}-\d{2}$/.test(d) ? new Date(d + "T00:00:00") : new Date(d), "dd/MM/yyyy"); } catch { return "—"; }
 };
 
+// Corrige imprecisao de ponto flutuante (ex: 468.40000000000003) limitando
+// a no maximo 2 casas decimais, sem deixar zero a mais em numero inteiro
+const fmtQtd = (n: number) => Number((n || 0).toFixed(2));
+
 export default function RelatorioConsolidadoMateriais() {
   const { companyId } = useCompany();
   const [osList, setOsList] = useState<OSRow[]>([]);
@@ -199,8 +203,8 @@ export default function RelatorioConsolidadoMateriais() {
       autoTable(doc, {
         startY: y,
         head: [["Material", "Unidade", "Qtd Total", "Custo Total", "Qtd O.S.", "Última Utilização"]],
-        body: filtered.map(m => [m.nome, m.unidade, m.totalQtd, `R$ ${m.totalCusto.toFixed(2)}`, m.totalOS, fmtDate(m.ultimaUtilizacao)]),
-        foot: [["TOTAL", "", filtered.reduce((s, m) => s + m.totalQtd, 0), `R$ ${filtered.reduce((s, m) => s + m.totalCusto, 0).toFixed(2)}`, filtered.reduce((s, m) => s + m.totalOS, 0), ""]],
+        body: filtered.map(m => [m.nome, m.unidade, fmtQtd(m.totalQtd), `R$ ${m.totalCusto.toFixed(2)}`, m.totalOS, fmtDate(m.ultimaUtilizacao)]),
+        foot: [["TOTAL", "", fmtQtd(filtered.reduce((s, m) => s + m.totalQtd, 0)), `R$ ${filtered.reduce((s, m) => s + m.totalCusto, 0).toFixed(2)}`, filtered.reduce((s, m) => s + m.totalOS, 0), ""]],
         headStyles: { fillColor: [58, 53, 92], textColor: [255, 255, 255], fontSize: 8, fontStyle: "bold" },
         bodyStyles: { fontSize: 8, textColor: [40, 40, 40] },
         alternateRowStyles: { fillColor: [250, 250, 255] },
@@ -226,7 +230,7 @@ export default function RelatorioConsolidadoMateriais() {
         doc.text(m.nome, 13, y + 5.5);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(70, 70, 90);
-        doc.text(`${m.totalQtd} ${m.unidade} · ${m.totalOS} O.S. · Total: R$ ${m.totalCusto.toFixed(2)}`, pageW - 13, y + 5.5, { align: "right" });
+        doc.text(`${fmtQtd(m.totalQtd)} ${m.unidade} · ${m.totalOS} O.S. · Total: R$ ${m.totalCusto.toFixed(2)}`, pageW - 13, y + 5.5, { align: "right" });
         y += 10;
 
         // Tabela de ocorrências
@@ -235,7 +239,7 @@ export default function RelatorioConsolidadoMateriais() {
           head: [["O.S.", "Status", "Data", "Quantidade", "Valor"]],
           body: m.ocorrencias
             .sort((a, b) => (b.data || "").localeCompare(a.data || ""))
-            .map(o => [o.codigoOs || "—", o.status || "—", fmtDate(o.data), `${o.quantidade} ${m.unidade}`, `R$ ${o.custoTotalItem.toFixed(2)}`]),
+            .map(o => [o.codigoOs || "—", o.status || "—", fmtDate(o.data), `${fmtQtd(o.quantidade)} ${m.unidade}`, `R$ ${o.custoTotalItem.toFixed(2)}`]),
           headStyles: { fillColor: [240, 241, 248], textColor: [30, 30, 60], fontSize: 7.5, fontStyle: "bold" },
           bodyStyles: { fontSize: 7.5, textColor: [40, 40, 40] },
           alternateRowStyles: { fillColor: [250, 250, 255] },
