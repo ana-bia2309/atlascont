@@ -10,6 +10,9 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { RefreshCw, Search, X, Download, FileSpreadsheet, ArrowLeftRight, TrendingUp, TrendingDown, AlertTriangle } from "@/lib/icons";
 import { format, differenceInCalendarDays, subDays } from "date-fns";
 import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { addPdfHeader, getAtlasCompanyInfo } from "@/lib/pdfHeader";
 
 type Material = { id: string; descricao: string; unidade: string | null; valor_unitario: number | null };
 type EstoqueRow = { material_id: string; quantidade_disponivel: number; quantidade_minima: number | null };
@@ -45,6 +48,7 @@ export default function RelatorioFluxoMateriais() {
   const [filterDateTo, setFilterDateTo] = useState(format(new Date(), "yyyy-MM-dd"));
   const [diasProjecao, setDiasProjecao] = useState(30);
   const [apenasComSugestao, setApenasComSugestao] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!companyId) return;
@@ -155,6 +159,54 @@ export default function RelatorioFluxoMateriais() {
     XLSX.writeFile(wb, `fluxo-materiais-${filterDateFrom}-a-${filterDateTo}.xlsx`);
   };
 
+  const exportarPDF = async () => {
+    setExportingPdf(true);
+    try {
+      const doc = new jsPDF({ orientation: "landscape" });
+      const pageW = doc.internal.pageSize.getWidth();
+      const company = await getAtlasCompanyInfo();
+      let y = await addPdfHeader(
+        doc,
+        "Fluxo de Materiais",
+        `Período: ${format(new Date(filterDateFrom), "dd/MM/yyyy")} a ${format(new Date(filterDateTo), "dd/MM/yyyy")} · Projeção: ${diasProjecao} dia(s) · ${filtered.length} material(is)`,
+        company
+      );
+
+      autoTable(doc, {
+        startY: y,
+        head: [["Material", "Estoque Atual", "Entrada", "Saída Manual", "Saída O.S.", "Saída Total", "Saldo", "Consumo Médio/Dia", "Sugestão de Compra"]],
+        body: filtered.map(l => [
+          l.nome,
+          `${l.estoqueAtual} ${l.unidade}`,
+          `+${l.totalEntrada}`,
+          l.totalSaidaManual,
+          l.totalSaidaOS,
+          `-${l.totalSaida}`,
+          l.saldoPeriodo,
+          l.consumoMedioDia.toFixed(2),
+          l.sugestaoCompra > 0 ? `${l.sugestaoCompra} ${l.unidade}` : "—",
+        ]),
+        foot: [[
+          "TOTAL", "", `+${totais.entrada}`, "", "", `-${totais.saida}`, totais.entrada - totais.saida, "",
+          `${totais.materiaisComSugestao} material(is)`,
+        ]],
+        headStyles: { fillColor: [58, 53, 92], textColor: [255, 255, 255], fontSize: 7.5, fontStyle: "bold" },
+        bodyStyles: { fontSize: 7.5, textColor: [40, 40, 40] },
+        alternateRowStyles: { fillColor: [250, 250, 255] },
+        footStyles: { fillColor: [58, 53, 92], textColor: [255, 255, 255], fontSize: 7.5, fontStyle: "bold" },
+        margin: { left: 10, right: 10 },
+        tableWidth: pageW - 20,
+      });
+
+      doc.save(`fluxo-materiais-${filterDateFrom}-a-${filterDateTo}.pdf`);
+      toast({ title: "PDF exportado!" });
+    } catch (err: any) {
+      toast({ title: "Erro ao exportar PDF", description: err?.message, variant: "destructive" });
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -166,6 +218,9 @@ export default function RelatorioFluxoMateriais() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="icon" onClick={fetchData}><RefreshCw className="h-4 w-4" /></Button>
+          <Button variant="outline" onClick={exportarPDF} disabled={exportingPdf} className="gap-1.5">
+            <Download className="h-4 w-4" /> {exportingPdf ? "Gerando..." : "PDF"}
+          </Button>
           <Button variant="outline" onClick={exportarExcel} className="gap-1.5">
             <FileSpreadsheet className="h-4 w-4" /> Excel
           </Button>
