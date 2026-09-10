@@ -268,6 +268,38 @@ export default function RelatorioConsolidadoMateriais() {
     }
   };
 
+  // Versão simplificada: só a tabela-resumo (o que hoje é a "página 1" do
+  // PDF completo), sem o detalhamento por O.S. de cada material
+  const exportPDFResumo = async () => {
+    setExporting(true);
+    try {
+      const doc = new jsPDF({ orientation: "landscape" });
+      const pageW = doc.internal.pageSize.getWidth();
+      const company = await getAtlasCompanyInfo();
+      const y = await addPdfHeader(doc, "Consolidado de Materiais (Resumo)", `${filtered.length} materiais diferentes`, company);
+
+      autoTable(doc, {
+        startY: y,
+        head: [["Material", "Unidade", "Qtd Total", "Custo Total", "Qtd O.S.", "Última Utilização"]],
+        body: filtered.map(m => [m.nome, m.unidade, fmtQtd(m.totalQtd), `R$ ${m.totalCusto.toFixed(2)}`, m.totalOS, fmtDate(m.ultimaUtilizacao)]),
+        foot: [["TOTAL", "", fmtQtd(filtered.reduce((s, m) => s + m.totalQtd, 0)), `R$ ${filtered.reduce((s, m) => s + m.totalCusto, 0).toFixed(2)}`, filtered.reduce((s, m) => s + m.totalOS, 0), ""]],
+        headStyles: { fillColor: [58, 53, 92], textColor: [255, 255, 255], fontSize: 8, fontStyle: "bold" },
+        bodyStyles: { fontSize: 8, textColor: [40, 40, 40] },
+        alternateRowStyles: { fillColor: [250, 250, 255] },
+        footStyles: { fillColor: [58, 53, 92], textColor: [255, 255, 255], fontSize: 8, fontStyle: "bold" },
+        margin: { left: 10, right: 10 },
+        tableWidth: pageW - 20,
+      });
+
+      doc.save(`consolidado-materiais-resumo-${format(new Date(), "yyyyMMdd")}.pdf`);
+      toast({ title: "PDF resumido exportado!" });
+    } catch (err: any) {
+      toast({ title: "Erro ao exportar", description: err.message, variant: "destructive" });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const totalCusto = filtered.reduce((s, m) => s + m.totalCusto, 0);
   const totalItens = filtered.reduce((s, m) => s + m.totalQtd, 0);
   const hasFilters = filterStatus !== "__all__" || filterTecnico !== "__all__" || filterDateFrom || filterDateTo || filterOS !== "__all__";
@@ -291,6 +323,9 @@ export default function RelatorioConsolidadoMateriais() {
           </Button>
           <Button variant="outline" onClick={exportPDF} disabled={filtered.length === 0 || exporting}>
             <FileText className="mr-2 h-4 w-4" /> {exporting ? "Gerando..." : "PDF Completo"}
+          </Button>
+          <Button variant="outline" onClick={exportPDFResumo} disabled={filtered.length === 0 || exporting}>
+            <FileText className="mr-2 h-4 w-4" /> {exporting ? "Gerando..." : "PDF Resumo"}
           </Button>
           {hasFilters && filtered.length > 0 && (
             <Button onClick={exportPDF} disabled={exporting}>
