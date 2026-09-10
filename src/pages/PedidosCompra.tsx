@@ -213,19 +213,52 @@ if (itens.length === 0) { toast({ title: "Adicione pelo menos um item", variant:
       let pedidoId = editing?.id;
       let numeroGerado = editing?.numero;
       if (editing) {
-        await (supabase as any).from("pedidos_compra").update({
+        const { error: updateError } = await (supabase as any).from("pedidos_compra").update({
           responsavel_id: responsavelId || null,
           prazo: prazo || null,
           observacoes: observacoes.trim() || null,
           updated_at: new Date().toISOString(),
         }).eq("id", editing.id);
-await (supabase as any).from("pedidos_compra_itens").delete().eq("pedido_id", editing.id);
+        if (updateError) throw new Error(`Erro ao atualizar pedido: ${updateError.message}`);
+
+        // IMPORTANTE: insere os itens novos ANTES de apagar os antigos.
+        // Se a insercao falhar por qualquer motivo, os itens antigos
+        // continuam intactos em vez de sumir (era isso que causava o
+        // pedido ficar vazio quando a insercao falhava silenciosamente).
+        const { error: insertError } = await (supabase as any).from("pedidos_compra_itens").insert(
+          itens.map(item => ({
+            material_id: item.material_id || null,
+            nome_material: item.nome_material,
+            quantidade: item.quantidade,
+            unidade: item.unidade || null,
+            observacoes: item.observacoes || null,
+            pedido_id: pedidoId,
+          }))
+        );
+        if (insertError) throw new Error(`Erro ao salvar itens: ${insertError.message}`);
+
+        // So agora remove os itens ORIGINAIS (ids capturados antes de abrir
+        // a edicao, guardados em editing.itens -- o array "itens" usado no
+        // formulario ja teve os ids removidos pelo openEdit)
+        const idsAntigos = (editing.itens || []).map((i: any) => i.id).filter(Boolean);
+        if (idsAntigos.length > 0) {
+          const { error: deleteError } = await (supabase as any).from("pedidos_compra_itens")
+            .delete()
+            .in("id", idsAntigos);
+          if (deleteError) {
+            // Os itens novos ja foram salvos com sucesso -- isso so deixou
+            // duplicado o que ja existia antes, nao e perda de dado. Avisa
+            // mas nao trava o fluxo.
+            console.error("Erro ao remover itens antigos (itens novos ja salvos):", deleteError.message);
+            toast({ title: "Itens salvos, mas houve um erro ao limpar itens antigos", description: deleteError.message, variant: "destructive" });
+          }
+        }
       } else {
         const { data: numData } = await (supabase as any).rpc("next_pedido_numero", { p_company_id: companyId });
         console.log("numData:", numData, "tipo:", typeof numData);
         numeroGerado = Array.isArray(numData) ? numData[0] : numData;
         console.log("numeroGerado:", numeroGerado);
-        const { data } = await (supabase as any).from("pedidos_compra").insert({
+        const { data, error: insertPedidoError } = await (supabase as any).from("pedidos_compra").insert({
           company_id: companyId,
           numero: numeroGerado,
           solicitante_id: profileId,
@@ -235,11 +268,14 @@ await (supabase as any).from("pedidos_compra_itens").delete().eq("pedido_id", ed
           status: "pendente",
           updated_at: new Date().toISOString(),
         }).select().single();
+        if (insertPedidoError) throw new Error(`Erro ao criar pedido: ${insertPedidoError.message}`);
         pedidoId = data.id;
+
+        const { error: insertItensError } = await (supabase as any).from("pedidos_compra_itens").insert(
+          itens.map(item => ({ ...item, pedido_id: pedidoId }))
+        );
+        if (insertItensError) throw new Error(`Erro ao salvar itens: ${insertItensError.message}`);
       }
-      await (supabase as any).from("pedidos_compra_itens").insert(
-        itens.map(item => ({ ...item, pedido_id: pedidoId }))
-      );
       toast({ title: editing ? "Pedido atualizado!" : `Pedido ${numeroGerado} criado!` });
       setDialogOpen(false); resetForm(); fetchData();
     } catch (e: any) {
