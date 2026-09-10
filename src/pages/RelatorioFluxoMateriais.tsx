@@ -139,11 +139,17 @@ export default function RelatorioFluxoMateriais() {
     return list.sort((a, b) => b.totalSaida - a.totalSaida);
   }, [linhas, filterSearch, apenasComSugestao]);
 
-  const totais = useMemo(() => ({
-    entrada: filtered.reduce((s, l) => s + l.totalEntrada, 0),
-    saida: filtered.reduce((s, l) => s + l.totalSaida, 0),
-    materiaisComSugestao: filtered.filter(l => l.sugestaoCompra > 0).length,
-  }), [filtered]);
+  const totais = useMemo(() => {
+    const idsFiltrados = new Set(filtered.map(l => l.materialId));
+    const qtdEntradas = movimentacoes.filter(mv => mv.tipo === "entrada" && idsFiltrados.has(mv.material_id)).length;
+    const qtdSaidasManual = movimentacoes.filter(mv => mv.tipo === "saida" && idsFiltrados.has(mv.material_id)).length;
+    const qtdSaidasOS = materiaisOS.filter(mo => mo.material_id && idsFiltrados.has(mo.material_id)).length;
+    return {
+      qtdEntradas,
+      qtdSaidas: qtdSaidasManual + qtdSaidasOS,
+      materiaisComSugestao: filtered.filter(l => l.sugestaoCompra > 0).length,
+    };
+  }, [filtered, movimentacoes, materiaisOS]);
 
   const hasFilters = filterSearch.trim() !== "" || apenasComSugestao;
 
@@ -196,8 +202,8 @@ export default function RelatorioFluxoMateriais() {
           l.sugestaoCompra > 0 ? `${l.sugestaoCompra} ${l.unidade}` : "—",
         ]),
         foot: [[
-          "TOTAL", "", `+${fmtQtd(totais.entrada)}`, "", "", `-${fmtQtd(totais.saida)}`, fmtQtd(totais.entrada - totais.saida), "", "",
-          `${totais.materiaisComSugestao} material(is)`,
+          "TOTAL", "", "", "", "", "", "", "", "",
+          `${totais.materiaisComSugestao} material(is) com sugestão`,
         ]],
         headStyles: { fillColor: [58, 53, 92], textColor: [255, 255, 255], fontSize: 7.5, fontStyle: "bold" },
         bodyStyles: { fontSize: 7.5, textColor: [40, 40, 40] },
@@ -239,12 +245,14 @@ export default function RelatorioFluxoMateriais() {
       {/* Cards de resumo */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="rounded-xl border bg-card p-4">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground"><TrendingUp className="h-4 w-4 text-emerald-600" /> Total de Entradas</div>
-          <div className="text-2xl font-bold mt-1">{totais.entrada.toLocaleString("pt-BR")}</div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground"><TrendingUp className="h-4 w-4 text-emerald-600" /> Entradas Registradas</div>
+          <div className="text-2xl font-bold mt-1">{totais.qtdEntradas.toLocaleString("pt-BR")}</div>
+          <p className="text-xs text-muted-foreground mt-0.5">movimentações no período</p>
         </div>
         <div className="rounded-xl border bg-card p-4">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground"><TrendingDown className="h-4 w-4 text-red-600" /> Total de Saídas</div>
-          <div className="text-2xl font-bold mt-1">{totais.saida.toLocaleString("pt-BR")}</div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground"><TrendingDown className="h-4 w-4 text-red-600" /> Saídas Registradas</div>
+          <div className="text-2xl font-bold mt-1">{totais.qtdSaidas.toLocaleString("pt-BR")}</div>
+          <p className="text-xs text-muted-foreground mt-0.5">movimentações no período (manual + O.S.)</p>
         </div>
         <div className="rounded-xl border bg-card p-4">
           <div className="flex items-center gap-2 text-sm text-muted-foreground"><AlertTriangle className="h-4 w-4 text-amber-600" /> Materiais com Sugestão de Compra</div>
