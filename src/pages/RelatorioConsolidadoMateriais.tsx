@@ -191,13 +191,20 @@ export default function RelatorioConsolidadoMateriais() {
     toast({ title: "Excel exportado!" });
   };
 
+  const periodoTexto = () => {
+    if (!filterDateFrom && !filterDateTo) return "Todo o período";
+    const de = filterDateFrom ? fmtDate(filterDateFrom) : "início";
+    const ate = filterDateTo ? fmtDate(filterDateTo) : "hoje";
+    return `Período: ${de} a ${ate}`;
+  };
+
   const exportPDF = async () => {
     setExporting(true);
     try {
       const doc = new jsPDF({ orientation: "landscape" });
       const pageW = doc.internal.pageSize.getWidth();
       const company = await getAtlasCompanyInfo();
-      let y = await addPdfHeader(doc, "Consolidado de Materiais", `${filtered.length} materiais diferentes`, company);
+      let y = await addPdfHeader(doc, "Consolidado de Materiais", periodoTexto(), company);
 
       // Tabela resumo
       autoTable(doc, {
@@ -276,7 +283,7 @@ export default function RelatorioConsolidadoMateriais() {
       const doc = new jsPDF({ orientation: "landscape" });
       const pageW = doc.internal.pageSize.getWidth();
       const company = await getAtlasCompanyInfo();
-      const y = await addPdfHeader(doc, "Consolidado de Materiais (Resumo)", `${filtered.length} materiais diferentes`, company);
+      const y = await addPdfHeader(doc, "Consolidado de Materiais (Resumo)", periodoTexto(), company);
 
       autoTable(doc, {
         startY: y,
