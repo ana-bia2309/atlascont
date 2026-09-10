@@ -45,7 +45,7 @@ type MaterialConsolidado = {
   totalCusto: number;
   totalOS: number;
   ultimaUtilizacao: string | null;
-  ocorrencias: { osId: string; codigoOs: string | null; quantidade: number; status: string | null; tecnico: string | null; data: string | null }[];
+  ocorrencias: { osId: string; codigoOs: string | null; quantidade: number; custoUnitario: number; custoTotalItem: number; status: string | null; tecnico: string | null; data: string | null }[];
 };
 
 const fmtDate = (d: string | null) => {
@@ -118,6 +118,8 @@ export default function RelatorioConsolidadoMateriais() {
         osId: m.os_id,
         codigoOs: os?.codigo_os || null,
         quantidade: m.quantidade,
+        custoUnitario: m.custo_unitario,
+        custoTotalItem: m.custo_total_item,
         status: os?.status || null,
         tecnico: os?.responsible_user_id ? profilesMap[os.responsible_user_id] || null : null,
         data: os?.created_at || null,
@@ -174,6 +176,7 @@ export default function RelatorioConsolidadoMateriais() {
           "Material": m.nome, "O.S.": o.codigoOs || "—", "Data": fmtDate(o.data),
           "Status": o.status || "—", "Técnico": o.tecnico || "—",
           "Quantidade": o.quantidade, "Unidade": m.unidade,
+          "Valor Unitário": o.custoUnitario, "Valor Total": o.custoTotalItem,
         });
       });
     });
@@ -229,10 +232,10 @@ export default function RelatorioConsolidadoMateriais() {
         // Tabela de ocorrências
         autoTable(doc, {
           startY: y,
-          head: [["O.S.", "Status", "Data", "Quantidade"]],
+          head: [["O.S.", "Status", "Data", "Quantidade", "Valor"]],
           body: m.ocorrencias
             .sort((a, b) => (b.data || "").localeCompare(a.data || ""))
-            .map(o => [o.codigoOs || "—", o.status || "—", fmtDate(o.data), `${o.quantidade} ${m.unidade}`]),
+            .map(o => [o.codigoOs || "—", o.status || "—", fmtDate(o.data), `${o.quantidade} ${m.unidade}`, `R$ ${o.custoTotalItem.toFixed(2)}`]),
           headStyles: { fillColor: [240, 241, 248], textColor: [30, 30, 60], fontSize: 7.5, fontStyle: "bold" },
           bodyStyles: { fontSize: 7.5, textColor: [40, 40, 40] },
           alternateRowStyles: { fillColor: [250, 250, 255] },
@@ -417,7 +420,10 @@ export default function RelatorioConsolidadoMateriais() {
                               {o.data && <span>📅 {fmtDate(o.data)}</span>}
                             </div>
                           </div>
-                          <span className="text-sm font-semibold">{o.quantidade} {m.unidade}</span>
+                          <span className="text-sm font-semibold text-right">
+                            {o.quantidade} {m.unidade}
+                            <span className="block text-xs font-normal text-muted-foreground">R$ {o.custoTotalItem.toFixed(2)}</span>
+                          </span>
                         </div>
                       ))}
                   </div>
