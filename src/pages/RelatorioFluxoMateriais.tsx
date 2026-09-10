@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { RefreshCw, Search, X, Download, FileSpreadsheet, ArrowLeftRight, TrendingUp, TrendingDown, AlertTriangle } from "@/lib/icons";
+import { RefreshCw, Search, X, Download, FileSpreadsheet, ArrowLeftRight, AlertTriangle } from "@/lib/icons";
 import { format, differenceInCalendarDays, subDays } from "date-fns";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -18,26 +18,22 @@ import { addPdfHeader, getAtlasCompanyInfo } from "@/lib/pdfHeader";
 // a no maximo 2 casas decimais, sem deixar zero a mais em numero inteiro
 const fmtQtd = (n: number) => Number((n || 0).toFixed(2));
 
-type Material = { id: string; descricao: string; unidade: string | null; valor_unitario: number | null };
-type EstoqueRow = { material_id: string; quantidade_disponivel: number; quantidade_minima: number | null };
+type Material = { id: string; codigo: string | null; descricao: string; unidade: string | null };
+type EstoqueRow = { material_id: string; quantidade_disponivel: number };
 type Movimentacao = { material_id: string; tipo: string; quantidade: number; data_movimentacao: string | null };
 type MaterialOS = { material_id: string | null; quantidade: number; created_at: string };
 
 type LinhaFluxo = {
   materialId: string;
+  codigo: string;
   nome: string;
   unidade: string;
+  numEntradas: number;
+  qtdEntrada: number;
   estoqueAtual: number;
-  estoqueMinimo: number;
-  totalEntrada: number;
-  totalSaidaManual: number;
-  totalSaidaOS: number;
-  totalSaida: number;
-  saldoPeriodo: number;
+  qtdSaidaOS: number;
   consumoMedioDia: number;
-  projecaoConsumo: number;
   sugestaoCompra: number;
-  coberturaDias: number | null;
 };
 
 export default function RelatorioFluxoMateriais() {
@@ -60,8 +56,8 @@ export default function RelatorioFluxoMateriais() {
     setLoading(true);
 
     const [matRes, estRes, movRes, matOsRes] = await Promise.all([
-      (supabase as any).from("materiais").select("id, descricao, unidade, valor_unitario").eq("company_id", companyId),
-      (supabase as any).from("estoque").select("material_id, quantidade_disponivel, quantidade_minima").eq("company_id", companyId),
+      (supabase as any).from("materiais").select("id, codigo, descricao, unidade").eq("company_id", companyId),
+      (supabase as any).from("estoque").select("material_id, quantidade_disponivel").eq("company_id", companyId),
       (supabase as any).from("estoque_movimentacoes")
         .select("material_id, tipo, quantidade, data_movimentacao")
         .eq("company_id", companyId)
@@ -94,59 +90,55 @@ export default function RelatorioFluxoMateriais() {
 
     return materiais.map(m => {
       const est = estoqueMap[m.id];
-      const totalEntrada = movimentacoes
-        .filter(mv => mv.material_id === m.id && mv.tipo === "entrada")
-        .reduce((s, mv) => s + Number(mv.quantidade), 0);
-      const totalSaidaManual = movimentacoes
-        .filter(mv => mv.material_id === m.id && mv.tipo === "saida")
-        .reduce((s, mv) => s + Number(mv.quantidade), 0);
-      const totalSaidaOS = materiaisOS
+      const entradasDoMaterial = movimentacoes.filter(mv => mv.material_id === m.id && mv.tipo === "entrada");
+      const numEntradas = entradasDoMaterial.length;
+      const qtdEntrada = entradasDoMaterial.reduce((s, mv) => s + Number(mv.quantidade), 0);
+
+      // Estatistica (consumo medio e sugestao de compra) considera SO a
+      // saida via O.S. -- saida manual (ex: ajuste/zerar estoque) e uma
+      // correcao administrativa, nao consumo real, e nao pode influenciar
+      // quanto comprar (pedido explicito do cliente).
+      const qtdSaidaOS = materiaisOS
         .filter(mo => mo.material_id === m.id)
         .reduce((s, mo) => s + Number(mo.quantidade), 0);
-      const totalSaida = totalSaidaManual + totalSaidaOS;
-      const consumoMedioDia = totalSaida / diasNoPeriodo;
+
       const estoqueAtual = Number(est?.quantidade_disponivel || 0);
+      const consumoMedioDia = qtdSaidaOS / diasNoPeriodo;
       const projecaoConsumo = consumoMedioDia * diasProjecao;
       const sugestaoCompra = Math.max(0, Math.ceil(projecaoConsumo - estoqueAtual));
-      const coberturaDias = consumoMedioDia > 0 ? estoqueAtual / consumoMedioDia : null;
 
       return {
         materialId: m.id,
+        codigo: m.codigo || "—",
         nome: m.descricao,
         unidade: m.unidade || "un",
+        numEntradas,
+        qtdEntrada,
         estoqueAtual,
-        estoqueMinimo: Number(est?.quantidade_minima || 0),
-        totalEntrada,
-        totalSaidaManual,
-        totalSaidaOS,
-        totalSaida,
-        saldoPeriodo: totalEntrada - totalSaida,
+        qtdSaidaOS,
         consumoMedioDia,
-        projecaoConsumo,
         sugestaoCompra,
-        coberturaDias,
       };
     });
   }, [materiais, estoque, movimentacoes, materiaisOS, diasNoPeriodo, diasProjecao]);
 
   const filtered = useMemo(() => {
-    let list = linhas.filter(l => l.totalEntrada > 0 || l.totalSaida > 0 || l.estoqueAtual > 0);
+    let list = linhas.filter(l => l.qtdEntrada > 0 || l.qtdSaidaOS > 0 || l.estoqueAtual > 0);
     if (filterSearch.trim()) {
       const q = filterSearch.trim().toLowerCase();
-      list = list.filter(l => l.nome.toLowerCase().includes(q));
+      list = list.filter(l => l.nome.toLowerCase().includes(q) || l.codigo.toLowerCase().includes(q));
     }
     if (apenasComSugestao) list = list.filter(l => l.sugestaoCompra > 0);
-    return list.sort((a, b) => b.totalSaida - a.totalSaida);
+    return list.sort((a, b) => b.qtdSaidaOS - a.qtdSaidaOS);
   }, [linhas, filterSearch, apenasComSugestao]);
 
   const totais = useMemo(() => {
     const idsFiltrados = new Set(filtered.map(l => l.materialId));
     const qtdEntradas = movimentacoes.filter(mv => mv.tipo === "entrada" && idsFiltrados.has(mv.material_id)).length;
-    const qtdSaidasManual = movimentacoes.filter(mv => mv.tipo === "saida" && idsFiltrados.has(mv.material_id)).length;
     const qtdSaidasOS = materiaisOS.filter(mo => mo.material_id && idsFiltrados.has(mo.material_id)).length;
     return {
       qtdEntradas,
-      qtdSaidas: qtdSaidasManual + qtdSaidasOS,
+      qtdSaidasOS,
       materiaisComSugestao: filtered.filter(l => l.sugestaoCompra > 0).length,
     };
   }, [filtered, movimentacoes, materiaisOS]);
@@ -155,16 +147,12 @@ export default function RelatorioFluxoMateriais() {
 
   const exportarExcel = () => {
     const rows = filtered.map(l => ({
-      "Material": l.nome, "Unidade": l.unidade,
-      "Estoque Atual": l.estoqueAtual, "Estoque Mínimo": l.estoqueMinimo,
-      "Entrada (período)": l.totalEntrada,
-      "Saída Manual (período)": l.totalSaidaManual,
-      "Saída via O.S. (período)": l.totalSaidaOS,
-      "Saída Total (período)": l.totalSaida,
-      "Saldo do Período (Entrada − Saída)": l.saldoPeriodo,
+      "Código": l.codigo, "Material": l.nome, "Unidade": l.unidade,
+      "Nº de Entradas": l.numEntradas,
+      "Qtd. Entrada (período)": fmtQtd(l.qtdEntrada),
+      "Estoque Atual": fmtQtd(l.estoqueAtual),
+      "Qtd. Saída via O.S. (período)": fmtQtd(l.qtdSaidaOS),
       "Consumo Médio/Dia": Number(l.consumoMedioDia.toFixed(2)),
-      "Cobertura (dias)": l.coberturaDias === null ? "sem consumo" : Math.floor(l.coberturaDias),
-      [`Projeção Consumo (${diasProjecao}d)`]: Number(l.projecaoConsumo.toFixed(2)),
       "Sugestão de Compra": l.sugestaoCompra,
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
@@ -179,7 +167,7 @@ export default function RelatorioFluxoMateriais() {
       const doc = new jsPDF({ orientation: "landscape" });
       const pageW = doc.internal.pageSize.getWidth();
       const company = await getAtlasCompanyInfo();
-      let y = await addPdfHeader(
+      const y = await addPdfHeader(
         doc,
         "Fluxo de Materiais",
         `Período: ${format(new Date(filterDateFrom), "dd/MM/yyyy")} a ${format(new Date(filterDateTo), "dd/MM/yyyy")} · Projeção: ${diasProjecao} dia(s) · ${filtered.length} material(is)`,
@@ -188,27 +176,25 @@ export default function RelatorioFluxoMateriais() {
 
       autoTable(doc, {
         startY: y,
-        head: [["Material", "Estoque Atual", "Entrada", "Saída Manual", "Saída O.S.", "Saída Total", "Saldo Período", "Consumo Médio/Dia", "Cobertura", "Sugestão de Compra"]],
+        head: [["Código", "Material", "Nº Entradas", "Qtd. Entrada", "Estoque Atual", "Qtd. Saída (O.S.)", "Consumo Médio/Dia", "Sugestão de Compra"]],
         body: filtered.map(l => [
+          l.codigo,
           l.nome,
+          l.numEntradas,
+          `${fmtQtd(l.qtdEntrada)} ${l.unidade}`,
           `${fmtQtd(l.estoqueAtual)} ${l.unidade}`,
-          `+${fmtQtd(l.totalEntrada)}`,
-          fmtQtd(l.totalSaidaManual),
-          fmtQtd(l.totalSaidaOS),
-          `-${fmtQtd(l.totalSaida)}`,
-          fmtQtd(l.saldoPeriodo),
+          `${fmtQtd(l.qtdSaidaOS)} ${l.unidade}`,
           l.consumoMedioDia.toFixed(2),
-          l.coberturaDias === null ? "sem consumo" : `${Math.floor(l.coberturaDias)}d`,
           l.sugestaoCompra > 0 ? `${l.sugestaoCompra} ${l.unidade}` : "—",
         ]),
         foot: [[
-          "TOTAL", "", "", "", "", "", "", "", "",
+          "TOTAL", "", "", "", "", "", "",
           `${totais.materiaisComSugestao} material(is) com sugestão`,
         ]],
-        headStyles: { fillColor: [58, 53, 92], textColor: [255, 255, 255], fontSize: 7.5, fontStyle: "bold" },
-        bodyStyles: { fontSize: 7.5, textColor: [40, 40, 40] },
+        headStyles: { fillColor: [58, 53, 92], textColor: [255, 255, 255], fontSize: 8, fontStyle: "bold" },
+        bodyStyles: { fontSize: 8, textColor: [40, 40, 40] },
         alternateRowStyles: { fillColor: [250, 250, 255] },
-        footStyles: { fillColor: [58, 53, 92], textColor: [255, 255, 255], fontSize: 7.5, fontStyle: "bold" },
+        footStyles: { fillColor: [58, 53, 92], textColor: [255, 255, 255], fontSize: 8, fontStyle: "bold" },
         margin: { left: 10, right: 10 },
         tableWidth: pageW - 20,
       });
@@ -229,7 +215,7 @@ export default function RelatorioFluxoMateriais() {
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <ArrowLeftRight className="h-6 w-6 text-primary" /> Fluxo de Materiais
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">Entrada, saída (manual e via O.S.) e sugestão de compra por material.</p>
+          <p className="text-sm text-muted-foreground mt-1">Entradas, saídas via O.S. e sugestão de compra por material.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="icon" onClick={fetchData}><RefreshCw className="h-4 w-4" /></Button>
@@ -245,14 +231,14 @@ export default function RelatorioFluxoMateriais() {
       {/* Cards de resumo */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="rounded-xl border bg-card p-4">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground"><TrendingUp className="h-4 w-4 text-emerald-600" /> Entradas Registradas</div>
+          <div className="text-sm text-muted-foreground">Entradas Registradas</div>
           <div className="text-2xl font-bold mt-1">{totais.qtdEntradas.toLocaleString("pt-BR")}</div>
           <p className="text-xs text-muted-foreground mt-0.5">movimentações no período</p>
         </div>
         <div className="rounded-xl border bg-card p-4">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground"><TrendingDown className="h-4 w-4 text-red-600" /> Saídas Registradas</div>
-          <div className="text-2xl font-bold mt-1">{totais.qtdSaidas.toLocaleString("pt-BR")}</div>
-          <p className="text-xs text-muted-foreground mt-0.5">movimentações no período (manual + O.S.)</p>
+          <div className="text-sm text-muted-foreground">Saídas via O.S. Registradas</div>
+          <div className="text-2xl font-bold mt-1">{totais.qtdSaidasOS.toLocaleString("pt-BR")}</div>
+          <p className="text-xs text-muted-foreground mt-0.5">movimentações no período</p>
         </div>
         <div className="rounded-xl border bg-card p-4">
           <div className="flex items-center gap-2 text-sm text-muted-foreground"><AlertTriangle className="h-4 w-4 text-amber-600" /> Materiais com Sugestão de Compra</div>
@@ -266,7 +252,7 @@ export default function RelatorioFluxoMateriais() {
           <label className="text-xs font-medium text-muted-foreground mb-1 block">Buscar material</label>
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input value={filterSearch} onChange={e => setFilterSearch(e.target.value)} placeholder="Nome do material..." className="pl-9" />
+            <Input value={filterSearch} onChange={e => setFilterSearch(e.target.value)} placeholder="Código ou nome do material..." className="pl-9" />
           </div>
         </div>
         <div>
@@ -304,11 +290,9 @@ export default function RelatorioFluxoMateriais() {
       </div>
 
       <p className="text-xs text-muted-foreground -mt-2">
-        Consumo médio calculado sobre {diasNoPeriodo} dia(s) do período selecionado. <strong>Saldo do período</strong> é só entrada menos saída
-        <em> dentro desse período</em> — um saldo negativo não significa estoque negativo, só que saiu mais do que entrou nessa janela de tempo
-        (o estoque real de cada material está na coluna "Estoque Atual"). <strong>Cobertura</strong> mostra quantos dias o estoque atual ainda
-        aguenta no ritmo de consumo atual. A <strong>sugestão de compra</strong> só aparece quando o consumo projetado pros próximos {diasProjecao} dia(s)
-        for maior do que o que já há em estoque.
+        Consumo médio e sugestão de compra calculados sobre {diasNoPeriodo} dia(s) do período selecionado, considerando <strong>só a saída via O.S.</strong>
+        {" "}(saída manual de estoque, como ajustes ou zerar estoque, não entra nessa conta por não ser consumo real). A sugestão de compra projeta esse
+        consumo pros próximos {diasProjecao} dia(s) e desconta o que já há em estoque.
       </p>
 
       {/* Tabela */}
@@ -316,13 +300,13 @@ export default function RelatorioFluxoMateriais() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Código</TableHead>
               <TableHead>Material</TableHead>
+              <TableHead className="text-right">Nº de Entradas</TableHead>
+              <TableHead className="text-right">Qtd. Entrada</TableHead>
               <TableHead className="text-right">Estoque Atual</TableHead>
-              <TableHead className="text-right">Entrada</TableHead>
-              <TableHead className="text-right">Saída (Manual + O.S.)</TableHead>
-              <TableHead className="text-right">Saldo do Período</TableHead>
+              <TableHead className="text-right">Qtd. Saída (O.S.)</TableHead>
               <TableHead className="text-right">Consumo Médio/Dia</TableHead>
-              <TableHead className="text-right">Cobertura</TableHead>
               <TableHead className="text-right">Sugestão de Compra</TableHead>
             </TableRow>
           </TableHeader>
@@ -335,35 +319,13 @@ export default function RelatorioFluxoMateriais() {
               <TableRow><TableCell colSpan={8}><EmptyState icon={ArrowLeftRight} title="Nenhuma movimentação encontrada" description="Ajuste o período ou os filtros selecionados." className="py-8" /></TableCell></TableRow>
             ) : filtered.map(l => (
               <TableRow key={l.materialId}>
-                <TableCell className="font-medium">
-                  {l.nome}
-                  {l.estoqueMinimo > 0 && l.estoqueAtual <= l.estoqueMinimo && (
-                    <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-red-50 text-red-700 border border-red-200 px-1.5 py-0.5 text-[10px] font-medium">
-                      <AlertTriangle className="h-2.5 w-2.5" /> Abaixo do mínimo
-                    </span>
-                  )}
-                </TableCell>
-                <TableCell className="text-right">{l.estoqueAtual.toLocaleString("pt-BR")} {l.unidade}</TableCell>
-                <TableCell className="text-right text-emerald-700">+{l.totalEntrada.toLocaleString("pt-BR")}</TableCell>
-                <TableCell className="text-right text-red-700">
-                  −{l.totalSaida.toLocaleString("pt-BR")}
-                  <span className="block text-[10px] text-muted-foreground font-normal">
-                    {l.totalSaidaOS} via O.S. · {l.totalSaidaManual} manual
-                  </span>
-                </TableCell>
-                <TableCell className={"text-right font-medium " + (l.saldoPeriodo >= 0 ? "text-emerald-700" : "text-red-700")}>
-                  {l.saldoPeriodo >= 0 ? "+" : ""}{l.saldoPeriodo.toLocaleString("pt-BR")}
-                </TableCell>
+                <TableCell className="font-mono text-sm">{l.codigo}</TableCell>
+                <TableCell className="font-medium">{l.nome}</TableCell>
+                <TableCell className="text-right">{l.numEntradas}</TableCell>
+                <TableCell className="text-right text-emerald-700">+{fmtQtd(l.qtdEntrada).toLocaleString("pt-BR")} {l.unidade}</TableCell>
+                <TableCell className="text-right">{fmtQtd(l.estoqueAtual).toLocaleString("pt-BR")} {l.unidade}</TableCell>
+                <TableCell className="text-right text-red-700">−{fmtQtd(l.qtdSaidaOS).toLocaleString("pt-BR")} {l.unidade}</TableCell>
                 <TableCell className="text-right">{l.consumoMedioDia.toFixed(2)}</TableCell>
-                <TableCell className="text-right">
-                  {l.coberturaDias === null ? (
-                    <span className="text-muted-foreground text-xs">sem consumo</span>
-                  ) : (
-                    <span className={l.coberturaDias <= diasProjecao ? "text-amber-700 font-medium" : "text-muted-foreground"}>
-                      {Math.floor(l.coberturaDias)} dia(s)
-                    </span>
-                  )}
-                </TableCell>
                 <TableCell className="text-right">
                   {l.sugestaoCompra > 0 ? (
                     <span className="inline-flex items-center rounded-full bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 text-xs font-semibold">
