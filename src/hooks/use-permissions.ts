@@ -344,17 +344,24 @@ if (isAdmin) {
 if (!profile?.perfil_acesso_id) {
 
   console.log(
-    "[Permissions] No perfil_acesso_id found"
+    "[Permissions] No perfil_acesso_id found -- checking individual extras only"
   );
 
-  setPermissions(new Set());
+  const { data: extraSemPerfil } = await supabase
+    .from("permissoes_usuario_extra" as any)
+    .select("permissao")
+    .eq("user_id", session.user.id);
 
-  setMenuPermissions(new Set());
+  if (currentFetch !== fetchIdRef.current) return;
+
+  const permSetSemPerfil = new Set<string>(((extraSemPerfil as any[]) || []).map((p) => p.permissao));
+  setPermissions(permSetSemPerfil);
+  setMenuPermissions(buildDerivedMenuPermissions(permSetSemPerfil));
 
   return;
 }
 
-        const [permsRes, menuPermsRes] = await Promise.all([
+        const [permsRes, menuPermsRes, extraRes] = await Promise.all([
           supabase
             .from("permissoes_perfil")
             .select("permissao")
@@ -363,11 +370,19 @@ if (!profile?.perfil_acesso_id) {
             .from("permissoes_menu_perfil")
             .select("menu_key")
             .eq("perfil_acesso_id", profile.perfil_acesso_id),
+          supabase
+            .from("permissoes_usuario_extra" as any)
+            .select("permissao")
+            .eq("user_id", session.user.id),
         ]);
 
         if (currentFetch !== fetchIdRef.current) return;
 
       const permSet = new Set<string>((permsRes.data || []).map((p) => p.permissao));
+
+      // Soma as permissoes extras concedidas so pra essa pessoa, alem do
+      // que o perfil dela ja da
+      ((extraRes.data as any[]) || []).forEach((p) => permSet.add(p.permissao));
 
 setPermissions(permSet);
 

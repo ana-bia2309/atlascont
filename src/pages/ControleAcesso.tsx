@@ -2,9 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useUserRole } from "@/hooks/use-user-role";
-import { usePermissions } from "@/hooks/use-permissions";
+import { usePermissions, PERMISSION_SCREENS, ACTION_LABELS } from "@/hooks/use-permissions";
 import { useCompany } from "@/hooks/use-company";
 import { Button } from "@/components/ui/button";
+import {
+  Accordion, AccordionContent, AccordionItem, AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
@@ -149,6 +152,8 @@ export default function ControleAcesso() {
   const [formRole, setFormRole] = useState<AppRole>("visualizacao");
   const [formStatus, setFormStatus] = useState<AppUserStatus>("ativo");
   const [formPerfilAcessoId, setFormPerfilAcessoId] = useState<string>("__none__");
+  const [permExtraSelected, setPermExtraSelected] = useState<Set<string>>(new Set());
+  const [permExtraLoading, setPermExtraLoading] = useState(false);
   const [formJobTitle, setFormJobTitle] = useState("");
   const [formWorkStart, setFormWorkStart] = useState("");
   const [formWorkEnd, setFormWorkEnd] = useState("");
@@ -376,6 +381,7 @@ const {
     setFormRole("visualizacao"); setFormStatus("ativo"); setFormPerfilAcessoId("__none__");
     setFormJobTitle(""); setFormWorkStart(""); setFormWorkEnd(""); setFormWorkDays([]);
     setFormScheduleType("administrativo"); setFormScaleStartDate(""); setFormScaleStartsWorking(true);
+    setPermExtraSelected(new Set());
     setEditing(null);
   };
 
@@ -403,7 +409,25 @@ const {
       user.scale_starts_working ?? true
     );
 
+    setPermExtraSelected(new Set());
+    if (user.user_id) {
+      setPermExtraLoading(true);
+      (supabase as any).from("permissoes_usuario_extra").select("permissao").eq("user_id", user.user_id)
+        .then(({ data }: any) => {
+          setPermExtraSelected(new Set((data || []).map((p: any) => p.permissao)));
+          setPermExtraLoading(false);
+        });
+    }
+
     setDialogOpen(true);
+  };
+
+  const togglePermExtra = (key: string) => {
+    setPermExtraSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
   };
 
   /* ── Save (create or update) ── */
@@ -620,6 +644,38 @@ if (rErr) {
 
   return;
 }
+
+// Permissoes extras individuais -- so pra essa pessoa, alem do perfil
+if (editing.user_id) {
+  const { error: delExtraErr } = await (supabase as any)
+    .from("permissoes_usuario_extra")
+    .delete()
+    .eq("user_id", editing.user_id);
+
+  if (delExtraErr) {
+    toast({ title: "Erro ao atualizar permissões extras", description: delExtraErr.message, variant: "destructive" });
+    setSaving(false);
+    return;
+  }
+
+  if (permExtraSelected.size > 0) {
+    const { error: insExtraErr } = await (supabase as any)
+      .from("permissoes_usuario_extra")
+      .insert(
+        Array.from(permExtraSelected).map((permissao) => ({
+          user_id: editing.user_id,
+          company_id: currentCompanyId,
+          permissao,
+        }))
+      );
+    if (insExtraErr) {
+      toast({ title: "Erro ao salvar permissões extras", description: insExtraErr.message, variant: "destructive" });
+      setSaving(false);
+      return;
+    }
+  }
+}
+
 await fetchUsers();
 toast({ title: "Usuário atualizado" });
 setDialogOpen(false);
@@ -1011,6 +1067,51 @@ const companyId = profile.company_id;
               </Select>
               <p className="text-xs text-muted-foreground mt-1">Define as permissões do usuário no sistema.</p>
             </div>
+            {editing && (
+              <div>
+                <label className="text-sm font-medium mb-1 block">Permissões Extras (só para esta pessoa)</label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Além do que o perfil de acesso já permite, marque o que mais essa pessoa específica pode acessar. Não afeta mais ninguém.
+                </p>
+                {permExtraLoading ? (
+                  <p className="text-xs text-muted-foreground py-2">Carregando...</p>
+                ) : (
+                  <Accordion type="multiple" className="space-y-1">
+                    {PERMISSION_SCREENS.map((screen) => {
+                      const screenKeys = screen.actions.map((a) => `${screen.screen}.${a}`);
+                      const checkedCount = screenKeys.filter((k) => permExtraSelected.has(k)).length;
+                      return (
+                        <AccordionItem key={screen.screen} value={screen.screen} className="rounded-lg border px-3">
+                          <AccordionTrigger className="hover:no-underline py-2 text-sm">
+                            <div className="flex items-center gap-2 flex-1">
+                              <span>{screen.label}</span>
+                              {checkedCount > 0 && (
+                                <span className="ml-auto mr-2 text-[10px] rounded-full bg-primary/10 text-primary px-1.5 py-0.5">
+                                  {checkedCount}/{screenKeys.length}
+                                </span>
+                              )}
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <div className="grid grid-cols-2 gap-1.5 pb-2">
+                              {screen.actions.map((action) => {
+                                const key = `${screen.screen}.${action}`;
+                                return (
+                                  <label key={key} className="flex items-center gap-2 text-xs cursor-pointer">
+                                    <Checkbox checked={permExtraSelected.has(key)} onCheckedChange={() => togglePermExtra(key)} />
+                                    {ACTION_LABELS[action] || action}
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      );
+                    })}
+                  </Accordion>
+                )}
+              </div>
+            )}
             <div>
               <label className="text-sm font-medium mb-1 block">Nível de Acesso (RLS) *</label>
               <Select value={formRole} onValueChange={(v) => setFormRole(v as AppRole)}>
