@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,10 +42,18 @@ type PerfilAcesso = {
   id: string;
   nome: string;
   descricao: string | null;
+  nivel_rls: string;
   created_at: string;
   _count: number;
   _permissions: string[];
 };
+
+const NIVEL_RLS_OPTIONS = [
+  { value: "administrador", label: "Administrador" },
+  { value: "gestor", label: "Gestor" },
+  { value: "tecnico", label: "Técnico" },
+  { value: "visualizacao", label: "Visualização" },
+];
 
 /* ── Helpers ── */
 function permissionSummary(perms: string[]) {
@@ -70,6 +79,7 @@ export default function PerfisAcesso() {
   const [editing, setEditing] = useState<PerfilAcesso | null>(null);
   const [nome, setNome] = useState("");
   const [descricao, setDescricao] = useState("");
+  const [nivelRls, setNivelRls] = useState("visualizacao");
 
   // delete
   const [deleteTarget, setDeleteTarget] = useState<PerfilAcesso | null>(null);
@@ -122,18 +132,18 @@ export default function PerfisAcesso() {
 
   useEffect(() => { fetchPerfis(); }, [fetchPerfis]);
 
-  const resetForm = () => { setNome(""); setDescricao(""); setEditing(null); setDialogOpen(false); };
+  const resetForm = () => { setNome(""); setDescricao(""); setNivelRls("visualizacao"); setEditing(null); setDialogOpen(false); };
   const openCreate = () => { resetForm(); setDialogOpen(true); };
-  const openEdit = (p: PerfilAcesso) => { setEditing(p); setNome(p.nome); setDescricao(p.descricao || ""); setDialogOpen(true); };
+  const openEdit = (p: PerfilAcesso) => { setEditing(p); setNome(p.nome); setDescricao(p.descricao || ""); setNivelRls(p.nivel_rls || "visualizacao"); setDialogOpen(true); };
 
   const handleSave = async () => {
     if (!nome.trim()) { toast({ title: "Informe o nome do perfil", variant: "destructive" }); return; }
     if (editing) {
-      const { error } = await (supabase as any).from("perfis_acesso").update({ nome: nome.trim(), descricao: descricao.trim() || null }).eq("id", editing.id);
+      const { error } = await (supabase as any).from("perfis_acesso").update({ nome: nome.trim(), descricao: descricao.trim() || null, nivel_rls: nivelRls }).eq("id", editing.id);
       if (error) { toast({ title: error.message.includes("unique") ? "Já existe um perfil com este nome" : "Erro ao atualizar", variant: "destructive" }); return; }
       toast({ title: "Perfil atualizado" });
     } else {
-      const { error } = await (supabase as any).from("perfis_acesso").insert({ nome: nome.trim(), descricao: descricao.trim() || null, company_id: companyId });
+      const { error } = await (supabase as any).from("perfis_acesso").insert({ nome: nome.trim(), descricao: descricao.trim() || null, nivel_rls: nivelRls, company_id: companyId });
       if (error) { toast({ title: error.message.includes("unique") ? "Já existe um perfil com este nome" : "Erro ao criar", description: error.message, variant: "destructive" }); return; }
       toast({ title: "Perfil criado com sucesso" });
     }
@@ -456,6 +466,19 @@ export default function PerfisAcesso() {
             <div>
               <label className="text-sm font-medium mb-1 block">Descrição</label>
               <Textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Breve descrição do perfil" rows={3} />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Nível de Acesso (RLS)</label>
+              <Select value={nivelRls} onValueChange={setNivelRls}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {NIVEL_RLS_OPTIONS.map((o) => (<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                Controla o acesso a dados no banco (proteção técnica). Toda pessoa com esse perfil herda esse nível automaticamente
+                — normalmente não precisa mexer aqui depois de configurado.
+              </p>
             </div>
           </div>
           <DialogFooter>

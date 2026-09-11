@@ -61,7 +61,7 @@ interface UserProfile {
   scale_starts_working: boolean;
 }
 
-type PerfilAcessoOption = { id: string; nome: string };
+type PerfilAcessoOption = { id: string; nome: string; nivel_rls?: string };
 
 /* ── CPF helpers ── */
 const formatCpf = (v: string) => {
@@ -182,7 +182,7 @@ export default function ControleAcesso() {
 
   const { data } = await (supabase as any)
     .from("perfis_acesso")
-    .select("id, nome")
+    .select("id, nome, nivel_rls")
     .eq(
       "company_id",
       profile.company_id
@@ -1058,7 +1058,14 @@ const companyId = profile.company_id;
             )}
             <div>
               <label className="text-sm font-medium mb-1 block">Perfil de Acesso</label>
-              <Select value={formPerfilAcessoId} onValueChange={setFormPerfilAcessoId}>
+              <Select
+                value={formPerfilAcessoId}
+                onValueChange={(id) => {
+                  setFormPerfilAcessoId(id);
+                  const perfil = perfisAcesso.find((p) => p.id === id);
+                  if (perfil?.nivel_rls) setFormRole(perfil.nivel_rls as AppRole);
+                }}
+              >
                 <SelectTrigger><SelectValue placeholder="Selecione um perfil" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">Nenhum</SelectItem>
@@ -1113,14 +1120,11 @@ const companyId = profile.company_id;
               </div>
             )}
             <div>
-              <label className="text-sm font-medium mb-1 block">Nível de Acesso (RLS) *</label>
-              <Select value={formRole} onValueChange={(v) => setFormRole(v as AppRole)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {ROLE_OPTIONS.map((r) => (<SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground mt-1">Controla o acesso a dados no banco de dados.</p>
+              <label className="text-sm font-medium mb-1 block">Nível de Acesso (RLS)</label>
+              <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
+                {ROLE_OPTIONS.find((r) => r.value === formRole)?.label || "Selecione um Perfil de Acesso"}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Definido automaticamente pelo Perfil de Acesso escolhido acima.</p>
             </div>
             {editing && (
               <div>
