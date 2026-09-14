@@ -299,7 +299,7 @@ export default function AbrirChamadoDialog({
         codigo_os: codigo,
         origem: "Chamado",
 
-        status: "Aberto",
+        status: "Não Iniciada",
         prioridade: "Média",
 
         titulo: contextoTitulo
