@@ -4,38 +4,52 @@ import { useCompany } from "@/hooks/use-company";
 import { GitBranch } from "@/lib/icons";
 
 type ChamadoRow = { id: string; created_at: string; analisado_em: string; os_id: string };
+type ChamadoInternoRow = { id: string; created_at: string; analisado_em: string; finalizado_em: string | null };
 
-// Funil só dos chamados do Portal do Cliente (tabela `chamados`), que já
-// tem os timestamps estruturados (created_at / analisado_em / os_id).
-// O "chamado interno" (ordens_servico com origem=Chamado) não entra aqui
-// porque o vínculo dele com a OS gerada é só um marcador de texto, sem
-// timestamp — precisaria de uma migration à parte.
+// Funil combina as duas origens de chamado:
+// - Portal do Cliente (tabela `chamados`): created_at/analisado_em/os_id,
+//   com finalizado_em vindo da O.S. vinculada.
+// - Chamado interno (ordens_servico com origem=Chamado): agora tem
+//   analisado_em na propria linha, marcado automaticamente (trigger) na
+//   primeira vez que o status sai de "Aberto".
 export default function DashboardFunilChamados() {
   const { companyId } = useCompany();
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<{ aberturaAnalise: number; analiseFechamento: number; total: number; qtd: number } | null>(null);
+  const [stats, setStats] = useState<{ aberturaAnalise: number; analiseFechamento: number; total: number; qtd: number; qtdPortal: number; qtdInterno: number } | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!companyId) return;
     setLoading(true);
     try {
-      const { data: chamados } = await (supabase as any)
-        .from("chamados")
-        .select("id, created_at, analisado_em, os_id")
-        .eq("company_id", companyId)
-        .not("os_id", "is", null)
-        .not("analisado_em", "is", null);
+      const [chamadosRes, internosRes] = await Promise.all([
+        (supabase as any)
+          .from("chamados")
+          .select("id, created_at, analisado_em, os_id")
+          .eq("company_id", companyId)
+          .not("os_id", "is", null)
+          .not("analisado_em", "is", null),
+        (supabase as any)
+          .from("ordens_servico")
+          .select("id, created_at, analisado_em, finalizado_em")
+          .eq("company_id", companyId)
+          .eq("origem", "Chamado")
+          .not("analisado_em", "is", null),
+      ]);
 
-      const rows: ChamadoRow[] = chamados || [];
-      if (rows.length === 0) { setStats(null); return; }
+      const chamadosPortal: ChamadoRow[] = chamadosRes.data || [];
+      const chamadosInterno: ChamadoInternoRow[] = internosRes.data || [];
 
-      const osIds = [...new Set(rows.map((r) => r.os_id))];
-      const { data: osList } = await (supabase as any)
-        .from("ordens_servico")
-        .select("id, finalizado_em")
-        .eq("company_id", companyId)
-        .eq("arquivada", false)
-        .in("id", osIds);
+      if (chamadosPortal.length === 0 && chamadosInterno.length === 0) { setStats(null); return; }
+
+      const osIds = [...new Set(chamadosPortal.map((r) => r.os_id))];
+      const osList = osIds.length > 0
+        ? (await (supabase as any)
+            .from("ordens_servico")
+            .select("id, finalizado_em")
+            .eq("company_id", companyId)
+            .eq("arquivada", false)
+            .in("id", osIds)).data
+        : [];
 
       const osMap = new Map((osList || []).map((o: any) => [o.id, o.finalizado_em]));
 
@@ -43,7 +57,7 @@ export default function DashboardFunilChamados() {
       const diasAnaliseFechamento: number[] = [];
       const diasTotal: number[] = [];
 
-      rows.forEach((r) => {
+      chamadosPortal.forEach((r) => {
         const finalizadoEm = osMap.get(r.os_id);
         const abertura = new Date(r.created_at).getTime();
         const analise = new Date(r.analisado_em).getTime();
@@ -56,13 +70,27 @@ export default function DashboardFunilChamados() {
         }
       });
 
+      chamadosInterno.forEach((r) => {
+        const abertura = new Date(r.created_at).getTime();
+        const analise = new Date(r.analisado_em).getTime();
+        diasAberturaAnalise.push((analise - abertura) / 86400000);
+
+        if (r.finalizado_em) {
+          const fechamento = new Date(r.finalizado_em).getTime();
+          diasAnaliseFechamento.push((fechamento - analise) / 86400000);
+          diasTotal.push((fechamento - abertura) / 86400000);
+        }
+      });
+
       const avg = (arr: number[]) => arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : 0;
 
       setStats({
         aberturaAnalise: avg(diasAberturaAnalise),
         analiseFechamento: avg(diasAnaliseFechamento),
         total: avg(diasTotal),
-        qtd: rows.length,
+        qtd: chamadosPortal.length + chamadosInterno.length,
+        qtdPortal: chamadosPortal.length,
+        qtdInterno: chamadosInterno.length,
       });
     } finally {
       setLoading(false);
@@ -79,8 +107,11 @@ export default function DashboardFunilChamados() {
     <div className="rounded-xl border bg-card p-5 mt-6">
       <div className="flex items-center gap-2 mb-4">
         <GitBranch className="h-4 w-4 text-primary" />
-        <h2 className="text-lg font-semibold">Funil de Chamados (Portal do Cliente)</h2>
-        <span className="text-xs text-muted-foreground ml-auto">{stats.qtd} chamado{stats.qtd !== 1 ? "s" : ""} analisado{stats.qtd !== 1 ? "s" : ""}</span>
+        <h2 className="text-lg font-semibold">Funil de Chamados</h2>
+        <span className="text-xs text-muted-foreground ml-auto">
+          {stats.qtd} chamado{stats.qtd !== 1 ? "s" : ""} analisado{stats.qtd !== 1 ? "s" : ""}
+          {" "}({stats.qtdPortal} Portal · {stats.qtdInterno} interno{stats.qtdInterno !== 1 ? "s" : ""})
+        </span>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="rounded-lg border bg-muted/30 px-4 py-3">
