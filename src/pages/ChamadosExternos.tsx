@@ -11,6 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -25,7 +29,7 @@ import {
 } from "@/components/ui/select";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { MessagesSquare, Search, RefreshCw, Eye, X, Check, Loader2, Filter } from "@/lib/icons";
+import { MessagesSquare, Search, RefreshCw, Eye, X, Check, Loader2, Filter, Trash2 } from "@/lib/icons";
 
 type ChamadoExterno = {
   id: string;
@@ -103,6 +107,8 @@ export default function ChamadosExternos() {
   const [filterResultado, setFilterResultado] = useState("__all__");
 
   const [analyzing, setAnalyzing] = useState<ChamadoExterno | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ChamadoExterno | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [refusing, setRefusing] = useState(false);
   const [justificativa, setJustificativa] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -159,6 +165,20 @@ const fetchData = useCallback(async () => {
     }
     setLoading(false);
   }, [companyId]);
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    const { error } = await (supabase as any).from("chamados").delete().eq("id", deleteTarget.id);
+    if (error) {
+      toast({ title: "Erro ao excluir chamado", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Chamado excluído" });
+      fetchData();
+    }
+    setDeleting(false);
+    setDeleteTarget(null);
+  };
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useRealtime(
@@ -390,15 +410,27 @@ const fetchData = useCallback(async () => {
                   {osCode ? osCode : <span className="text-muted-foreground">—</span>}
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button
-                    size="sm"
-                    variant={c.status === "Em análise" ? "default" : "outline"}
-                    onClick={() => setAnalyzing(c)}
-                    className="gap-1.5"
-                  >
-                    <Eye className="h-3.5 w-3.5" />
-                    {c.status === "Em análise" ? "Analisar" : "Detalhes"}
-                  </Button>
+                  <div className="flex justify-end gap-1.5">
+                    <Button
+                      size="sm"
+                      variant={c.status === "Em análise" ? "default" : "outline"}
+                      onClick={() => setAnalyzing(c)}
+                      className="gap-1.5"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      {c.status === "Em análise" ? "Analisar" : "Detalhes"}
+                    </Button>
+                    {can("chamados_externos.analisar") && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setDeleteTarget(c)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             );})}
@@ -524,6 +556,24 @@ const fetchData = useCallback(async () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir chamado?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O chamado <strong>{deleteTarget?.codigo}</strong> será excluído permanentemente. Essa ação não pode ser desfeita.
+              {deleteTarget?.os_id && " A O.S. já gerada a partir dele não será afetada."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={deleting}>
+              {deleting ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
