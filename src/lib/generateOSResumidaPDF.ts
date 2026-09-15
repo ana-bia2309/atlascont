@@ -8,6 +8,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
+import { computeSlaStatus, formatSlaDeadline } from "@/lib/sla-utils";
 
 // Marca fixa do Atlas Control — esta ficha é uma ferramenta interna do sistema,
 // por isso NÃO usa getCompanyInfo() (que traria a marca da empresa-cliente, ex.: APA).
@@ -36,6 +37,8 @@ type OSRow = {
   andar: string | null;
   sala: string | null;
   natureza_servico?: string | null;
+  prazo?: string | null;
+  sla_prazo_limite?: string | null;
 };
 
 type Material = {
@@ -319,19 +322,37 @@ async function fetchAnexosEFotos(osId: string): Promise<{ anexos: AnexoRender[];
 
 // ─── Bullets da descrição ──────────────────────────────────────────────────────
 
-function buildDescricaoBullets(os: OSRow): string[] {
-  const natureza = (os.natureza_servico || "Instalação").trim();
-  return [
-    `${natureza} de Sistema de Climatização.`,
-    "Lançamento de Linhas Frigorígenas (cobre, polipex).",
-    "Execução de Interligações Elétricas e de Comando.",
-    "Instalação de Rede de Drenagem e Bomba.",
-    "Fixação das Unidades Condensadoras.",
-    "Testes de Estanqueidade e Vácuo.",
-    "Carga de Fluido Refrigerante.",
-    "Partida Assistida e Verificação de Parâmetros.",
-    "Conformidade: ABNT NBR 16401 & ABNT NBR 5410.",
-  ];
+// ─── Descrição real da O.S. (observações) ─────────────────────────────────────
+// Antes esta função devolvia um texto fixo sobre climatização, sempre igual,
+// sem nenhuma relação com a OS de verdade. Corrigido pra usar o campo real.
+
+function buildDescricaoLinhas(os: OSRow): string[] {
+  const texto = (os.observacoes || "").trim();
+  if (!texto) return ["Nenhuma observação registrada nesta O.S."];
+  return texto.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+}
+
+async function fetchEquipe(osId: string): Promise<{ responsaveis: string[]; auxiliares: string[] }> {
+  try {
+    const [respRes, colabRes] = await Promise.all([
+      (supabase as any).from("os_responsaveis").select("profile_id").eq("os_id", osId),
+      (supabase as any).from("os_colaboradores").select("profile_id").eq("os_id", osId),
+    ]);
+    const ids = [
+      ...new Set([
+        ...((respRes.data || []).map((r: any) => r.profile_id)),
+        ...((colabRes.data || []).map((r: any) => r.profile_id)),
+      ]),
+    ].filter(Boolean);
+    if (!ids.length) return { responsaveis: [], auxiliares: [] };
+    const { data: profiles } = await (supabase as any).from("profiles").select("id, nome").in("id", ids);
+    const nomeMap: Record<string, string> = {};
+    (profiles || []).forEach((p: any) => { nomeMap[p.id] = p.nome; });
+    return {
+      responsaveis: (respRes.data || []).map((r: any) => nomeMap[r.profile_id]).filter(Boolean),
+      auxiliares: (colabRes.data || []).map((r: any) => nomeMap[r.profile_id]).filter(Boolean),
+    };
+  } catch { return { responsaveis: [], auxiliares: [] }; }
 }
 
 // ─── Memorial de cálculo (simplificado) ───────────────────────────────────────
@@ -398,7 +419,7 @@ function drawHeader(doc: jsPDF, os: OSRow, companyNome: string, logo: PageImg | 
   return 44;
 }
 
-function drawSumarioTable(doc: jsPDF, os: OSRow, blocoNome: string, tecnicoNome: string, y: number): number {
+function drawSumarioTable(doc: jsPDF, os: OSRow, blocoNome: string, equipeTexto: string, y: number): number {
   doc.setFillColor(...C.navyMid);
   doc.rect(ML, y, 2.6, 5.2, "F");
   doc.setFont("helvetica", "bold");
@@ -409,13 +430,13 @@ function drawSumarioTable(doc: jsPDF, os: OSRow, blocoNome: string, tecnicoNome:
 
   autoTable(doc, {
     startY: y,
-    head: [["Código", "Status", "Bloco", "Ambiente", "Técnico", "Abertura", "Custo (R$)"]],
+    head: [["Código", "Status", "Bloco", "Ambiente", "Equipe", "Abertura", "Custo (R$)"]],
     body: [[
       os.codigo_os || "—",
       os.status || "—",
       blocoNome,
       getAmbiente(os) || "—",
-      tecnicoNome,
+      equipeTexto || "—",
       fmtDate(os.created_at),
       (os.custo_total || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 }),
     ]],
@@ -443,8 +464,41 @@ function drawSumarioTable(doc: jsPDF, os: OSRow, blocoNome: string, tecnicoNome:
   return (doc as any).lastAutoTable.finalY + 7;
 }
 
-function drawDetalhesBox(doc: jsPDF, os: OSRow, blocoNome: string, tecnicoNome: string, y: number): number {
-  const boxH = 64;
+function drawDetalhesBox(doc: jsPDF, os: OSRow, blocoNome: string, equipeTexto: string, y: number): number {
+  const sla = computeSlaStatus(os.sla_prazo_limite, os.status, os.created_at);
+
+  const fields: [string, string][] = [
+    ["Prioridade", os.prioridade || "—"],
+    ["Status", os.status || "—"],
+    ["Data Abertura", fmtDate(os.created_at)],
+    ["Conclusão", fmtDate(os.finalizado_em || os.data_termino) === "—" ? "Pendente" : fmtDate(os.finalizado_em || os.data_termino)],
+    ["Prazo", os.prazo ? fmtDate(os.prazo) : "—"],
+    ["SLA", sla.label + (sla.prazoLimite ? ` (até ${formatSlaDeadline(sla.prazoLimite)})` : "")],
+    ["Equipe", equipeTexto || "—"],
+    ["Unidade/Bloco", blocoNome],
+    ["Ambiente", getAmbiente(os) || "—"],
+    ["Categoria", os.origem || "—"],
+    ["Nº O.S. Externa", os.numero_os_externo?.trim() || "—"],
+  ];
+
+  const colDivX = ML + CW * 0.42;
+  const lh = 5.6;
+  const fieldsH = 14 + fields.length * lh;
+
+  // Pré-calcula a altura necessária pra descrição, pra caixa nunca cortar texto
+  const descMaxW = ML + CW - colDivX - 8;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.2);
+  let descLineas = 0;
+  buildDescricaoLinhas(os).forEach((b) => {
+    const lines = doc.splitTextToSize(b, descMaxW - 4) as string[];
+    descLineas += lines.length;
+  });
+  const descH = 14 + 5.5 + descLineas * 4.6;
+
+  const boxH = Math.max(fieldsH, descH) + 4;
+  y = ensureSpace(doc, y, boxH + 7);
+
   doc.setDrawColor(...C.navyMid);
   doc.setLineWidth(0.5);
   doc.setFillColor(...C.white);
@@ -459,22 +513,8 @@ function drawDetalhesBox(doc: jsPDF, os: OSRow, blocoNome: string, tecnicoNome: 
   doc.text(`DETALHES DA ORDEM DE SERVIÇO: ${os.codigo_os || "—"}`, ML + CW / 2, y + 6, { align: "center" });
 
   const bodyY = y + 14;
-  const colDivX = ML + CW * 0.42;
-
-  const fields: [string, string][] = [
-    ["Prioridade", os.prioridade || "—"],
-    ["Status", os.status || "—"],
-    ["Data Abertura", fmtDate(os.created_at)],
-    ["Conclusão", fmtDate(os.finalizado_em || os.data_termino) === "—" ? "Pendente" : fmtDate(os.finalizado_em || os.data_termino)],
-    ["Técnico Responsável", tecnicoNome],
-    ["Unidade/Bloco", blocoNome],
-    ["Ambiente", getAmbiente(os) || "—"],
-    ["Categoria", os.origem || "—"],
-    ["Nº O.S. Externa", os.numero_os_externo?.trim() || "—"],
-  ];
 
   let fy = bodyY;
-  const lh = 5.6;
   fields.forEach(([label, val]) => {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.2);
@@ -491,14 +531,13 @@ function drawDetalhesBox(doc: jsPDF, os: OSRow, blocoNome: string, tecnicoNome: 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.8);
   doc.setTextColor(...C.navy);
-  doc.text("DESCRIÇÃO DOS SERVIÇOS EXECUTADOS", colDivX + 4, bodyY);
+  doc.text("DESCRIÇÃO / OBSERVAÇÕES", colDivX + 4, bodyY);
 
   let dy = bodyY + 5.5;
-  const descMaxW = ML + CW - colDivX - 8;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7.2);
   doc.setTextColor(...C.dark);
-  buildDescricaoBullets(os).forEach((b) => {
+  buildDescricaoLinhas(os).forEach((b) => {
     const lines = doc.splitTextToSize(b, descMaxW - 4) as string[];
     doc.text("•", colDivX + 4, dy);
     doc.text(lines, colDivX + 8, dy);
@@ -518,9 +557,22 @@ function drawMemorialEMateriaisBoxes(
   materiais: Material[],
   y: number,
 ): number {
-  const boxH = 42;
   const gap = 6;
   const boxW = (CW - gap) / 2;
+  const rowH = 5.2;
+  const headerH = 13;
+  const footerH = 9.5;
+
+  // Altura dinâmica: cabe todo mundo, nada de "+N item(ns)" escondendo dado
+  const memorialRows = memorial.length || 1;
+  const materiaisRows = materiais.length || 1;
+  const boxH = Math.max(
+    headerH + memorialRows * rowH + footerH,
+    headerH + materiaisRows * rowH + footerH,
+    42,
+  );
+
+  y = ensureSpace(doc, y, boxH + 8);
 
   // Memorial de Cálculo
   doc.setDrawColor(...C.border);
@@ -541,21 +593,15 @@ function drawMemorialEMateriaisBoxes(
     let my = y + 13;
     doc.setFontSize(6.8);
     const totalMemorial = memorial.reduce((s, m) => s + m.valor, 0);
-    memorial.slice(0, 3).forEach((m) => {
+    memorial.forEach((m) => {
       doc.setFont("helvetica", "normal");
       doc.setTextColor(...C.dark);
       const line = `${fitText(doc, m.nome, boxW - 30)}  ${fmtQtd(m.qtd)} ${m.unidade}`.trim();
       doc.text(line, ML + 4, my);
       doc.setFont("helvetica", "bold");
       doc.text(fmtMoney(m.valor), ML + boxW - 4, my, { align: "right" });
-      my += 5.2;
+      my += rowH;
     });
-    if (memorial.length > 3) {
-      doc.setFont("helvetica", "italic");
-      doc.setFontSize(6.3);
-      doc.setTextColor(...C.gray);
-      doc.text(`+ ${memorial.length - 3} item(ns)`, ML + 4, my);
-    }
     doc.setDrawColor(...C.border);
     doc.line(ML + 4, y + boxH - 7, ML + boxW - 4, y + boxH - 7);
     doc.setFont("helvetica", "bold");
@@ -583,21 +629,15 @@ function drawMemorialEMateriaisBoxes(
     let my = y + 13;
     doc.setFontSize(6.8);
     const totalMat = materiais.reduce((s, m) => s + (m.custo_total_item || 0), 0);
-    materiais.slice(0, 3).forEach((m) => {
+    materiais.forEach((m) => {
       doc.setFont("helvetica", "normal");
       doc.setTextColor(...C.dark);
       const line = `${fitText(doc, m.nome_material, boxW - 30)}  ${fmtQtd(m.quantidade)} ${m.unidade || ""}`.trim();
       doc.text(line, x2 + 4, my);
       doc.setFont("helvetica", "bold");
       doc.text(fmtMoney(m.custo_total_item), x2 + boxW - 4, my, { align: "right" });
-      my += 5.2;
+      my += rowH;
     });
-    if (materiais.length > 3) {
-      doc.setFont("helvetica", "italic");
-      doc.setFontSize(6.3);
-      doc.setTextColor(...C.gray);
-      doc.text(`+ ${materiais.length - 3} item(ns)`, x2 + 4, my);
-    }
     doc.setDrawColor(...C.border);
     doc.line(x2 + 4, y + boxH - 7, x2 + boxW - 4, y + boxH - 7);
     doc.setFont("helvetica", "bold");
@@ -782,22 +822,34 @@ export async function generateOSResumidaPDF(params: {
   const logo = await loadLogo(ATLAS_LOGO_PATH);
 
   const blocoNome = os.bloco_id ? (blocosMap[os.bloco_id] || "—") : "—";
-  const tecnicoNome = os.responsible_user_id ? (profilesMap[os.responsible_user_id] || "—") : "—";
   const mats = materiaisByOs[os.id] || [];
 
-  const [memorial, { anexos, fotos }] = await Promise.all([
+  const [memorial, { anexos, fotos }, equipe] = await Promise.all([
     fetchMemorialResumo(os.id),
     fetchAnexosEFotos(os.id),
+    fetchEquipe(os.id),
   ]);
+
+  // Combina o time real (os_responsaveis + os_colaboradores) -- cai pro campo
+  // legado responsible_user_id só se a OS não tiver ninguém nas tabelas novas
+  let equipeTexto = [
+    ...equipe.responsaveis,
+    ...equipe.auxiliares.map((n) => `${n} (aux.)`),
+  ].join(", ");
+  if (!equipeTexto && os.responsible_user_id) {
+    equipeTexto = profilesMap[os.responsible_user_id] || "—";
+  }
+  if (!equipeTexto) equipeTexto = "—";
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   doc.setLineHeightFactor(1.25);
 
   let y = drawHeader(doc, os, companyNome, logo);
-  y = drawSumarioTable(doc, os, blocoNome, tecnicoNome, y);
-  y = drawDetalhesBox(doc, os, blocoNome, tecnicoNome, y);
+  y = drawSumarioTable(doc, os, blocoNome, equipeTexto, y);
+  y = drawDetalhesBox(doc, os, blocoNome, equipeTexto, y);
   y = drawMemorialEMateriaisBoxes(doc, memorial, mats, y);
-  drawAssinaturas(doc, tecnicoNome, y);
+  y = ensureSpace(doc, y, 24);
+  drawAssinaturas(doc, equipe.responsaveis[0] || "", y);
 
   // Anexos/plantas e fotos reais, em página(s) extra — só se existirem
   if (anexos.length) {
