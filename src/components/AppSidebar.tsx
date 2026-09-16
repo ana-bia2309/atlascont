@@ -2,7 +2,7 @@ import {
   Gauge, ClipboardList, CalendarRange, Wrench, Package, BarChart3, Clock, Activity,
   DollarSign, Timer, ListChecks, Building2, Box, ShieldCheck, KeyRound, LogOut, User, Settings, Settings2, Briefcase, ChevronRight, MessagesSquare,
   CheckCircle2, Bot, BookOpen, ShoppingCart,
-  Users, TrendingUp, Star, ArrowLeftRight,
+  Users, TrendingUp, Star, ArrowLeftRight, Gauge,
 } from "@/lib/icons";
 
 import { usePendingCounts } from "@/hooks/use-pending-counts";
@@ -109,6 +109,7 @@ const relatoriosGroup: MenuGroup = {
     { title: "Materiais por O.S.", url: "/relatorio-materiais-os", icon: Package, iconColor: "#8B5CF6" },
     { title: "Consolidado de Materiais", url: "/relatorio-consolidado-materiais", icon: TrendingUp, iconColor: "#F59E0B" },
     { title: "Fluxo de Materiais", url: "/relatorio-fluxo-materiais", icon: ArrowLeftRight, iconColor: "#0891B2" },
+    { title: "IMR", url: "/relatorio-imr", icon: Gauge, iconColor: "#7C3AED" },
     { title: "Relatório de Avaliações", url: "/relatorio-avaliacoes", icon: Star, iconColor: "#F59E0B", requiredPermission: "avaliacoes.visualizar" },
     { title: "Desempenho por Técnico", url: "/relatorio-tecnicos", icon: User, iconColor: "#0EA5E9" },
   ],
