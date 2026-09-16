@@ -1860,9 +1860,13 @@ export default function OrdensServico() {
                       <span className="text-sm font-medium block">
                         {os.bloco_id ? blocosMap[os.bloco_id] : "—"}
                       </span>
-                      {responsavel && (
+                      {responsavel ? (
                         <p className="text-xs text-muted-foreground mt-0.5">
                           Resp: {responsavel}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-amber-600 dark:text-amber-500 italic mt-0.5">
+                          Sem responsável
                         </p>
                       )}
                     </TableCell>
