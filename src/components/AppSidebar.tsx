@@ -2,7 +2,7 @@ import {
   Gauge, ClipboardList, CalendarRange, Wrench, Package, BarChart3, Clock, Activity,
   DollarSign, Timer, ListChecks, Building2, Box, ShieldCheck, KeyRound, LogOut, User, Settings, Settings2, Briefcase, ChevronRight, MessagesSquare,
   CheckCircle2, Bot, BookOpen, ShoppingCart,
-  Users, TrendingUp, Star, ArrowLeftRight, Gauge,
+  Users, TrendingUp, Star, ArrowLeftRight,
 } from "@/lib/icons";
 
 import { usePendingCounts } from "@/hooks/use-pending-counts";
