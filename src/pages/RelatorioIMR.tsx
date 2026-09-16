@@ -15,7 +15,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { addPdfHeader, getAtlasCompanyInfo } from "@/lib/pdfHeader";
 
-type OSRow = { id: string; codigo_os: string | null; status: string; prazo: string | null; finalizado_em: string | null; bloco_id: string | null };
+type OSRow = { id: string; codigo_os: string | null; status: string; prazo: string | null; finalizado_em: string | null; bloco_id: string | null; responsible_user_id: string | null };
 type Avaliacao = {
   os_id: string;
   nota_geral: number | null;
@@ -54,7 +54,7 @@ export default function RelatorioIMR() {
 
     const [osRes, avalRes, respRes, profRes] = await Promise.all([
       (supabase as any).from("ordens_servico")
-        .select("id, codigo_os, status, prazo, finalizado_em, bloco_id")
+        .select("id, codigo_os, status, prazo, finalizado_em, bloco_id, responsible_user_id")
         .eq("company_id", companyId)
         .eq("arquivada", false)
         .eq("status", "Concluída")
@@ -108,20 +108,32 @@ export default function RelatorioIMR() {
 
     // IMR por responsável
     const porTecnico: Record<string, { comPrazo: number; cumpridos: number; notas: number[] }> = {};
-    responsaveis.forEach((r) => {
-      const os = osRows.find((o) => o.id === r.os_id);
-      if (!os) return;
-      if (!porTecnico[r.profile_id]) porTecnico[r.profile_id] = { comPrazo: 0, cumpridos: 0, notas: [] };
-      if (os.prazo) {
-        porTecnico[r.profile_id].comPrazo++;
-        if (os.finalizado_em && os.finalizado_em.slice(0, 10) <= os.prazo) porTecnico[r.profile_id].cumpridos++;
-      }
+
+    // Time real de cada OS: usa os_responsaveis quando existir; se a OS não
+    // tiver ninguém lá (tabela pouco usada hoje), cai pro campo antigo
+    // responsible_user_id -- mesma logica de fallback ja usada no PDF de OS
+    const responsaveisDe = (os: OSRow): string[] => {
+      const modernos = responsaveis.filter((r) => r.os_id === os.id).map((r) => r.profile_id);
+      if (modernos.length > 0) return modernos;
+      return os.responsible_user_id ? [os.responsible_user_id] : [];
+    };
+
+    osRows.forEach((os) => {
+      responsaveisDe(os).forEach((profileId) => {
+        if (!porTecnico[profileId]) porTecnico[profileId] = { comPrazo: 0, cumpridos: 0, notas: [] };
+        if (os.prazo) {
+          porTecnico[profileId].comPrazo++;
+          if (os.finalizado_em && os.finalizado_em.slice(0, 10) <= os.prazo) porTecnico[profileId].cumpridos++;
+        }
+      });
     });
     avaliacoesDoFiltro.forEach((a) => {
       if (a.nota_geral === null) return;
-      responsaveis.filter((r) => r.os_id === a.os_id).forEach((r) => {
-        if (!porTecnico[r.profile_id]) porTecnico[r.profile_id] = { comPrazo: 0, cumpridos: 0, notas: [] };
-        porTecnico[r.profile_id].notas.push(Number(a.nota_geral));
+      const os = osRows.find((o) => o.id === a.os_id);
+      if (!os) return;
+      responsaveisDe(os).forEach((profileId) => {
+        if (!porTecnico[profileId]) porTecnico[profileId] = { comPrazo: 0, cumpridos: 0, notas: [] };
+        porTecnico[profileId].notas.push(Number(a.nota_geral));
       });
     });
     const tecnicos = Object.entries(porTecnico).map(([profileId, d]) => {
