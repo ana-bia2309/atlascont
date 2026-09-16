@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
+import { DateFilterButton } from "@/components/ui/date-filter-button";
 import { RefreshCw, Search, X, FileText, Download, Package, ChevronDown, ChevronRight, TrendingUp } from "@/lib/icons";
 import { STATUS_OPTIONS } from "@/lib/os-status";
 import { format } from "date-fns";
@@ -393,9 +394,9 @@ export default function RelatorioConsolidadoMateriais() {
         </Select>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">De</span>
-          <Input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} className="w-36 h-9" />
+          <DateFilterButton value={filterDateFrom} onChange={setFilterDateFrom} placeholder="Início" />
           <span className="text-xs text-muted-foreground">até</span>
-          <Input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} className="w-36 h-9" />
+          <DateFilterButton value={filterDateTo} onChange={setFilterDateTo} placeholder="Fim" />
         </div>
         {hasFilters && (
           <Button variant="ghost" size="sm" onClick={() => { setFilterStatus("__all__"); setFilterTecnico("__all__"); setFilterDateFrom(""); setFilterDateTo(""); setFilterOS("__all__"); }}>

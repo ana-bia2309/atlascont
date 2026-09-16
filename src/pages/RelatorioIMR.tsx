@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
+import { DateFilterButton } from "@/components/ui/date-filter-button";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { RefreshCw, Download, FileSpreadsheet, Gauge, AlertTriangle, Clock, Star } from "@/lib/icons";
 import { format, subDays } from "date-fns";
@@ -252,9 +253,9 @@ export default function RelatorioIMR() {
         <div>
           <label className="text-xs font-medium text-muted-foreground mb-1 block">Período (por data de conclusão)</label>
           <div className="flex items-center gap-1.5">
-            <Input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} className="w-36 h-9" />
+            <DateFilterButton value={filterDateFrom} onChange={setFilterDateFrom} placeholder="Início" />
             <span className="text-muted-foreground text-sm">até</span>
-            <Input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} className="w-36 h-9" />
+            <DateFilterButton value={filterDateTo} onChange={setFilterDateTo} placeholder="Fim" />
           </div>
         </div>
       </div>
