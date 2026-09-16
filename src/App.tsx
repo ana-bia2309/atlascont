@@ -70,6 +70,7 @@ import RelatorioMateriais from "@/pages/RelatorioMateriais";
 import RelatorioConsolidadoMateriais from "@/pages/RelatorioConsolidadoMateriais";
 import RelatorioFluxoMateriais from "@/pages/RelatorioFluxoMateriais";
 import RelatorioIMR from "@/pages/RelatorioIMR";
+import RelatorioSimplificadoOS from "@/pages/RelatorioSimplificadoOS";
 import GestaoEmprestimos from "@/pages/GestaoEmprestimos";
 import MeusEmprestimos from "@/pages/MeusEmprestimos";
 const queryClient = new QueryClient();
@@ -137,6 +138,7 @@ const App = () => (
               <Route path="/relatorio-consolidado-materiais" element={<RelatorioConsolidadoMateriais />} />
               <Route path="/relatorio-fluxo-materiais" element={<RelatorioFluxoMateriais />} />
               <Route path="/relatorio-imr" element={<RelatorioIMR />} />
+              <Route path="/relatorio-simplificado-os" element={<RelatorioSimplificadoOS />} />
               <Route path="/emprestimos-gestao" element={<GestaoEmprestimos />} />
               <Route path="/emprestimos" element={<MeusEmprestimos />} />
             </Route>
