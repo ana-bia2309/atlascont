@@ -191,16 +191,19 @@ export default function RelatorioIMR() {
 
       doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
+      doc.setTextColor(30, 30, 40);
       doc.text(`Prazos cumpridos: ${fmtPct(calc.pctPrazo)} (${calc.cumpridosQtd}/${calc.comPrazoQtd})   ·   Avaliação média: ${fmtPct(calc.pctAvaliacao)} (${calc.avaliadasQtd} avaliação(ões))`, 14, y);
       y += 8;
 
       if (pontosDeAtencao.length > 0) {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(9.5);
+        doc.setTextColor(30, 30, 40);
         doc.text("Pontos de Atenção:", 14, y);
         y += 5;
         doc.setFont("helvetica", "normal");
         doc.setFontSize(8);
+        doc.setTextColor(50, 50, 60);
         pontosDeAtencao.forEach((p) => {
           const lines = doc.splitTextToSize(`• ${p}`, pageW - 28) as string[];
           doc.text(lines, 14, y);
