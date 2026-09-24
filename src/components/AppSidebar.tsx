@@ -111,6 +111,7 @@ const relatoriosGroup: MenuGroup = {
     { title: "Fluxo de Materiais", url: "/relatorio-fluxo-materiais", icon: ArrowLeftRight, iconColor: "#0891B2" },
     { title: "IMR", url: "/relatorio-imr", icon: Gauge, iconColor: "#7C3AED" },
     { title: "Simplificado de O.S.", url: "/relatorio-simplificado-os", icon: ClipboardList, iconColor: "#059669" },
+    { title: "Gasto por Equipamento", url: "/relatorio-gasto-equipamento", icon: Wrench, iconColor: "#DC2626" },
     { title: "Relatório de Avaliações", url: "/relatorio-avaliacoes", icon: Star, iconColor: "#F59E0B", requiredPermission: "avaliacoes.visualizar" },
     { title: "Desempenho por Técnico", url: "/relatorio-tecnicos", icon: User, iconColor: "#0EA5E9" },
   ],
