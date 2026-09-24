@@ -90,7 +90,7 @@ type AtivoOption = {
 interface AtivoQuickModalProps {
   open: boolean;
   onClose: () => void;
-  onSelect: (ativoId: string, ativoNome: string) => void;
+  onSelect: (ativoId: string, ativoNome: string, codigoIdentificacao?: string | null) => void;
   companyId: string | null;
 }
 
@@ -184,10 +184,10 @@ export default function AtivoQuickModal({ open, onClose, onSelect, companyId }: 
         status: form.status,
       };
       const { data, error } = await (supabase as any)
-        .from("ativos").insert(payload).select("id, nome").single();
+        .from("ativos").insert(payload).select("id, nome, codigo_identificacao").single();
       if (error) throw error;
       toast({ title: "Ativo cadastrado e vinculado!" });
-      onSelect(data.id, data.nome);
+      onSelect(data.id, data.nome, data.codigo_identificacao);
       onClose();
     } catch (e: any) {
       toast({ title: "Erro ao cadastrar", description: e.message, variant: "destructive" });
@@ -248,7 +248,7 @@ export default function AtivoQuickModal({ open, onClose, onSelect, companyId }: 
               ) : filtrados.map(a => (
                 <button
                   key={a.id}
-                  onClick={() => { onSelect(a.id, a.nome); onClose(); }}
+                  onClick={() => { onSelect(a.id, a.nome, a.codigo_identificacao); onClose(); }}
                   className="w-full text-left rounded-lg border p-3 hover:bg-accent transition-colors"
                 >
                   <div className="flex items-center justify-between">

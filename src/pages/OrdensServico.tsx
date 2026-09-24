@@ -193,6 +193,14 @@ export default function OrdensServico() {
   const [blocos, setBlocos] = useState<Bloco[]>([]);
   const [cronogramas, setCronogramas] = useState<CronogramaOption[]>([]);
   const [ativosOptions, setAtivosOptions] = useState<AtivoOption[]>([]);
+  // Nome + código do ativo (ex.: "Split · SPL.BLC.SBL.S.001") — o nome sozinho
+  // não identifica qual equipamento é, já que vários ativos podem ter o mesmo
+  // nome genérico (ex.: vários "Split").
+  const ativoLabel = (id: string | null | undefined): string | null => {
+    const a = ativosOptions.find(x => x.id === id);
+    if (!a) return null;
+    return a.codigo_identificacao ? `${a.nome} · ${a.codigo_identificacao}` : a.nome;
+  };
   const [tecnicosOptions, setTecnicosOptions] = useState<TecnicoOption[]>([]);
   const [blocosMap, setBlocosMap] = useState<Record<string, string>>({});
   const [profilesMap, setProfilesMap] = useState<Record<string, string>>({});
@@ -2331,7 +2339,7 @@ export default function OrdensServico() {
                       <div className="flex gap-2">
                         <Button type="button" variant="outline" className="flex-1 justify-start font-normal" onClick={() => setAtivoModalOpen(true)} disabled={isTecnico && !!editing}>
                           {ativoId && ativoId !== "__none__"
-                            ? ativosOptions.find(a => a.id === ativoId)?.nome || "Ativo selecionado"
+                            ? ativoLabel(ativoId) || "Ativo selecionado"
                             : <span className="text-muted-foreground">Selecione um ativo</span>
                           }
                         </Button>
@@ -2387,7 +2395,7 @@ export default function OrdensServico() {
                       <AtivoDisponibilidadeSection
                         osId={editing.id}
                         ativoId={ativoId}
-                        ativoNome={ativosOptions.find(a => a.id === ativoId)?.nome || "Ativo"}
+                        ativoNome={ativoLabel(ativoId) || "Ativo"}
                         readOnly={!can("painel_os.editar") && !isTecnicoAssigned(editing)}
                       />
                     </div>
@@ -2515,7 +2523,7 @@ export default function OrdensServico() {
                 </div>
                 <div className="flex items-start gap-2">
                   <Search className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-                  <div><div className="text-xs text-muted-foreground">Ativo vinculado</div><div className="font-medium text-xs">{ativoId && ativoId !== "__none__" ? ativosOptions.find(a => a.id === ativoId)?.nome || "—" : "—"}</div></div>
+                  <div><div className="text-xs text-muted-foreground">Ativo vinculado</div><div className="font-medium text-xs">{ativoId && ativoId !== "__none__" ? ativoLabel(ativoId) || "—" : "—"}</div></div>
                 </div>
                 <div className="flex items-start gap-2">
                   <CalendarIcon className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
@@ -2539,9 +2547,14 @@ export default function OrdensServico() {
           <AtivoQuickModal
             open={ativoModalOpen}
             onClose={() => setAtivoModalOpen(false)}
-            onSelect={(id, nome) => {
+            onSelect={(id, nome, codigo) => {
               setAtivoId(id);
-              setAtivosOptions(prev => prev.find(a => a.id === id) ? prev : [...prev, { id, nome, codigo_identificacao: null }]);
+              setAtivosOptions(prev => {
+                if (!prev.find(a => a.id === id)) return [...prev, { id, nome, codigo_identificacao: codigo ?? null }];
+                // Atualiza o código também quando o ativo já estava na lista mas sem código
+                // (ex.: acabou de ser cadastrado agora mesmo pelo modal "Cadastrar novo ativo").
+                return prev.map(a => a.id === id && !a.codigo_identificacao && codigo ? { ...a, codigo_identificacao: codigo } : a);
+              });
             }}
             companyId={companyId}
           />
@@ -2611,7 +2624,7 @@ export default function OrdensServico() {
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground">Ativo:</span>
                   {(viewing as any).ativo_id ? (
-                    <AtivoStatusBadge ativoId={(viewing as any).ativo_id} nome={ativosOptions.find(a => a.id === (viewing as any).ativo_id)?.nome || "—"} />
+                    <AtivoStatusBadge ativoId={(viewing as any).ativo_id} nome={ativoLabel((viewing as any).ativo_id) || "—"} />
                   ) : (
                     <span className="font-medium">—</span>
                   )}
