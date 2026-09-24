@@ -60,7 +60,7 @@ import { logActivity, computeDiff } from "@/lib/activity-log";
 import { computeSlaStatus, formatSlaDeadline, computePrazoStatus } from "@/lib/sla-utils";
 import { STATUS_OPTIONS, getStatusColor, isFinishedStatus } from "@/lib/os-status";
 import AtivoQuickModal from "@/components/os/AtivoQuickModal";
-import AtivoDisponibilidadeSection from "@/components/os/AtivoDisponibilidadeSection";
+import AtivoDisponibilidadeSection, { AtivoDisponibilidadeHandle } from "@/components/os/AtivoDisponibilidadeSection";
 
 type Bloco = { id: string; nome: string | null };
 type CronogramaOption = { id: string; titulo: string };
@@ -749,6 +749,7 @@ export default function OrdensServico() {
   const [formColaboradores, setFormColaboradores] = useState<string[]>([]);
   const [formFiscais, setFormFiscais] = useState<string[]>([]);
   const materiaisRef = useRef<MateriaisSectionHandle>(null);
+  const ativoDisponibilidadeRef = useRef<AtivoDisponibilidadeHandle>(null);
   const anexosRef = useRef<AnexosSectionHandle>(null);
   const fotosRef = useRef<FotosOSSectionHandle>(null);
   const atividadesNovaRef = useRef<AtividadesNovaOSSectionHandle>(null);
@@ -1100,6 +1101,27 @@ export default function OrdensServico() {
         await supabase.from("materiais_os").insert(rows);
       }
       materiaisRef.current?.clearLocal();
+
+      // Save the availability choice made for the linked ativo before the OS existed
+      const localDisponibilidade = ativoDisponibilidadeRef.current?.getLocalStatus();
+      if (localDisponibilidade && payload.ativo_id) {
+        const now = new Date().toISOString();
+        const dispPayload: any = { disponibilidade: localDisponibilidade };
+        if (localDisponibilidade === "indisponivel") {
+          dispPayload.indisponivel_desde = now;
+        } else {
+          dispPayload.disponivel_em = now;
+        }
+        await supabase.from("os_ativos_vinculados").insert({
+          os_id: inserted.id, ativo_id: payload.ativo_id, company_id: companyId, ...dispPayload,
+        } as any);
+        await (supabase as any).from("ativos")
+          .update(localDisponibilidade === "indisponivel"
+            ? { disponibilidade_status: "indisponivel", indisponivel_desde: now }
+            : { disponibilidade_status: "disponivel", indisponivel_desde: null })
+          .eq("id", payload.ativo_id);
+      }
+      ativoDisponibilidadeRef.current?.clearLocal();
 
       // Flush local anexos, fotos and atividades collected before the OS existed
       const flushFailures: string[] = [];
@@ -2390,13 +2412,14 @@ export default function OrdensServico() {
                     </div>
                   </div>
 
-                  {editing?.id && ativoId && ativoId !== "__none__" && (
+                  {ativoId && ativoId !== "__none__" && (
                     <div className="border-t pt-4">
                       <AtivoDisponibilidadeSection
-                        osId={editing.id}
+                        ref={ativoDisponibilidadeRef}
+                        osId={editing?.id || null}
                         ativoId={ativoId}
                         ativoNome={ativoLabel(ativoId) || "Ativo"}
-                        readOnly={!can("painel_os.editar") && !isTecnicoAssigned(editing)}
+                        readOnly={editing ? (!can("painel_os.editar") && !isTecnicoAssigned(editing)) : !can("painel_os.criar")}
                       />
                     </div>
                   )}

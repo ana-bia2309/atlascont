@@ -1,15 +1,23 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, XCircle, Clock } from "@/lib/icons";
 
 interface Props {
-  osId: string;
+  /** null enquanto a O.S. ainda não foi salva (modo "buffer": guarda a escolha
+   *  localmente até existir um os_id de verdade para gravar) */
+  osId: string | null;
   ativoId: string;
   ativoNome: string;
   readOnly?: boolean;
 }
+
+export type AtivoDisponibilidadeHandle = {
+  /** Escolha feita antes de a O.S. existir (modo buffer). null se nada foi marcado. */
+  getLocalStatus: () => "disponivel" | "indisponivel" | null;
+  clearLocal: () => void;
+};
 
 type Registro = {
   id: string;
@@ -27,12 +35,21 @@ function formatDuration(seconds: number) {
   return m > 0 ? `${h}h ${m}min` : `${h}h`;
 }
 
-export default function AtivoDisponibilidadeSection({ osId, ativoId, ativoNome, readOnly }: Props) {
+const AtivoDisponibilidadeSection = forwardRef<AtivoDisponibilidadeHandle, Props>(
+  ({ osId, ativoId, ativoNome, readOnly }, ref) => {
   const [registro, setRegistro] = useState<Registro | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [loading, setLoading] = useState(false);
+  // Modo buffer (O.S. ainda não salva): guarda a escolha só localmente
+  const [localStatus, setLocalStatus] = useState<"disponivel" | "indisponivel" | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    getLocalStatus: () => localStatus,
+    clearLocal: () => setLocalStatus(null),
+  }));
 
   const fetchRegistro = useCallback(async () => {
+    if (!osId) return;
     const { data } = await (supabase as any)
       .from("os_ativos_vinculados")
       .select("*")
@@ -42,7 +59,10 @@ export default function AtivoDisponibilidadeSection({ osId, ativoId, ativoNome, 
     setRegistro(data || null);
   }, [osId, ativoId]);
 
-  useEffect(() => { fetchRegistro(); }, [fetchRegistro]);
+  useEffect(() => { if (osId) fetchRegistro(); }, [fetchRegistro, osId]);
+
+  // Ao trocar de ativo antes de salvar, começa sem escolha marcada
+  useEffect(() => { if (!osId) setLocalStatus(null); }, [ativoId, osId]);
 
   // Contador de tempo parado
   useEffect(() => {
@@ -60,6 +80,12 @@ export default function AtivoDisponibilidadeSection({ osId, ativoId, ativoNome, 
   }, [registro]);
 
   const marcar = async (status: "disponivel" | "indisponivel") => {
+    // Modo buffer: a O.S. ainda não existe, só guarda a escolha localmente.
+    // É gravada no banco assim que a O.S. for salva (ver getLocalStatus).
+    if (!osId) {
+      setLocalStatus(status);
+      return;
+    }
     setLoading(true);
     try {
       const now = new Date().toISOString();
@@ -108,17 +134,23 @@ export default function AtivoDisponibilidadeSection({ osId, ativoId, ativoNome, 
     }
   };
 
-  const isIndisponivel = registro?.disponibilidade === "indisponivel";
-  const isDisponivel = registro?.disponibilidade === "disponivel";
+  const isIndisponivel = osId ? registro?.disponibilidade === "indisponivel" : localStatus === "indisponivel";
+  const isDisponivel = osId ? registro?.disponibilidade === "disponivel" : localStatus === "disponivel";
+  const temEscolha = osId ? !!registro : !!localStatus;
 
   return (
     <div className="rounded-lg border bg-card p-4 space-y-3">
       <div className="flex items-center gap-2">
         <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${isIndisponivel ? "bg-red-500" : isDisponivel ? "bg-emerald-500" : "bg-zinc-300"}`} />
         <span className="font-semibold text-sm">{ativoNome}</span>
-        {registro && (
+        {temEscolha && (
           <span className={`ml-auto text-xs font-medium px-2 py-0.5 rounded-full border ${isIndisponivel ? "bg-red-50 text-red-700 border-red-200" : "bg-emerald-50 text-emerald-700 border-emerald-200"}`}>
             {isIndisponivel ? "Indisponível" : "Disponível"}
+          </span>
+        )}
+        {!osId && !temEscolha && (
+          <span className="ml-auto text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+            será salvo com a O.S.
           </span>
         )}
       </div>
@@ -161,9 +193,12 @@ export default function AtivoDisponibilidadeSection({ osId, ativoId, ativoNome, 
         </div>
       )}
 
-      {!registro && !readOnly && (
+      {!temEscolha && !readOnly && (
         <p className="text-xs text-muted-foreground italic text-center">Marque a disponibilidade do ativo nesta O.S.</p>
       )}
     </div>
   );
-}
+});
+
+AtivoDisponibilidadeSection.displayName = "AtivoDisponibilidadeSection";
+export default AtivoDisponibilidadeSection;
