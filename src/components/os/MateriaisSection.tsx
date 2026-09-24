@@ -4,7 +4,7 @@ import { toast } from "@/hooks/use-toast";
 import { useCompany } from "@/hooks/use-company";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Pencil, Trash2, Save, X, Send, ShoppingCart, Package, Wrench, Shield, Hammer } from "@/lib/icons";
+import { Plus, Pencil, Trash2, Save, X, Send, ShoppingCart, Package, Wrench, Shield, Hammer, ClipboardCopy } from "@/lib/icons";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +16,7 @@ export type LocalMaterial = {
   custo_unitario: number;
   fornecedor?: string;
   data_compra?: string;
+  material_id?: string | null;
   /** Somente para exibição local antes de salvar — não existe coluna na tabela materiais_os */
   categoria?: string;
 };
@@ -24,8 +25,18 @@ type PersistedMaterial = {
   id: string; os_id: string; nome_material: string; quantidade: number;
   unidade: string; custo_unitario: number; custo_total_item: number;
   fornecedor: string | null; data_compra: string | null;
+  material_id: string | null;
   /** Vem via join com materiais(categoria); pode ser null em itens antigos sem material_id vinculado */
   materiais?: { categoria: string | null } | null;
+};
+
+/** Total de um material no Memorial de Cálculo (soma das quantidades lançadas em todos os equipamentos) */
+type MemorialPendente = {
+  material_id: string | null;
+  nome_material: string;
+  unidade: string;
+  custo_unitario: number;
+  quantidade: number;
 };
 
 type DraftMaterial = {
@@ -436,6 +447,8 @@ const MateriaisSection = forwardRef<MateriaisSectionHandle, MateriaisSectionProp
     const [draft, setDraft] = useState<DraftMaterial>(emptyDraft);
     const [currentMaterialId, setCurrentMaterialId] = useState<string | null>(null);
     const [orcamentoStatus, setOrcamentoStatus] = useState<string | null>(null);
+    const [memorialTotais, setMemorialTotais] = useState<MemorialPendente[]>([]);
+    const [addingFromMemorial, setAddingFromMemorial] = useState(false);
     const { companyId } = useCompany();
 
     useImperativeHandle(ref, () => ({
@@ -459,6 +472,43 @@ const MateriaisSection = forwardRef<MateriaisSectionHandle, MateriaisSectionProp
     }, [osId]);
 
     useEffect(() => { fetchPersisted(); }, [fetchPersisted]);
+
+    // Soma, por material, as quantidades lançadas em todos os equipamentos do
+    // Memorial de Cálculo — é a partir desse total que o botão "Adicionar itens
+    // do Memorial de Cálculo" preenche os Materiais e Serviços Utilizados.
+    const fetchMemorialTotais = useCallback(async () => {
+      if (!osId) { setMemorialTotais([]); return; }
+      const { data: memData } = await (supabase as any)
+        .from("memorial_materiais")
+        .select("id, material_id, material_nome, material_unidade, custo_unitario")
+        .eq("os_id", osId);
+      if (!memData || memData.length === 0) { setMemorialTotais([]); return; }
+
+      const memIds = memData.map((m: any) => m.id);
+      const { data: qtdData } = await (supabase as any)
+        .from("memorial_materiais_quantidades")
+        .select("memorial_id, quantidade")
+        .in("memorial_id", memIds);
+
+      const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+      const totaisPorMemorial: Record<string, number> = {};
+      (qtdData || []).forEach((q: any) => {
+        totaisPorMemorial[q.memorial_id] = (totaisPorMemorial[q.memorial_id] || 0) + (q.quantidade || 0);
+      });
+
+      const list: MemorialPendente[] = memData
+        .map((m: any) => ({
+          material_id: m.material_id || null,
+          nome_material: (m.material_nome || "").trim(),
+          unidade: m.material_unidade || "un",
+          custo_unitario: m.custo_unitario || 0,
+          quantidade: round2(totaisPorMemorial[m.id] || 0),
+        }))
+        .filter((m: MemorialPendente) => m.quantidade > 0 && m.nome_material);
+      setMemorialTotais(list);
+    }, [osId]);
+
+    useEffect(() => { fetchMemorialTotais(); }, [fetchMemorialTotais]);
 
     const calcTotal = (qty: string, cost: string) =>
       ((parseFloat(qty) || 0) * (parseFloat(cost) || 0)).toFixed(2);
@@ -542,15 +592,47 @@ const MateriaisSection = forwardRef<MateriaisSectionHandle, MateriaisSectionProp
       key: string; nome_material: string; quantidade: number; unidade: string;
       custo_unitario: number; custo_total_item: number;
       fornecedor: string | null; data_compra: string | null;
-      categoria: string;
+      categoria: string; material_id: string | null;
     };
 
     const items: DisplayItem[] = [
-      ...persisted.map(m => ({ key: m.id, nome_material: m.nome_material, quantidade: m.quantidade, unidade: m.unidade, custo_unitario: m.custo_unitario, custo_total_item: m.custo_total_item, fornecedor: m.fornecedor, data_compra: m.data_compra, categoria: m.materiais?.categoria || "Material" })),
-      ...local.map(m => ({ key: m._localId, nome_material: m.nome_material, quantidade: m.quantidade, unidade: m.unidade, custo_unitario: m.custo_unitario, custo_total_item: m.quantidade * m.custo_unitario, fornecedor: m.fornecedor || null, data_compra: m.data_compra || null, categoria: m.categoria || "Material" })),
+      ...persisted.map(m => ({ key: m.id, nome_material: m.nome_material, quantidade: m.quantidade, unidade: m.unidade, custo_unitario: m.custo_unitario, custo_total_item: m.custo_total_item, fornecedor: m.fornecedor, data_compra: m.data_compra, categoria: m.materiais?.categoria || "Material", material_id: m.material_id })),
+      ...local.map(m => ({ key: m._localId, nome_material: m.nome_material, quantidade: m.quantidade, unidade: m.unidade, custo_unitario: m.custo_unitario, custo_total_item: m.quantidade * m.custo_unitario, fornecedor: m.fornecedor || null, data_compra: m.data_compra || null, categoria: m.categoria || "Material", material_id: m.material_id || null })),
     ];
 
     const totalGeral = items.reduce((s, m) => s + m.custo_total_item, 0);
+
+    // Itens do Memorial de Cálculo que ainda não foram lançados em Materiais e
+    // Serviços Utilizados (evita duplicar ao clicar mais de uma vez no botão)
+    const pendentesDoMemorial = memorialTotais.filter(m => !items.some(it =>
+      (m.material_id && it.material_id === m.material_id) ||
+      it.nome_material.trim().toLowerCase() === m.nome_material.trim().toLowerCase()
+    ));
+
+    const addFromMemorial = async () => {
+      if (!osId || pendentesDoMemorial.length === 0) return;
+      setAddingFromMemorial(true);
+      try {
+        const payload = pendentesDoMemorial.map(p => ({
+          os_id: osId,
+          company_id: companyId,
+          nome_material: p.nome_material,
+          quantidade: p.quantidade,
+          unidade: p.unidade,
+          custo_unitario: p.custo_unitario,
+          material_id: p.material_id,
+        }));
+        const { error } = await (supabase as any).from("materiais_os").insert(payload);
+        if (error) throw error;
+        toast({ title: `${payload.length} ${payload.length === 1 ? "item adicionado" : "itens adicionados"} a partir do Memorial de Cálculo` });
+        await resetOrcamentoStatus();
+        fetchPersisted();
+      } catch (err: any) {
+        toast({ title: "Erro ao adicionar itens do Memorial de Cálculo", description: err.message, variant: "destructive" });
+      } finally {
+        setAddingFromMemorial(false);
+      }
+    };
 
     const fmtDate = (d: string | null) => {
       if (!d) return null;
@@ -642,6 +724,21 @@ const MateriaisSection = forwardRef<MateriaisSectionHandle, MateriaisSectionProp
             <Button variant="outline" size="sm" onClick={() => { setAdding(true); setDraft(emptyDraft); }}
               className="w-full h-9 text-sm gap-1.5 border-primary/30 text-primary hover:bg-primary/10 mt-1">
               <Plus className="h-4 w-4" /> Adicionar item
+            </Button>
+          )}
+
+          {/* Botão Adicionar itens a partir do Memorial de Cálculo — traz para
+              esta lista o total de cada material lançado no Memorial (soma das
+              quantidades de todos os equipamentos). Só aparece quando há algo
+              do Memorial ainda não lançado aqui, evitando duplicar ao clicar
+              mais de uma vez. */}
+          {!readOnly && !adding && !editingKey && osId && pendentesDoMemorial.length > 0 && (
+            <Button variant="outline" size="sm" onClick={addFromMemorial} disabled={addingFromMemorial}
+              className="w-full h-9 text-sm gap-1.5 border-violet-300 text-violet-700 hover:bg-violet-50 mt-1.5">
+              <ClipboardCopy className="h-4 w-4" />
+              {addingFromMemorial
+                ? "Adicionando..."
+                : `Adicionar itens a partir do Memorial de Cálculo (${pendentesDoMemorial.length})`}
             </Button>
           )}
 
