@@ -2760,6 +2760,11 @@ export default function OrdensServico() {
             </div>
           )}
           <DialogFooter className="flex gap-2">
+            {viewing && (can("painel_os.editar") || isTecnicoAssigned(viewing)) && !isFinishedStatus(viewing.status) && (
+              <Button variant="outline" onClick={() => { setPendingEdit(viewing); setViewing(null); }}>
+                <Pencil className="mr-2 h-4 w-4" /> Editar
+              </Button>
+            )}
             {viewing && can("painel_os.baixar") && (
               <Button variant="outline" onClick={() => downloadPdf(viewing)}>
                 <DownloadIcon className="mr-2 h-4 w-4" /> Baixar PDF
