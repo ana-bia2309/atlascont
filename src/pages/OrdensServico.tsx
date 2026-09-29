@@ -2412,6 +2412,24 @@ export default function OrdensServico() {
                         </Button>
                       </div>
                     </div>
+
+                    {ativoIds.length > 0 && (
+                      <div className="space-y-3 pt-1">
+                        {ativoIds.map((id) => (
+                          <AtivoDisponibilidadeSection
+                            key={id}
+                            ref={(el) => {
+                              if (el) ativoDisponibilidadeRefs.current.set(id, el);
+                              else ativoDisponibilidadeRefs.current.delete(id);
+                            }}
+                            osId={editing?.id || null}
+                            ativoId={id}
+                            ativoNome={ativoLabel(id) || "Ativo"}
+                            readOnly={editing ? (!can("painel_os.editar") && !isTecnicoAssigned(editing)) : !can("painel_os.criar")}
+                          />
+                        ))}
+                      </div>
+                    )}
                   </div>
                   {isTecnico && editing ? (
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -2453,24 +2471,6 @@ export default function OrdensServico() {
                       <div className="text-xs text-muted-foreground text-right mt-0.5">{observacoes.length}/500</div>
                     </div>
                   </div>
-
-                  {ativoIds.length > 0 && (
-                    <div className="border-t pt-4 space-y-3">
-                      {ativoIds.map((id) => (
-                        <AtivoDisponibilidadeSection
-                          key={id}
-                          ref={(el) => {
-                            if (el) ativoDisponibilidadeRefs.current.set(id, el);
-                            else ativoDisponibilidadeRefs.current.delete(id);
-                          }}
-                          osId={editing?.id || null}
-                          ativoId={id}
-                          ativoNome={ativoLabel(id) || "Ativo"}
-                          readOnly={editing ? (!can("painel_os.editar") && !isTecnicoAssigned(editing)) : !can("painel_os.criar")}
-                        />
-                      ))}
-                    </div>
-                  )}
 
                   {/* Tabs: Materiais / Evidencias / Atividades */}
                   <div className="border-t pt-4">
