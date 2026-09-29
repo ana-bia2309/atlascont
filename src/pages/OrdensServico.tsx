@@ -1146,7 +1146,7 @@ export default function OrdensServico() {
         } else {
           dispPayload.disponivel_em = now;
         }
-        await supabase.from("os_ativos_vinculados").insert({
+        await (supabase as any).from("os_ativos_vinculados").insert({
           os_id: inserted.id, ativo_id: id, company_id: companyId, ...dispPayload,
         } as any);
         await (supabase as any).from("ativos")
