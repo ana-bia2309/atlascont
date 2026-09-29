@@ -240,9 +240,22 @@ export default function OrdensServico() {
   const [bulkStatusSaving, setBulkStatusSaving] = useState(false);
   const [editing, setEditing] = useState<OrdemServico | null>(null);
   const [viewing, setViewing] = useState<OrdemServico | null>(null);
+  const [viewingAtivoIds, setViewingAtivoIds] = useState<string[]>([]);
   const [assinaturaOpen, setAssinaturaOpen] = useState(false);
   const sigCanvasRef = useRef<any>(null);
   const [salvandoAssinatura, setSalvandoAssinatura] = useState(false);
+
+  useEffect(() => {
+    if (!viewing) { setViewingAtivoIds([]); return; }
+    (supabase as any)
+      .from("os_ativos_vinculados")
+      .select("ativo_id")
+      .eq("os_id", viewing.id)
+      .then(({ data }: any) => {
+        if (data && data.length > 0) setViewingAtivoIds(data.map((d: any) => d.ativo_id));
+        else setViewingAtivoIds((viewing as any).ativo_id ? [(viewing as any).ativo_id] : []);
+      });
+  }, [viewing?.id]);
 
   useEffect(() => {
     if (!viewing) return;
@@ -364,7 +377,7 @@ export default function OrdensServico() {
       if (raw) {
         const prefill = JSON.parse(raw);
         sessionStorage.removeItem("chamado_prefill");
-        if (prefill.ativo_id) setAtivoId(prefill.ativo_id);
+        if (prefill.ativo_id) setAtivoIds([prefill.ativo_id]);
         if (prefill.bloco_id) setBlocoId(prefill.bloco_id);
         if (prefill.andar) setAndar(prefill.andar);
         if (prefill.sala) setSala(prefill.sala);
@@ -377,7 +390,7 @@ export default function OrdensServico() {
       if (rawExt) {
         const prefill = JSON.parse(rawExt);
         sessionStorage.removeItem("chamado_externo_prefill");
-        if (prefill.ativo_id) setAtivoId(prefill.ativo_id);
+        if (prefill.ativo_id) setAtivoIds([prefill.ativo_id]);
         if (prefill.bloco_id) setBlocoId(prefill.bloco_id);
         if (prefill.andar) setAndar(prefill.andar);
         if (prefill.sala) setSala(prefill.sala);
@@ -739,7 +752,7 @@ export default function OrdensServico() {
   const [andar, setAndar] = useState("");
   const [sala, setSala] = useState("");
   const [cronogramaId, setCronogramaId] = useState("");
-  const [ativoId, setAtivoId] = useState("");
+  const [ativoIds, setAtivoIds] = useState<string[]>([]);
   const [ativoModalOpen, setAtivoModalOpen] = useState(false);
   const [tipoServico, setTipoServico] = useState("");
   const [naturezaServico, setNaturezaServico] = useState("");
@@ -749,7 +762,7 @@ export default function OrdensServico() {
   const [formColaboradores, setFormColaboradores] = useState<string[]>([]);
   const [formFiscais, setFormFiscais] = useState<string[]>([]);
   const materiaisRef = useRef<MateriaisSectionHandle>(null);
-  const ativoDisponibilidadeRef = useRef<AtivoDisponibilidadeHandle>(null);
+  const ativoDisponibilidadeRefs = useRef<Map<string, AtivoDisponibilidadeHandle>>(new Map());
   const anexosRef = useRef<AnexosSectionHandle>(null);
   const fotosRef = useRef<FotosOSSectionHandle>(null);
   const atividadesNovaRef = useRef<AtividadesNovaOSSectionHandle>(null);
@@ -766,7 +779,7 @@ export default function OrdensServico() {
 
   const resetForm = () => {
     setCodigoOs(""); setStatus("Não Iniciada"); setPrioridade(""); setBlocoId("");
-    setAndar(""); setSala(""); setCronogramaId(""); setAtivoId(""); setTipoServico(""); setNaturezaServico("");
+    setAndar(""); setSala(""); setCronogramaId(""); setAtivoIds([]); setTipoServico(""); setNaturezaServico("");
     setPrazo(undefined); setDataInicio(undefined); setDataTermino(undefined);
     setObservacoes(""); setEquipamentos(""); setFormResponsaveis([]); setFormColaboradores([]); setFormFiscais([]); setEditing(null);
     setChamadoOrigemId(null);
@@ -784,7 +797,7 @@ export default function OrdensServico() {
     setPrazo(parseDate(os.prazo)); setDataInicio(parseDate(os.data_inicio)); setDataTermino(parseDate(os.data_termino));
     setObservacoes(os.observacoes || ""); setEquipamentos(os.equipamentos || "");
     setCronogramaId((os as any).cronograma_id || "");
-    setAtivoId((os as any).ativo_id || "");
+    setAtivoIds((os as any).ativo_id ? [(os as any).ativo_id] : []);
     setTipoServico((os as any).tipo_servico || "");
     setNaturezaServico((os as any).natureza_servico || "");
     // Load responsáveis and colaboradores for this OS
@@ -793,11 +806,14 @@ export default function OrdensServico() {
       supabase.from("os_responsaveis").select("profile_id").eq("os_id", os.id),
       supabase.from("os_colaboradores").select("profile_id").eq("os_id", os.id),
       (supabase as any).from("os_fiscais").select("profile_id").eq("os_id", os.id),
-    ]).then(([respRes, colabRes, fiscaisRes]) => {
+      (supabase as any).from("os_ativos_vinculados").select("ativo_id").eq("os_id", os.id),
+    ]).then(([respRes, colabRes, fiscaisRes, ativosVinculadosRes]) => {
       const respIds = (respRes.data || []).map((d: any) => d.profile_id);
       setFormResponsaveis(respIds.length > 0 ? respIds : (os as any).responsible_user_id ? [(os as any).responsible_user_id] : []);
       setFormColaboradores((colabRes.data || []).map((d: any) => d.profile_id));
       setFormFiscais((fiscaisRes.data || []).map((d: any) => d.profile_id));
+      const vinculados = (ativosVinculadosRes.data || []).map((d: any) => d.ativo_id);
+      if (vinculados.length > 0) setAtivoIds(vinculados);
     });
     setDialogOpen(true);
   };
@@ -976,7 +992,7 @@ export default function OrdensServico() {
         data_termino: { valor: dataTermino, label: "Data Término" },
         equipamentos: { valor: equipamentos.trim(), label: "Equipamentos" },
         observacoes: { valor: observacoes.trim(), label: "Observações" },
-        ativo_id: { valor: ativoId && ativoId !== "__none__", label: "Ativo Vinculado" },
+        ativo_id: { valor: ativoIds.length > 0, label: "Ativo Vinculado" },
       };
 
       for (const campo of obrigatorios) {
@@ -1024,7 +1040,7 @@ export default function OrdensServico() {
       observacoes: observacoes.trim() || null,
       equipamentos: equipamentos.trim() || null,
       cronograma_id: (cronogramaId && cronogramaId !== "__none__") ? cronogramaId : null,
-      ativo_id: (ativoId && ativoId !== "__none__") ? ativoId : null,
+      ativo_id: ativoIds[0] ?? null,
       tipo_servico: tipoServico || null,
       natureza_servico: naturezaServico || null,
       responsible_user_id: formResponsaveis.length > 0 ? formResponsaveis[0] : null,
@@ -1054,6 +1070,24 @@ export default function OrdensServico() {
         .eq("id", editing.id)
         .eq("company_id", companyId);
       if (error) { toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" }); return; }
+
+      // Reconcilia a lista de ativos vinculados (adiciona os novos, remove os que foram tirados da lista)
+      const { data: vinculadosAtuais } = await (supabase as any)
+        .from("os_ativos_vinculados").select("id, ativo_id").eq("os_id", editing.id);
+      const idsAtuais = (vinculadosAtuais || []).map((v: any) => v.ativo_id);
+      const paraAdicionar = ativoIds.filter((id) => !idsAtuais.includes(id));
+      const paraRemover = (vinculadosAtuais || []).filter((v: any) => !ativoIds.includes(v.ativo_id));
+      for (const id of paraAdicionar) {
+        const localStatus = ativoDisponibilidadeRefs.current.get(id)?.getLocalStatus();
+        await (supabase as any).from("os_ativos_vinculados").insert({
+          os_id: editing.id, ativo_id: id, company_id: companyId,
+          disponibilidade: localStatus || "disponivel",
+        });
+      }
+      for (const v of paraRemover) {
+        await (supabase as any).from("os_ativos_vinculados").delete().eq("id", v.id);
+      }
+
       const diff = computeDiff(editing as any, payload);
       logActivity({
         actionType: "edicao",
@@ -1102,9 +1136,9 @@ export default function OrdensServico() {
       }
       materiaisRef.current?.clearLocal();
 
-      // Save the availability choice made for the linked ativo before the OS existed
-      const localDisponibilidade = ativoDisponibilidadeRef.current?.getLocalStatus();
-      if (localDisponibilidade && payload.ativo_id) {
+      // Save the availability choice made for each linked ativo before the OS existed
+      for (const id of ativoIds) {
+        const localDisponibilidade = ativoDisponibilidadeRefs.current.get(id)?.getLocalStatus() || "disponivel";
         const now = new Date().toISOString();
         const dispPayload: any = { disponibilidade: localDisponibilidade };
         if (localDisponibilidade === "indisponivel") {
@@ -1113,15 +1147,15 @@ export default function OrdensServico() {
           dispPayload.disponivel_em = now;
         }
         await supabase.from("os_ativos_vinculados").insert({
-          os_id: inserted.id, ativo_id: payload.ativo_id, company_id: companyId, ...dispPayload,
+          os_id: inserted.id, ativo_id: id, company_id: companyId, ...dispPayload,
         } as any);
         await (supabase as any).from("ativos")
           .update(localDisponibilidade === "indisponivel"
             ? { disponibilidade_status: "indisponivel", indisponivel_desde: now }
             : { disponibilidade_status: "disponivel", indisponivel_desde: null })
-          .eq("id", payload.ativo_id);
+          .eq("id", id);
       }
-      ativoDisponibilidadeRef.current?.clearLocal();
+      ativoDisponibilidadeRefs.current.clear();
 
       // Flush local anexos, fotos and atividades collected before the OS existed
       const flushFailures: string[] = [];
@@ -2357,17 +2391,25 @@ export default function OrdensServico() {
 
 
                     <div>
-                      <label className="text-sm font-medium mb-1 block">Ativo vinculado <span className="text-muted-foreground font-normal">(opcional)</span></label>
-                      <div className="flex gap-2">
-                        <Button type="button" variant="outline" className="flex-1 justify-start font-normal" onClick={() => setAtivoModalOpen(true)} disabled={isTecnico && !!editing}>
-                          {ativoId && ativoId !== "__none__"
-                            ? ativoLabel(ativoId) || "Ativo selecionado"
-                            : <span className="text-muted-foreground">Selecione um ativo</span>
-                          }
+                      <label className="text-sm font-medium mb-1 block">Ativos vinculados <span className="text-muted-foreground font-normal">(opcional)</span></label>
+                      <div className="flex flex-wrap gap-2">
+                        {ativoIds.map((id) => (
+                          <span key={id} className="inline-flex items-center gap-1.5 rounded-full border bg-muted/50 pl-3 pr-1.5 py-1 text-sm">
+                            {ativoLabel(id) || "Ativo"}
+                            {!(isTecnico && !!editing) && (
+                              <button
+                                type="button"
+                                className="rounded-full p-0.5 hover:bg-muted-foreground/20"
+                                onClick={() => setAtivoIds(prev => prev.filter(x => x !== id))}
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </span>
+                        ))}
+                        <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => setAtivoModalOpen(true)} disabled={isTecnico && !!editing}>
+                          <Plus className="h-3.5 w-3.5" /> Adicionar equipamento
                         </Button>
-                        {ativoId && ativoId !== "__none__" && (
-                          <Button type="button" variant="ghost" size="icon" onClick={() => setAtivoId("")}><X className="h-4 w-4" /></Button>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -2412,15 +2454,21 @@ export default function OrdensServico() {
                     </div>
                   </div>
 
-                  {ativoId && ativoId !== "__none__" && (
-                    <div className="border-t pt-4">
-                      <AtivoDisponibilidadeSection
-                        ref={ativoDisponibilidadeRef}
-                        osId={editing?.id || null}
-                        ativoId={ativoId}
-                        ativoNome={ativoLabel(ativoId) || "Ativo"}
-                        readOnly={editing ? (!can("painel_os.editar") && !isTecnicoAssigned(editing)) : !can("painel_os.criar")}
-                      />
+                  {ativoIds.length > 0 && (
+                    <div className="border-t pt-4 space-y-3">
+                      {ativoIds.map((id) => (
+                        <AtivoDisponibilidadeSection
+                          key={id}
+                          ref={(el) => {
+                            if (el) ativoDisponibilidadeRefs.current.set(id, el);
+                            else ativoDisponibilidadeRefs.current.delete(id);
+                          }}
+                          osId={editing?.id || null}
+                          ativoId={id}
+                          ativoNome={ativoLabel(id) || "Ativo"}
+                          readOnly={editing ? (!can("painel_os.editar") && !isTecnicoAssigned(editing)) : !can("painel_os.criar")}
+                        />
+                      ))}
                     </div>
                   )}
 
@@ -2546,7 +2594,7 @@ export default function OrdensServico() {
                 </div>
                 <div className="flex items-start gap-2">
                   <Search className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-                  <div><div className="text-xs text-muted-foreground">Ativo vinculado</div><div className="font-medium text-xs">{ativoId && ativoId !== "__none__" ? ativoLabel(ativoId) || "—" : "—"}</div></div>
+                  <div><div className="text-xs text-muted-foreground">Ativos vinculados</div><div className="font-medium text-xs">{ativoIds.length > 0 ? ativoIds.map(id => ativoLabel(id) || "—").join(", ") : "—"}</div></div>
                 </div>
                 <div className="flex items-start gap-2">
                   <CalendarIcon className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
@@ -2571,7 +2619,7 @@ export default function OrdensServico() {
             open={ativoModalOpen}
             onClose={() => setAtivoModalOpen(false)}
             onSelect={(id, nome, codigo) => {
-              setAtivoId(id);
+              setAtivoIds(prev => prev.includes(id) ? prev : [...prev, id]);
               setAtivosOptions(prev => {
                 if (!prev.find(a => a.id === id)) return [...prev, { id, nome, codigo_identificacao: codigo ?? null }];
                 // Atualiza o código também quando o ativo já estava na lista mas sem código
@@ -2644,10 +2692,14 @@ export default function OrdensServico() {
                 <div><span className="text-muted-foreground">Início:</span> <span className="font-medium">{fmtDate(viewing.data_inicio)}</span></div>
                 <div><span className="text-muted-foreground">Término:</span> <span className="font-medium">{fmtDate(viewing.data_termino)}</span></div>
                 <div><span className="text-muted-foreground">Custo Total:</span> <span className="font-semibold text-primary">{viewing.custo_total ? `R$ ${Number(viewing.custo_total).toFixed(2)}` : "—"}</span></div>
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground">Ativo:</span>
-                  {(viewing as any).ativo_id ? (
-                    <AtivoStatusBadge ativoId={(viewing as any).ativo_id} nome={ativoLabel((viewing as any).ativo_id) || "—"} />
+                <div className="flex items-start gap-2">
+                  <span className="text-muted-foreground shrink-0">Ativo(s):</span>
+                  {viewingAtivoIds.length > 0 ? (
+                    <div className="flex flex-col gap-1">
+                      {viewingAtivoIds.map((id) => (
+                        <AtivoStatusBadge key={id} ativoId={id} nome={ativoLabel(id) || "—"} />
+                      ))}
+                    </div>
                   ) : (
                     <span className="font-medium">—</span>
                   )}
